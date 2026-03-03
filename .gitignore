@@ -1,0 +1,68 @@
+# Сборка и временные файлы
+build*/
+*-build/
+*/build/
+*/build-*/
+debug/
+release/
+*.user
+*.user.*
+*.autogen
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.o
+*.so
+*.a
+*.exe
+*.dll
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.log
+*.cache
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+*.cmake
+*.swp
+*.swo
+*~
+
+# Qt Creator
+*.pro.user
+*.pro.user.*
+*.creator.user
+*.creator.user.*
+*.config
+*.includes
+*.files
+*.creator
+*.cflags
+*.cxxflags
+*.qmlproject.user
+
+# Doxygen
+html/
+latex/
+*.pyc
+
+# Папки с документацией
+doc/
+docs/*.html
+docs/*.js
+docs/*.css
+docs/*.png
+
+# Логи
+logs/
+*.log
+
+# Временные файлы Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/

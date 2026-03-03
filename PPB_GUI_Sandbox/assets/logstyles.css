@@ -1,0 +1,301 @@
+/* logstyles.css – полный набор стилей для LogWidget */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* === ОСНОВНЫЕ ЛОГ-ЗАПИСИ === */
+.log-entry {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 10pt;
+    line-height: 1.4;
+    padding: 4px 8px;
+    margin: 2px 0;
+    border-radius: 3px;
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    border-left: 4px solid transparent;
+    transition: background-color 0.1s ease;
+}
+
+.log-entry:hover {
+    background-color: #2a2a2a;
+}
+
+/* Уровни */
+.log-level-debug { border-left-color: #6a9955; }
+.log-level-info { border-left-color: #9cdcfe; }
+.log-level-warning { border-left-color: #dcdcaa; }
+.log-level-error { border-left-color: #f48771; }
+.log-level-alert { border-left-color: #f14c4c; font-weight: bold; }
+
+/* Время */
+.log-time {
+    color: #858585;
+    font-size: 9pt;
+    margin-right: 12px;
+    user-select: none;
+}
+
+/* Уровень (текст) */
+.log-level {
+    font-weight: 600;
+    margin-right: 12px;
+    padding: 0 4px;
+    border-radius: 3px;
+}
+.log-level-debug .log-level { color: #6a9955; }
+.log-level-info .log-level { color: #9cdcfe; }
+.log-level-warning .log-level { color: #dcdcaa; }
+.log-level-error .log-level { color: #f48771; }
+.log-level-alert .log-level { color: #f14c4c; }
+
+/* Категория */
+.log-category {
+    color: #c586c0;
+    margin-right: 12px;
+    font-style: italic;
+}
+
+/* Сообщение (текст) */
+.log-message {
+    color: #d4d4d4;
+    word-break: break-word;
+}
+
+/* === КАРТОЧКИ === */
+.log-card {
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+    padding: 12px;
+    margin: 8px 0;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #3e3e42;
+}
+
+.card-icon {
+    font-size: 16px;
+    margin-right: 8px;
+}
+
+.card-title {
+    font-size: 12pt;
+    font-weight: bold;
+    color: #9cdcfe;
+    flex: 1;
+}
+
+.card-close {
+    color: #858585;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 4px;
+}
+.card-close:hover {
+    color: #f48771;
+}
+
+.card-content {
+    margin: 8px 0;
+}
+
+.card-field {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px solid #3e3e42;
+}
+
+.card-key {
+    color: #858585;
+    font-weight: 500;
+}
+
+.card-value {
+    color: #d4d4d4;
+    font-weight: 600;
+}
+
+.card-footer {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid #3e3e42;
+    color: #858585;
+    font-style: italic;
+}
+
+/* === ТАБЛИЦЫ === */
+.log-table-container {
+    margin: 8px 0;
+}
+
+.table-title {
+    font-size: 11pt;
+    font-weight: bold;
+    color: #9cdcfe;
+    margin-bottom: 4px;
+}
+
+.log-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    font-size: 9pt;
+    font-family: 'Consolas', monospace;
+}
+
+.log-table th {
+    background-color: #2a2a2a;
+    padding: 6px 8px;
+    text-align: left;
+    font-weight: 600;
+    border: 1px solid #3e3e42;
+}
+
+.log-table td {
+    padding: 4px 8px;
+    border: 1px solid #3e3e42;
+}
+
+.log-table tr:nth-child(even) {
+    background-color: #252526;
+}
+
+.log-table tr:hover {
+    background-color: #2a2a2a;
+}
+
+/* Форматирование чисел в таблицах */
+.format-hex {
+    color: #b5cea8;
+    font-family: 'Consolas', monospace;
+}
+.format-float {
+    color: #ce9178;
+}
+.format-percent {
+    color: #9cdcfe;
+}
+
+/* === ПРОГРЕСС-БАРЫ === */
+.log-progress {
+    margin: 8px 0;
+}
+
+.progress-title {
+    font-size: 10pt;
+    color: #9cdcfe;
+    margin-bottom: 4px;
+}
+
+.progress-container {
+    height: 20px;
+    background-color: #2a2a2a;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: #4CAF50;
+    transition: width 0.3s;
+    border-radius: 4px;
+}
+
+.progress-text {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    color: #ffffff;
+    font-size: 9pt;
+    line-height: 20px;
+    text-shadow: 0 0 2px black;
+}
+
+.progress-percent {
+    font-size: 9pt;
+    color: #858585;
+    text-align: right;
+    margin-top: 2px;
+}
+
+/* === КЛЮЧ-ЗНАЧЕНИЕ === */
+.log-keyvalue {
+    margin: 8px 0;
+}
+
+.kv-title {
+    font-size: 10pt;
+    font-weight: bold;
+    color: #9cdcfe;
+    margin-bottom: 4px;
+}
+
+.kv-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.kv-horizontal .kv-item {
+    flex: 1 1 auto;
+}
+
+.kv-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 120px;
+}
+
+.kv-key {
+    color: #858585;
+    font-size: 8pt;
+    text-transform: uppercase;
+}
+
+.kv-value {
+    color: #d4d4d4;
+    font-weight: 600;
+    font-size: 10pt;
+}
+
+/* === СЫРЫЕ ДАННЫЕ (HEX DUMP) === */
+.log-raw {
+    margin: 8px 0;
+}
+
+.raw-title {
+    font-size: 10pt;
+    color: #9cdcfe;
+    margin-bottom: 4px;
+}
+
+.raw-data {
+    background-color: #1e1e1e;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    padding: 8px;
+    font-family: 'Consolas', monospace;
+    font-size: 9pt;
+    color: #d4d4d4;
+    white-space: pre-wrap;
+    overflow-x: auto;
+}

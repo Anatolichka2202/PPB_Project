@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>GrattenControlWidget</class>
+ <widget class="QWidget" name="GrattenControlWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>600</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Gratten GA1483 Управление</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <!-- Верхняя часть: управление частотой, амплитудой, выходом -->
+   <item>
+    <layout class="QHBoxLayout" name="layoutFreq">
+     <item>
+      <widget class="QLabel" name="labelFreq">
+       <property name="text">
+        <string>Частота (Гц):</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="editFreq"/>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnSetFreq">
+       <property name="text">
+        <string>Установить</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnQueryFreq">
+       <property name="text">
+        <string>Запросить</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="layoutAmpl">
+     <item>
+      <widget class="QLabel" name="labelAmpl">
+       <property name="text">
+        <string>Амплитуда:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="editAmpl"/>
+     </item>
+     <item>
+      <widget class="QComboBox" name="cmbAmplUnit">
+       <item>
+        <property name="text">
+         <string>dBm</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnSetAmpl">
+       <property name="text">
+        <string>Установить</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnQueryAmpl">
+       <property name="text">
+        <string>Запросить</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="layoutOutput">
+     <item>
+      <widget class="QCheckBox" name="chkOutput">
+       <property name="text">
+        <string>Выход</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnSetOutput">
+       <property name="text">
+        <string>Установить</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnQueryOutput">
+       <property name="text">
+        <string>Запросить</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QLabel" name="lblLastOpTime">
+     <property name="text">
+      <string>Время последней операции: —</string>
+     </property>
+    </widget>
+   </item>
+   <!-- Терминал -->
+   <item>
+    <widget class="QPlainTextEdit" name="terminalEdit">
+     <property name="font">
+      <font>
+       <family>Courier New</family>
+       <pointsize>9</pointsize>
+      </font>
+     </property>
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="lineWrapMode">
+      <enum>QPlainTextEdit::NoWrap</enum>
+     </property>
+    </widget>
+   </item>
+   <!-- Строка ввода и кнопка отправки -->
+   <item>
+    <layout class="QHBoxLayout" name="layoutCmd">
+     <item>
+      <widget class="QLineEdit" name="cmdLineEdit">
+       <property name="font">
+        <font>
+         <family>Courier New</family>
+         <pointsize>9</pointsize>
+        </font>
+       </property>
+       <property name="placeholderText">
+        <string>Введите SCPI команду...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnSend">
+       <property name="text">
+        <string>Отправить</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

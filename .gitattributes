@@ -1,0 +1,14 @@
+# Автоматически определять текстовые файлы и нормализовать окончания строк
+* text=auto
+
+# Для скриптов и Makefile оставляем LF (важно для Linux)
+*.sh text eol=lf
+*.bash text eol=lf
+Makefile text eol=lf
+*.mk text eol=lf
+*.cmake text eol=lf
+
+# Для файлов Windows можно оставить CRLF, но Git сам преобразует
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

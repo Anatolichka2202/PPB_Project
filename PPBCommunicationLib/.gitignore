@@ -1,0 +1,35 @@
+# Игнорировать папки сборки
+build/
+*-build/
+
+# Qt Creator
+CMakeLists.txt.user*
+*.autosave
+*.user
+
+# Сгенерированные CMake файлы
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+*.cmake
+!CMakeLists.txt
+
+# Объектные и исполняемые файлы
+*.o
+*.obj
+*.exe
+*.out
+*.app
+
+# Сгенерированные Qt файлы (moc, qrc, ui)
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.moc
+*.qrc
+*.qm
+*.qmlc
+*.jsc

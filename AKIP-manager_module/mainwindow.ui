@@ -1,0 +1,616 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1200</width>
+    <height>900</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>АКИП Тестовый стенд</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout_5">
+    <item>
+     <layout class="QHBoxLayout" name="horizontalLayout">
+      <item>
+       <widget class="QGroupBox" name="grpConnection">
+        <property name="title">
+         <string>Подключение</string>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_5">
+         <item row="0" column="0">
+          <widget class="QPushButton" name="btnConnect">
+           <property name="text">
+            <string>Подключиться</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QPushButton" name="btnDisconnect">
+           <property name="text">
+            <string>Отключиться</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="2">
+          <widget class="QLabel" name="lblStatus">
+           <property name="text">
+            <string>—</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="labelIdn">
+           <property name="text">
+            <string>IDN:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1" colspan="2">
+          <widget class="QLabel" name="lblIdn">
+           <property name="text">
+            <string>—</string>
+           </property>
+          </widget>
+         </item>
+		 <item row="2" column="0">
+ <widget class="QLabel" name="labelDeviceType">
+  <property name="text">
+   <string>Тип:</string>
+  </property>
+ </widget>
+</item>
+<item row="2" column="1" colspan="2">
+ <widget class="QLabel" name="lblDeviceType">
+  <property name="text">
+   <string>—</string>
+  </property>
+ </widget>
+</item>
+         <item row="3" column="0" colspan="3">
+          <widget class="QPushButton" name="btnIdn">
+           <property name="text">
+            <string>Запросить *IDN?</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QStackedWidget" name="stackedWidget">
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="akipPage">
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="QGroupBox" name="grpChannelA">
+        <property name="title">
+         <string>Канал A</string>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_6">
+         <item row="0" column="0">
+          <widget class="QLabel" name="labelFreqA">
+           <property name="text">
+            <string>Частота (Гц):</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QLineEdit" name="editFreqA"/>
+         </item>
+         <item row="0" column="2">
+          <widget class="QPushButton" name="btnSetFreqA">
+           <property name="text">
+            <string>Установить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="3">
+          <widget class="QPushButton" name="btnQueryFreqA">
+           <property name="text">
+            <string>Запросить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="labelOutputA">
+           <property name="text">
+            <string>Выход:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QCheckBox" name="chkOutputA">
+           <property name="text">
+            <string>Вкл</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="2">
+          <widget class="QPushButton" name="btnSetOutputA">
+           <property name="text">
+            <string>Установить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="3">
+          <widget class="QPushButton" name="btnQueryOutputA">
+           <property name="text">
+            <string>Запросить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="labelAmplA">
+           <property name="text">
+            <string>Амплитуда:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLineEdit" name="editAmplA"/>
+         </item>
+         <item row="2" column="2">
+          <widget class="QComboBox" name="cmbAmplUnitA">
+           <item>
+            <property name="text">
+             <string>Vpp</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Vrms</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>dBm</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item row="2" column="3">
+          <widget class="QPushButton" name="btnSetAmplA">
+           <property name="text">
+            <string>Установить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="4">
+          <widget class="QPushButton" name="btnQueryAmplA">
+           <property name="text">
+            <string>Запросить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="labelWaveA">
+           <property name="text">
+            <string>Форма:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1" colspan="2">
+          <widget class="QComboBox" name="cmbWaveformA">
+           <item>
+            <property name="text">
+             <string>Sine</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Square</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Ramp</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Pulse</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Noise</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>DC</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item row="3" column="3">
+          <widget class="QPushButton" name="btnSetWaveA">
+           <property name="text">
+            <string>Установить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="4">
+          <widget class="QPushButton" name="btnQueryWaveA">
+           <property name="text">
+            <string>Запросить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0" colspan="5">
+          <widget class="QLabel" name="lblLastOpTimeA">
+           <property name="text">
+            <string>Время последней операции: —</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QGroupBox" name="grpChannelB">
+        <property name="title">
+         <string>Канал B</string>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_7">
+         <item row="0" column="0">
+          <widget class="QLabel" name="labelFreqB">
+           <property name="text">
+            <string>Частота (Гц):</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QLineEdit" name="editFreqB"/>
+         </item>
+         <item row="0" column="2">
+          <widget class="QPushButton" name="btnSetFreqB">
+           <property name="text">
+            <string>Установить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="3">
+          <widget class="QPushButton" name="btnQueryFreqB">
+           <property name="text">
+            <string>Запросить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="labelOutputB">
+           <property name="text">
+            <string>Выход:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QCheckBox" name="chkOutputB">
+           <property name="text">
+            <string>Вкл</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="2">
+          <widget class="QPushButton" name="btnSetOutputB">
+           <property name="text">
+            <string>Установить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="3">
+          <widget class="QPushButton" name="btnQueryOutputB">
+           <property name="text">
+            <string>Запросить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="labelAmplB">
+           <property name="text">
+            <string>Амплитуда:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLineEdit" name="editAmplB"/>
+         </item>
+         <item row="2" column="2">
+          <widget class="QComboBox" name="cmbAmplUnitB">
+           <item>
+            <property name="text">
+             <string>Vpp</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Vrms</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>dBm</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item row="2" column="3">
+          <widget class="QPushButton" name="btnSetAmplB">
+           <property name="text">
+            <string>Установить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="4">
+          <widget class="QPushButton" name="btnQueryAmplB">
+           <property name="text">
+            <string>Запросить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="labelWaveB">
+           <property name="text">
+            <string>Форма:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1" colspan="2">
+          <widget class="QComboBox" name="cmbWaveformB">
+           <item>
+            <property name="text">
+             <string>Sine</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Square</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Ramp</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Pulse</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Noise</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>DC</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item row="3" column="3">
+          <widget class="QPushButton" name="btnSetWaveB">
+           <property name="text">
+            <string>Установить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="4">
+          <widget class="QPushButton" name="btnQueryWaveB">
+           <property name="text">
+            <string>Запросить</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0" colspan="5">
+          <widget class="QLabel" name="lblLastOpTimeB">
+           <property name="text">
+            <string>Время последней операции: —</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+	  </widget>
+	     <widget class="QWidget" name="grattenPage"/>
+		 </widget>
+    </item>
+    <item>
+     <widget class="QGroupBox" name="grpDelays">
+      <property name="title">
+       <string>Тестирование задержек</string>
+      </property>
+      <layout class="QGridLayout" name="gridLayout_8">
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_2">
+         <property name="text">
+          <string>Канал:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QComboBox" name="cmbTestChannel">
+         <item>
+          <property name="text">
+           <string>A</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>B</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="QLabel" name="label_3">
+         <property name="text">
+          <string>Тестовая частота (Гц):</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="3">
+        <widget class="QLineEdit" name="editTestFreq"/>
+       </item>
+       <item row="1" column="0">
+        <widget class="QPushButton" name="btnTestIdn">
+         <property name="text">
+          <string>*IDN?</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLabel" name="lblTestIdnTime">
+         <property name="text">
+          <string>—</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="2">
+        <widget class="QLabel" name="label_5">
+         <property name="text">
+          <string>мс</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QPushButton" name="btnTestSetFreq">
+         <property name="text">
+          <string>Set Freq (время отправки)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLabel" name="lblTestSetFreqTime">
+         <property name="text">
+          <string>—</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="2">
+        <widget class="QLabel" name="label_7">
+         <property name="text">
+          <string>мс</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="0">
+        <widget class="QPushButton" name="btnTestQueryFreq">
+         <property name="text">
+          <string>Query Freq (время ответа)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QLabel" name="lblTestQueryFreqTime">
+         <property name="text">
+          <string>—</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="2">
+        <widget class="QLabel" name="label_9">
+         <property name="text">
+          <string>мс</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="0" colspan="3">
+        <widget class="QPushButton" name="btnTestSeriesIdn">
+         <property name="text">
+          <string>Серия 10x *IDN? (статистика в лог)</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QGroupBox" name="grpLog">
+      <property name="title">
+       <string>Лог</string>
+      </property>
+      <layout class="QVBoxLayout" name="verticalLayout_4">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <item>
+          <widget class="QPushButton" name="btnLogClear">
+           <property name="text">
+            <string>Очистить</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btnLogSave">
+           <property name="text">
+            <string>Сохранить в файл</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QTextEdit" name="txtLog">
+         <property name="font">
+          <font>
+           <family>Courier New</family>
+           <pointsize>9</pointsize>
+          </font>
+         </property>
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1200</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menu">
+    <property name="title">
+     <string>Тест АКИП</string>
+    </property>
+   </widget>
+   <addaction name="menu"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

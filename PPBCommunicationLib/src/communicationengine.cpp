@@ -294,8 +294,9 @@ void communicationengine::executeCommand(TechCommand cmd, uint16_t address) {
 
     PPBState currentState = m_stateManager->getState(address);
     if (currentState != PPBState::Ready && currentState != PPBState::Idle) {
+        QString name_t = command->name();
         m_commandQueue->enqueue(address, std::move(command));
-       LOG_TECH_PROTOCOL(QString("Command %1 for address 0x%2 enqueued").arg(command->name()).arg(address,4,16,QLatin1Char('0')));
+        LOG_TECH_PROTOCOL(QString("Command %1 for address 0x%2 enqueued").arg(name_t).arg(address,4,16,QLatin1Char('0')));                           // LOG_TECH_PROTOCOL(QString("Command %1 for address 0x%2 enqueued").arg(command->name()).arg(address,4,16,QLatin1Char('0')));
     } else {
         executeCommandImmediately(address, std::move(command));
     }

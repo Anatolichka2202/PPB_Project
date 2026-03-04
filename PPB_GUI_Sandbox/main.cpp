@@ -14,6 +14,61 @@
 #include "applicationmanager.h"
 #include "testerwindow.h"
 
+
+#ifdef Q_OS_LINUX
+#include <signal.h>
+#include <execinfo.h>
+#include <unistd.h>
+#include <cstring>
+#include <cstdio>
+
+// Обработчик сигналов с расширенной информацией
+void signalHandler(int sig, siginfo_t *info, void *context) {
+    // Пишем напрямую в stderr (избегаем небезопасных вызовов)
+    const char msg1[] = "\n*** Caught signal ";
+    write(STDERR_FILENO, msg1, sizeof(msg1)-1);
+
+    char buf[32];
+    int len = snprintf(buf, sizeof(buf), "%d", sig);
+    write(STDERR_FILENO, buf, len);
+
+    const char msg2[] = " (";
+    write(STDERR_FILENO, msg2, sizeof(msg2)-1);
+
+    const char* sigstr = strsignal(sig);
+    if (sigstr) {
+        write(STDERR_FILENO, sigstr, strlen(sigstr));
+    }
+
+    const char msg3[] = ") ***\n";
+    write(STDERR_FILENO, msg3, sizeof(msg3)-1);
+
+    // Выводим backtrace
+    void* array[20];
+    int size = backtrace(array, 20);
+    backtrace_symbols_fd(array, size, STDERR_FILENO);
+
+    // Восстанавливаем стандартный обработчик и повторно поднимаем сигнал,
+    // чтобы процесс завершился с core dump (если разрешено)
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+void setupSignalHandlers() {
+    struct sigaction sa;
+    sa.sa_sigaction = signalHandler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_SIGINFO | SA_RESTART;
+
+    sigaction(SIGSEGV, &sa, nullptr);
+    sigaction(SIGABRT, &sa, nullptr);
+    sigaction(SIGFPE, &sa, nullptr);
+    sigaction(SIGILL, &sa, nullptr);
+    // Можно добавить SIGBUS, SIGSYS при необходимости
+}
+#endif
+
+
 #ifdef Q_OS_WIN
 // Обработчик необработанных исключений Windows
 LONG WINAPI MyUnhandledExceptionFilter(struct _EXCEPTION_POINTERS* exceptionInfo)
@@ -67,6 +122,10 @@ int main(int argc, char *argv[])
     // Установка обработчика необработанных исключений Windows
     SetUnhandledExceptionFilter(MyUnhandledExceptionFilter);
     #endif
+
+#ifdef Q_OS_LINUX
+    setupSignalHandlers();
+#endif
 
     QApplication app(argc, argv);
 

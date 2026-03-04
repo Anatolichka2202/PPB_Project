@@ -1,4 +1,4 @@
-#include "abstractScpiController.h"
+#include "abstractscpicontroller.h"
 #include <QThread>
 #include <QElapsedTimer>
 

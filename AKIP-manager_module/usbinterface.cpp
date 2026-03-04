@@ -2,7 +2,7 @@
 #include <QDebug>
 #include <QElapsedTimer>
 #include <QThread>
-
+#include <cstdint>
 // Для Linux добавляем необходимые заголовки
 #ifdef Q_OS_LINUX
 #include <errno.h>
@@ -49,21 +49,16 @@ bool UsbInterface::open(int index)
     CH375SetTimeout(handleToULong(), m_writeTimeout, m_readTimeout);
 
 #else
-    // Linux implementation
-    char devname[20];
-    snprintf(devname, sizeof(devname), "/dev/ch37x%d", index);
-    m_deviceHandle = CH37XOpenDevice(devname, true); // non-block
-    if (m_deviceHandle < 0) {
-        emit errorOccurred(QString("Не удалось открыть устройство %1: %2")
-                               .arg(devname).arg(strerror(errno)));
-        return false;
-    }
-
-    // Получаем информацию о конечных точках (обязательно)
-    if (!CH37XGetDeviceEpMsg(m_deviceHandle)) {
-        emit errorOccurred("Не удалось получить информацию о конечных точках");
-        CH37XCloseDevice(m_deviceHandle);
-        m_deviceHandle = InvalidDeviceHandle;
+    // Linux: используем первый bulk out endpoint
+    uint32_t length = data.size();   // объявляем переменную
+    uint8_t ep = CH37XGetObject(m_deviceHandle)->epmsg_bulkout.epaddr[0];
+    bool ok = CH37XWriteData(m_deviceHandle, EPTYPE_BULKOUT, ep, data.data(), &length);
+    if (ok && length == static_cast<uint32_t>(data.size())) {
+        return true;
+    } else {
+        QString error = QString("Ошибка отправки команды. Отправлено %1 из %2 байт")
+                            .arg(length).arg(data.size());
+        emit errorOccurred(error);
         return false;
     }
 
@@ -161,6 +156,7 @@ QString UsbInterface::waitForResponse(int timeoutMs)
                 break;
         }
 #else
+        uint32_t length = sizeof(buffer);   // объявляем переменную
         uint8_t ep = CH37XGetObject(m_deviceHandle)->epmsg_bulkin.epaddr[0];
         bool ok = CH37XReadData(m_deviceHandle, EPTYPE_BULKIN, ep, buffer, &length);
         if (ok && length > 0) {

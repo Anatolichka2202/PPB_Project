@@ -2,7 +2,7 @@
 #define GRATTENGA1483CONTROLLER_H
 
 #include "abstractscpicontroller.h"
-#include "lanInterface.h"
+#include "laninterface.h"
 
 class GrattenGa1483Controller : public AbstractScpiController
 {

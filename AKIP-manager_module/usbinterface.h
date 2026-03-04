@@ -31,7 +31,7 @@ typedef HANDLE DeviceHandle;
 const DeviceHandle InvalidDeviceHandle = INVALID_HANDLE_VALUE;
 #else
 // Linux: подключаем SDK от производителя
-#include "ch375_linux/demo/ch37x_lib.h"   // путь к файлам из Linux-архива
+#include "ch37x_lib.h"   // путь к файлам из Linux-архива
 
 // В Linux дескриптор – это файловый номер (int)
 typedef int DeviceHandle;

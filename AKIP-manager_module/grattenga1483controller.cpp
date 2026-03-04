@@ -1,4 +1,4 @@
-#include "GrattenGa1483Controller.h"
+#include "grattenGa1483Controller.h"
 #include <QThread>
 #include "gratten_limits.h"
 GrattenGa1483Controller::GrattenGa1483Controller(QObject *parent)

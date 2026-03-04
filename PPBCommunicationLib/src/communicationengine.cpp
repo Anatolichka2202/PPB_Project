@@ -603,10 +603,10 @@ void communicationengine::completeOperation(uint16_t address, bool success, cons
     }
     LOG_TECH_STATE(QString("Operation completed for 0x%1: %2 - %3").arg(address,4,16,QChar('0')).arg(success?"success":"fail").arg(finalMessage));
 
-        if(success) LOG_UI_RESULT(message);
-            else LOG_UI_ALERT(message);
+    if(success) LOG_UI_RESULT(message);
+    else LOG_UI_ALERT(message);
 
-        emit commandCompleted(success, finalMessage, context->currentCommand->commandId());
+    emit commandCompleted(success, finalMessage, context->currentCommand->commandId());
 
     if (context->parsedData.isValid()) {
         emit commandDataParsed(address, context->parsedData, context->currentCommand->commandId());
@@ -623,11 +623,13 @@ void communicationengine::completeOperation(uint16_t address, bool success, cons
         emit statusReceived(address, mask, data);
     }
 
-    PPBState nextState = success ? PPBState::Ready : PPBState::Idle;
-    transitionState(address, nextState, "Завершение операции");
-
+    // Очищаем результаты парсинга и обновляем состояние занятости ДО перехода,
+    // так как переход может удалить контекст
     context->clearParseResults();
     updateBusyState();
+
+    PPBState nextState = success ? PPBState::Ready : PPBState::Idle;
+    transitionState(address, nextState, "Завершение операции");
 }
 void communicationengine::processNextCommandForAddress(uint16_t address) {
     // Проверяем, что мы в состоянии Ready

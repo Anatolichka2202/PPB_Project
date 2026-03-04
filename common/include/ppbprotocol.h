@@ -103,6 +103,14 @@ struct PPBStatus {
     bool droppedPackets;
 };
 
+#include <QMetaType>
+#include <QVector>
+
+Q_DECLARE_METATYPE(PPBState)
+Q_DECLARE_METATYPE(TechCommand)
+Q_DECLARE_METATYPE(DataPacket)
+Q_DECLARE_METATYPE(QVector<DataPacket>)
+
 #endif // PPBPROTOCOL_H
 
  /*

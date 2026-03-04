@@ -18,7 +18,8 @@ set(COMMON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../common)
 set(COMMON_INCLUDE_DIR ${COMMON_DIR}/include)
 #(COMMON_STUBS_DIR ${COMMON_DIR}/stubs)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Gui Widgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui Widgets)
 
 # Собираем все заголовки из common для отображения в IDE
 file(GLOB_RECURSE COMMON_HEADERS
@@ -56,8 +57,8 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
-        Qt6::Core
-        Qt6::Gui
+        Qt${QT_VERSION_MAJOR}::Core
+        Qt${QT_VERSION_MAJOR}::Gui
         CommonLib
         LoggingLib
         akip_module
@@ -77,7 +78,8 @@ endif()
 # ===== Тесты =====
 if(BUILD_TESTS)
     enable_testing()
-    find_package(Qt6 REQUIRED COMPONENTS Test)
+    find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Test)
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
 
     add_executable(test_ppbcontroller
         tests/main.cpp
@@ -94,10 +96,10 @@ if(BUILD_TESTS)
     target_link_libraries(test_ppbcontroller
         PRIVATE
             ${PROJECT_NAME}
-            Qt6::Core
-            Qt6::Gui
-            Qt6::Test
-            Qt6::Widgets
+            Qt${QT_VERSION_MAJOR}::Core
+            Qt${QT_VERSION_MAJOR}::Gui
+            Qt${QT_VERSION_MAJOR}::Test
+            Qt${QT_VERSION_MAJOR}::Widgets
     )
 
     if(USE_REAL_DEPS)

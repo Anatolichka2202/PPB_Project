@@ -17,7 +17,8 @@ endif()
 set(COMMON_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/../common)
 set(COMMON_INCLUDE_DIR ${COMMON_DIR}/include)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Network)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Network)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Network)
 
 
 # Исходные файлы библиотеки
@@ -56,7 +57,12 @@ target_include_directories(${PROJECT_NAME}
         $<BUILD_INTERFACE:${COMMON_DIR}>          # для доступа к common/stubs
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Core Qt6::Network  Qt6::Gui CommonLib LoggingLib)
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Network
+    Qt${QT_VERSION_MAJOR}::Gui
+    CommonLib
+    LoggingLib)
 
 if(USE_REAL_DEPS)
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_REAL_DEPS)

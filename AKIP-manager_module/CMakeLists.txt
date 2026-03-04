@@ -26,8 +26,8 @@ if(WIN32)
     # Переменная для исходников CH37X (пустая на Windows)
     set(CH37X_SOURCES "")
 else()
-    # Linux: используем SDK из папки ch375_linux
-    set(CH375_LINUX_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ch375_linux")
+    # Linux: используем SDK из папки ch375_linux/demo
+    set(CH375_LINUX_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ch375_sdk/ch375_linux/demo")
     set(EXTRA_INCLUDES ${CH375_LINUX_DIR})
     set(EXTRA_LIBS pthread)   # может потребоваться для многопоточности
     set(CH37X_SOURCES ${CH375_LINUX_DIR}/ch37x_lib.c)

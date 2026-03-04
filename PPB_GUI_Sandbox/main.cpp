@@ -1,13 +1,20 @@
 #include <QApplication>
 #include <QTimer>
 #include <QMessageBox>
+
+#ifdef Q_OS_WIN
 #include <windows.h>
+#endif
+
+#include <QDebug>
+
 #include <QDateTime>
 #include <QFile>
 #include <QTextStream>
 #include "applicationmanager.h"
 #include "testerwindow.h"
 
+#ifdef Q_OS_WIN
 // Обработчик необработанных исключений Windows
 LONG WINAPI MyUnhandledExceptionFilter(struct _EXCEPTION_POINTERS* exceptionInfo)
 {
@@ -52,11 +59,14 @@ LONG WINAPI MyUnhandledExceptionFilter(struct _EXCEPTION_POINTERS* exceptionInfo
 
     return EXCEPTION_EXECUTE_HANDLER;
 }
+#endif
 
 int main(int argc, char *argv[])
 {
+    #ifdef Q_OS_WIN
     // Установка обработчика необработанных исключений Windows
     SetUnhandledExceptionFilter(MyUnhandledExceptionFilter);
+    #endif
 
     QApplication app(argc, argv);
 

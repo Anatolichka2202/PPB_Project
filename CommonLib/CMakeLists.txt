@@ -3,8 +3,8 @@ project(CommonLib LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_AUTOMOC ON)
-
-find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS  Core )
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core)
 
 # Файлы общих интерфейсов (все, которые содержат Q_OBJECT)
 set(COMMON_SOURCES
@@ -24,4 +24,4 @@ target_include_directories(${PROJECT_NAME}
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../common/converters>
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Core)
+target_link_libraries(${PROJECT_NAME} PRIVATE   Qt${QT_VERSION_MAJOR}::Core)

@@ -200,14 +200,14 @@ communicationengine::~communicationengine() {
 
 // Получаем контекст для адреса
 communicationengine::PPBContext* communicationengine::getContext(uint16_t address) {
-    //QMutexLocker locker(&m_contextsMutex);
+    QMutexLocker locker(&m_contextsMutex);
     return &m_contexts[address];  // std::unordered_map автоматически создает элемент
 }
 
 // Очищаем контекст
 void communicationengine::clearContext(uint16_t address) {
      LOG_TECH_DEBUG(QString("Clearing context for address 0x%1").arg(address, 4, 16, QChar('0')));
-    //QMutexLocker locker(&m_contextsMutex);
+    QMutexLocker locker(&m_contextsMutex);
     auto it = m_contexts.find(address);
     if (it != m_contexts.end()) {
         if (it->second.operationTimer) {
@@ -487,10 +487,12 @@ void communicationengine::onNetworkError(const QString& error) {
     emit errorOccurred(error);
 }
 
-void communicationengine::onOperationTimeout(uint16_t address) {
+void communicationengine::onOperationTimeout(uint16_t address)
+{
     PPBContext* context = getContext(address);
-    if (!context || !context->currentCommand) {
-        transitionState(address, PPBState::Ready, "Таймаут без активной команды");
+    // Добавлена проверка operationCompleted
+    if (!context || !context->currentCommand || context->operationCompleted) {
+        // Если контекста нет, нет активной команды или операция уже завершена — игнорируем таймаут
         return;
     }
 

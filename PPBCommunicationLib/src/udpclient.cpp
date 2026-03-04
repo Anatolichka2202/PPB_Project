@@ -87,7 +87,19 @@ bool UDPClient::bind(quint16 port)
 
     LOG_TECH_NETWORK(QString("bind - attempting port %1").arg(port));
 
-    if (m_socket->bind(QHostAddress("192.168.0.246"), port)) {
+    QHostAddress addr;
+    QByteArray ipEnv = qgetenv("UDP_BIND_IP");
+    if (!ipEnv.isEmpty()) {
+        addr = QHostAddress(QString::fromLocal8Bit(ipEnv));
+        if (addr.isNull()) {
+            qWarning() << "Invalid UDP_BIND_IP, using default 192.168.0.246";
+            addr = QHostAddress("192.168.0.246");
+        }
+    } else {
+        addr = QHostAddress(QHostAddress::Any);
+    }
+
+    if (m_socket->bind (addr, port)) {
         m_isBound = true;
         m_boundPort = m_socket->localPort();
         m_boundAddress = m_socket->localAddress();
@@ -97,6 +109,8 @@ bool UDPClient::bind(quint16 port)
 
         emit bindingChanged(true);
         return true;
+
+
     } else {
         QString errorMsg = QString("Failed to bind to port %1: %2")
         .arg(port)

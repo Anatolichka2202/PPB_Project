@@ -216,7 +216,8 @@ private:
     std::unique_ptr<IProtocolAdapter> m_protocolAdapter;
 
 
-    //QMutex m_contextsMutex;
+    QMutex m_contextsMutex;
+
     uint16_t m_currentAddress;
     QString m_currentIP;
     quint16 m_currentPort;

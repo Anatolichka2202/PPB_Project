@@ -454,7 +454,7 @@ void PPBController::showAnalysisResults(const QString& summary, const QVariantMa
             TableData detailsTable;
             detailsTable.id = "analysis-details";
             detailsTable.title = "Детали сравнения пакетов";
-            detailsTable.headers = {"Индекс", "Отправлено", "Получено", "Статус", "Битовые ошибки"};
+            detailsTable.headers = QStringList() << "Индекс" << "Отправлено" << "Получено" << "Статус" << "Битовые ошибки";
 
             for (const auto& item : errorDetails) {
                 QVariantMap detail = item.toMap();

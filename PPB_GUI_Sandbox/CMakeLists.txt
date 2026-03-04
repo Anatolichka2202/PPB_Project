@@ -5,7 +5,8 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Core Network)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Core Network)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Core Network)
 
 # Список исходных файлов (убедитесь, что все .cpp перечислены)
 set(SOURCES
@@ -64,7 +65,7 @@ set(RESOURCES
     assets.qrc
 )
 
-qt_add_executable(PPB_GUI_Sandbox
+    add_executable(PPB_GUI_Sandbox
     ${SOURCES}
     ${HEADERS}
     ${UIS}
@@ -85,9 +86,9 @@ target_include_directories(PPB_GUI_Sandbox PRIVATE
 
 # Линкуемся с Qt и нашими библиотеками
 target_link_libraries(PPB_GUI_Sandbox PRIVATE
-    Qt6::Widgets
-    Qt6::Core
-    Qt6::Network
+    Qt${QT_VERSION_MAJOR}::Widgets
+    Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Network
     PPBControllerLib
     PPBCommunicationLib
     CommonLib

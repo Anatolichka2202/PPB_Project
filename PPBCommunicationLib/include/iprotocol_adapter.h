@@ -33,7 +33,7 @@ public:
     virtual QByteArray buildRequest(uint16_t address, TechCommand cmd, const QByteArray& payload = {}) = 0;
 
     // Построение запроса для FU команды
-    virtual QByteArray buildFURequest(uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr) = 0;
+    virtual QByteArray buildFURequest(uint16_t address, uint8_t cmd, uint8_t period, const uint8_t fuData[3] = nullptr) = 0;
 
     // Разбор payload на массив DataPacket (если нужно для тестовых последовательностей)
     virtual QVector<DataPacket> extractDataPackets(const QByteArray& payload) = 0;

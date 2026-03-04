@@ -52,8 +52,8 @@ QByteArray ProtocolAdapter::buildRequest(uint16_t address, TechCommand cmd, cons
     }
 }
 
-QByteArray ProtocolAdapter::buildFURequest(uint16_t address, uint8_t period, const uint8_t fuData[3]) {
-    return PacketBuilder::createFURequest(address, period, fuData);
+QByteArray ProtocolAdapter::buildFURequest(uint16_t address, uint8_t cmd, uint8_t period, const uint8_t fuData[3]) {
+    return PacketBuilder::createFURequest(address, cmd, period, fuData);
 }
 
 QVector<DataPacket> ProtocolAdapter::extractDataPackets(const QByteArray& payload) {

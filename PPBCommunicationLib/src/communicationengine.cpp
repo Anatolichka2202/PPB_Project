@@ -199,10 +199,18 @@ communicationengine::~communicationengine() {
 
 
 // Получаем контекст для адреса
-communicationengine::PPBContext* communicationengine::getContext(uint16_t address) {
+communicationengine::PPBContext* communicationengine::findContext(uint16_t address) {
     QMutexLocker locker(&m_contextsMutex);
-    return &m_contexts[address];  // std::unordered_map автоматически создает элемент
+    auto it = m_contexts.find(address);
+    return (it != m_contexts.end()) ? &it->second : nullptr;
 }
+
+communicationengine::PPBContext& communicationengine::getOrCreateContext(uint16_t address) {
+    QMutexLocker locker(&m_contextsMutex);
+    return m_contexts[address]; // operator[] создаст, если нет
+}
+
+
 
 // Очищаем контекст
 void communicationengine::clearContext(uint16_t address) {
@@ -294,7 +302,7 @@ void communicationengine::executeCommand(TechCommand cmd, uint16_t address) {
 }
 
 void communicationengine::sendFUTransmit(uint16_t address) {
-    QByteArray packet = m_protocolAdapter->buildFURequest(address, 0, nullptr);
+    QByteArray packet = m_protocolAdapter->buildFURequest(address,1, 0, nullptr);
     sendPacketInternal(packet, "ФУ передача");
 }
 void communicationengine::sendFUReceiveImpl(uint16_t address, uint8_t period, const QByteArray& fuData)
@@ -310,7 +318,7 @@ void communicationengine::sendFUReceiveImpl(uint16_t address, uint8_t period, co
     sendFUReceive(address, period, dataPtr);
 }
 void communicationengine::sendFUReceive(uint16_t address, uint8_t period, const uint8_t fuData[3]) {
-    QByteArray packet = m_protocolAdapter->buildFURequest(address, period, fuData);
+    QByteArray packet = m_protocolAdapter->buildFURequest(address,0, period, fuData);
     sendPacketInternal(packet, "ФУ прием");
 }
 
@@ -324,7 +332,7 @@ void communicationengine::setCommandParseResult(uint16_t address, bool success, 
                 return;
             }
 
-    PPBContext* context = getContext(address);
+    PPBContext* context = findContext(address);
     if (!context) {
        LOG_TECH_DEBUG(QString("setCommandParseResult: no context for addr 0x%1").arg(address,4,16,QChar('0')));
         return;
@@ -348,7 +356,7 @@ void communicationengine::setCommandParseData(uint16_t address, const QVariant& 
                 return;
             }
 
-    PPBContext* context = getContext(address);
+    PPBContext* context = findContext(address);
     if (!context) {
        // LOG_CAT_WARNING("Engine",QString("setCommandParseData: нет контекста для адреса 0x%1")
                         //.arg(address, 4, 16, QChar('0')));
@@ -377,30 +385,30 @@ void communicationengine::executeCommandImmediately(uint16_t address, std::uniqu
         return;
     }
 
-    PPBContext* context = getContext(address);
-    *context = PPBContext(); // очистка
-    context->currentCommand = std::move(command);
-    context->operationCompleted = false;
+    PPBContext& context = getOrCreateContext(address);
+    context = PPBContext(); // очистка
+    context.currentCommand = std::move(command);
+    context.operationCompleted = false;
     // context->packetsExpected и т.д. больше не используются
 
-    transitionState(address, PPBState::SendingCommand, "Начинаем " + context->currentCommand->name());
+    transitionState(address, PPBState::SendingCommand, "Начинаем " + context.currentCommand->name());
     updateBusyState();
     // Построение запроса через адаптер
     QByteArray request;
     if (/* это TU команда? */ true) { // нужно определять тип, но пока все TU через buildRequest
-        request = context->currentCommand->buildRequest(address);
+        request = context.currentCommand->buildRequest(address);
     } else {
         // для FU команд будет отдельный вызов
     }
 
-    sendPacketInternal(request, context->currentCommand->name());
+    sendPacketInternal(request, context.currentCommand->name());
 
     // Таймаут
-    context->operationTimer = std::make_unique<QTimer>();
-    context->operationTimer->setSingleShot(true);
-    connect(context->operationTimer.get(), &QTimer::timeout,
+    context.operationTimer = std::make_unique<QTimer>();
+    context.operationTimer->setSingleShot(true);
+    connect(context.operationTimer.get(), &QTimer::timeout,
             this, [this, address]() { onOperationTimeout(address); });
-    context->operationTimer->start(context->currentCommand->timeoutMs());
+    context.operationTimer->start(context.currentCommand->timeoutMs());
 }
 
 void communicationengine::processCommandQueue() {
@@ -440,7 +448,7 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
     }
 
     // Получаем контекст для этого адреса
-    PPBContext* context = getContext(address);
+    PPBContext* context = findContext(address);
     if (!context || !context->currentCommand || context->operationCompleted) {
         LOG_TECH_PROTOCOL(QString("Event for addr 0x%1 without active command").arg(address,4,16,QLatin1Char('0')));
         return;
@@ -489,7 +497,7 @@ void communicationengine::onNetworkError(const QString& error) {
 
 void communicationengine::onOperationTimeout(uint16_t address)
 {
-    PPBContext* context = getContext(address);
+    PPBContext* context = findContext(address);
     // Добавлена проверка operationCompleted
     if (!context || !context->currentCommand || context->operationCompleted) {
         // Если контекста нет, нет активной команды или операция уже завершена — игнорируем таймаут
@@ -581,7 +589,7 @@ void communicationengine::transitionState(uint16_t address, PPBState newState, c
 }
 
 void communicationengine::completeOperation(uint16_t address, bool success, const QString& message) {
-    PPBContext* context = getContext(address);
+    PPBContext* context = findContext(address);
     if (!context || context->operationCompleted) return;
 
     context->operationCompleted = true;
@@ -675,6 +683,7 @@ void communicationengine::sendDataPackets(const QVector<DataPacket>& packets) {
     emit sentPacketsSaved(packets);
 }
 void communicationengine::updateBusyState() {
+    QMutexLocker locker(&m_contextsMutex);
     Q_ASSERT(thread() == QThread::currentThread());
     bool busy = false;
     for (const auto& pair : m_contexts) {

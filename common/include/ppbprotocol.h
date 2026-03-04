@@ -33,8 +33,8 @@ enum class TechCommand : uint8_t {
 
 // ===== ФУ КОМАНДЫ =====
 enum class FuCommand : uint8_t {
-    TRANSMIT  = 0,
-    RECEIVE   = 1
+    TRANSMIT  = 1,
+    RECEIVE   = 2
 };
 
 // ===== ПРИЗНАК ПАКЕТА =====

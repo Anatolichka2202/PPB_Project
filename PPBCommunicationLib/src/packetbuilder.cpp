@@ -18,7 +18,7 @@ QByteArray PacketBuilder::createTURequestWithData(uint16_t address, TechCommand 
     return request;
 }
 
-QByteArray PacketBuilder::createFURequest(uint16_t address, uint8_t period,
+QByteArray PacketBuilder::createFURequest(uint16_t address, uint8_t cmd, uint8_t period,
                                           const uint8_t fuData[3])
 {
     return createBaseRequest(address, 0, Sign::FU, period, fuData);
@@ -53,13 +53,13 @@ QByteArray PacketBuilder::createDroppedPacketsRequest(uint16_t address)
 
 QByteArray PacketBuilder::createFUTransmitRequest(uint16_t address)
 {
-    return createFURequest(address, 0, nullptr);
+    return createFURequest(address, 1, 0, nullptr);
 }
 
 QByteArray PacketBuilder::createFUReceiveRequest(uint16_t address, uint8_t period,
                                                  const uint8_t fuData[3])
 {
-    return createFURequest(address, period, fuData);
+    return createFURequest(address, 0, period, fuData);
 }
 
 bool PacketBuilder::parseTUResponse(const QByteArray& data,

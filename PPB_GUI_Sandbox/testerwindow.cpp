@@ -229,7 +229,8 @@ void TesterWindow::onAutoPollToggled(bool checked)
 void TesterWindow::onTestSequenceClicked()
 {
     if (m_controller->isBusy()) {
-        QMessageBox::warning(this, "Внимание", "Уже выполняется другая операция");
+        LOG_UI_ALERT("Внимание, Уже выполняется другая операция");
+        //QMessageBox::warning(this, "Внимание", "Уже выполняется другая операция");
         return;
     }
 
@@ -302,7 +303,7 @@ void TesterWindow::onOperationCompleted(bool success, const QString& message)
     ui->statusbar->showMessage(message, 5000);
 
     if (!success) {
-        QMessageBox::warning(this, "Ошибка операции", message);
+       // QMessageBox::warning(this, "Ошибка операции", message);
         LOG_UI_ALERT(message);
     } else {
         LOG_OP_OPERATION("Операция завершена: " + message);

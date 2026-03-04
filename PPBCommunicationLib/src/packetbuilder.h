@@ -31,7 +31,7 @@ public:
                                               const QByteArray& payload = QByteArray());
 
     // Создать базовый FU-запрос (период и данные ФУ)
-    static QByteArray createFURequest(uint16_t address, uint8_t period,
+    static QByteArray createFURequest(uint16_t address, uint8_t cmd, uint8_t period,
                                       const uint8_t fuData[3] = nullptr);
 
     // === КОНКРЕТНЫЕ КОМАНДЫ ТУ ===

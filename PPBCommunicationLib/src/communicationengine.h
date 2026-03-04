@@ -97,6 +97,8 @@ private:
         PPBContext(const PPBContext&) = delete;
         PPBContext& operator=(const PPBContext&) = delete;
 
+
+
         //конструткор перемещения
         PPBContext(PPBContext&& other) noexcept
             : currentCommand(std::move(other.currentCommand))
@@ -199,7 +201,12 @@ private slots:
 private:
     void executeCommandImmediately(uint16_t address, std::unique_ptr<PPBCommand> command);
     void clearContext(uint16_t address);
-    PPBContext* getContext(uint16_t address);
+    //PPBContext* getContext(uint16_t address);
+
+    //методы: поиск/геттер-private
+    PPBContext* findContext(uint16_t address);
+    PPBContext& getOrCreateContext(uint16_t address);
+
     //машина состояний
     void transitionState(uint16_t addres, PPBState newState, const QString& reason); //явная смена состояния
     QString stateToString(PPBState state) const;// Вспомогательная функция для логирования состояний
@@ -216,7 +223,7 @@ private:
     std::unique_ptr<IProtocolAdapter> m_protocolAdapter;
 
 
-    QMutex m_contextsMutex;
+    mutable QMutex m_contextsMutex;
 
     uint16_t m_currentAddress;
     QString m_currentIP;

@@ -1,4 +1,4 @@
-#include "lanInterface.h"
+#include "laninterface.h"
 #include <QThread>
 #include <QDebug>
 

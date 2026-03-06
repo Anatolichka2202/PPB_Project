@@ -21,7 +21,7 @@ QByteArray PacketBuilder::createTURequestWithData(uint16_t address, TechCommand 
 QByteArray PacketBuilder::createFURequest(uint16_t address, uint8_t cmd, uint8_t period,
                                           const uint8_t fuData[3])
 {
-    return createBaseRequest(address, 0, Sign::FU, period, fuData);
+    return createBaseRequest(address, cmd, Sign::FU, period, fuData);
 }
 
 QByteArray PacketBuilder::createStatusRequest(uint16_t address)

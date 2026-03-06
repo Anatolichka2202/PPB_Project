@@ -286,20 +286,19 @@ void communicationengine::executeCommand(TechCommand cmd, uint16_t address) {
 
     LOG_TECH_PROTOCOL(QString("executeCommand: cmd=%1, addr=0x%2").arg(int(cmd)).arg(address,4,16,QLatin1Char('0')));
 
-    auto command = CommandFactory::create(cmd);
-    if (!command) {
-        emit errorOccurred(QString("Неизвестная команда: %1").arg(static_cast<int>(cmd)));
-        return;
-    }
-
-    PPBState currentState = m_stateManager->getState(address);
-    if (currentState != PPBState::Ready && currentState != PPBState::Idle) {
-        QString name_t = command->name();
-        m_commandQueue->enqueue(address, std::move(command));
-        LOG_TECH_PROTOCOL(QString("Command %1 for address 0x%2 enqueued").arg(name_t).arg(address,4,16,QLatin1Char('0')));                           // LOG_TECH_PROTOCOL(QString("Command %1 for address 0x%2 enqueued").arg(command->name()).arg(address,4,16,QLatin1Char('0')));
-    } else {
-        executeCommandImmediately(address, std::move(command));
-    }
+            auto command = CommandFactory::create(cmd);
+            if (!command) {
+                emit errorOccurred(QString("Неизвестная команда: %1").arg(static_cast<int>(cmd)));
+                return;
+            }
+            QString cmdName = command->name(); // сохраняем имя
+            PPBState currentState = m_stateManager->getState(address);
+            if (currentState != PPBState::Ready && currentState != PPBState::Idle) {
+                m_commandQueue->enqueue(address, std::move(command));
+                LOG_TECH_PROTOCOL(QString("Command %1 for address 0x%2 enqueued").arg(cmdName).arg(address,4,16,QLatin1Char('0')));
+            } else {
+                executeCommandImmediately(address, std::move(command));
+            }
 }
 
 void communicationengine::sendFUTransmit(uint16_t address) {

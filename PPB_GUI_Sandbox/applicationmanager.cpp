@@ -251,7 +251,7 @@ void ApplicationManager::detectAndSelectGenerator()
     }
 
     // Проверка Gratten (LAN, IP по умолчанию, можно вынести в настройки)
-    const QString grattenIp = "192.168.1.66"; // TODO: брать из конфига
+    const QString grattenIp = "192.168.0.66"; // TODO: брать из конфига
     {
         GrattenGa1483Controller testGratten;
         testGratten.setConnectionParameters(grattenIp, 5025);

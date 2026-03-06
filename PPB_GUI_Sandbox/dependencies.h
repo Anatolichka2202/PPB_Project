@@ -29,7 +29,7 @@
 // Режим разработки: используем заглушки
 #else
 //Система логирования
-#include "../common/logging/logmacros.h""
+#include "../common/logging/logmacros.h"
 #include "../common/logging/logconfig.h"
 #include "../common/logging/logdistributor.h"
 #include "../common/logging/logentry.h"

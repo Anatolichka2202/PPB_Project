@@ -5,8 +5,8 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Core Network)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Core Network)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Core Network Charts)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Core Network Charts)
 
 # Список исходных файлов (убедитесь, что все .cpp перечислены)
 set(SOURCES
@@ -71,6 +71,7 @@ set(RESOURCES
     ${UIS}
     ${RESOURCES}
     applicationmanager.h applicationmanager.cpp
+    performancewindow.h performancewindow.cpp performancewindow.ui
     # dataconverter.h dataconverter.cpp
 )
 
@@ -89,6 +90,7 @@ target_link_libraries(PPB_GUI_Sandbox PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Network
+    Qt${QT_VERSION_MAJOR}::Charts
     PPBControllerLib
     PPBCommunicationLib
     CommonLib

@@ -18,6 +18,7 @@
 #include "dataviewwidget.h"
 #include "scenariowidget.h"
 #include "logwidget.h"
+#include "performancewindow.h"
 
 TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
     : QMainWindow(parent)
@@ -563,4 +564,16 @@ void TesterWindow::onGeneratorAvailabilityChanged(bool available)
         if (m_stackedAkip) m_stackedAkip->setCurrentIndex(1);
         showStatusMessage("Связь с генератором потеряна", 5000);
     }
+}
+
+void TesterWindow::on_btnPerformance_clicked()
+{
+    static PerformanceWindow *perfWindow = nullptr;
+    if (!perfWindow) {
+        perfWindow = new PerformanceWindow(this);
+        perfWindow->setAttribute(Qt::WA_DeleteOnClose);
+    }
+    perfWindow->show();
+    perfWindow->raise();
+    perfWindow->activateWindow();
 }

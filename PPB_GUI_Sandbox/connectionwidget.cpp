@@ -9,7 +9,7 @@ ConnectionWidget::ConnectionWidget(QWidget *parent) :
     ui->setupUi(this);
 
     // Установка значений по умолчанию
-    ui->lineEditIPAddress->setText("198.168.0.230");
+    ui->lineEditIPAddress->setText("192.168.0.230");
     ui->lineEditPort->setText("1080");
 
     // Подключение кнопки

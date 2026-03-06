@@ -62,6 +62,7 @@ private slots:
     void onAkipApplyClicked();           ///< применить к генератору АКИП
     void onAkipAvailabilityChanged(bool available); ///< пизменение параметров
      void onGeneratorAvailabilityChanged(bool available); ///< реакция на отключение
+        void on_btnPerformance_clicked(); ///< слот кнопки метрик
     /** @} */
 
     /**

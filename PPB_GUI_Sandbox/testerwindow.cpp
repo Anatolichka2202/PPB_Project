@@ -130,13 +130,14 @@ void TesterWindow::connectSignals()
     connect(ui->akipWidget, &AkipWidget::applyClicked,
             this, &TesterWindow::onApplyParametersClicked);
 
-    connect(ui->fuWidget, &FuWidget::modeChanged,
-            this, [this](bool transmit) {
+    connect(ui->fuWidget, &FuWidget::sendFuCommand,
+            this, [this](bool transmit, uint16_t duration, uint16_t dutyCycle) {
                 uint16_t addr = getSelectedAddress();
-                if (transmit)
+                if (transmit) {
                     m_controller->setFUTransmit(addr);
-                else
-                    m_controller->setFUReceive(addr);
+                } else {
+                    m_controller->setFUReceive(addr, duration, dutyCycle);
+                }
             });
 
     connect(ui->dataViewWidget, &DataViewWidget::displayModeChanged,

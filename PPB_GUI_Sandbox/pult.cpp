@@ -213,6 +213,8 @@ void pult::onAnalysisComplete(const QString& summary, const QVariantMap& details
 
 void pult::on_FabricNumber_clicked()
 {
-    qDebug("Заводской номер яяяяя");
+    if (m_controller) {
+        m_controller->requestFabricNumber(m_address);
+    }
 }
 

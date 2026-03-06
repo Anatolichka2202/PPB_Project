@@ -191,6 +191,17 @@ public:
     bool parseResponseData(const QVector<QByteArray>& data, QString& outMessage, QVariant& outParsedData) const override;
 };
 
+// Factory_Number
+
+class Factory_Number : public ConcretePPBCommand<TechCommand::Factory_Number, 1>  // ожидаем 1 пакет данных
+{
+public:
+    void onDataReceived(CommandInterface* comm, const QVector<QByteArray>& data) const override;
+    bool parseResponseData(const QVector<QByteArray>& data,
+                           QString& outMessage,
+                           QVariant& outParsedData) const override;
+};
+
 class CommandFactory {
 public:
     static std::unique_ptr<PPBCommand> create(TechCommand cmd);

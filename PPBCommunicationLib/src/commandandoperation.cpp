@@ -20,6 +20,7 @@ std::unique_ptr<PPBCommand> CommandFactory::create(TechCommand cmd) {
     case TechCommand::PRBS_S2M: return std::make_unique<PRBS_S2MCommand>();
     case TechCommand::BER_T: return std::make_unique<BER_TCommand>();
     case TechCommand::BER_F: return std::make_unique<BER_FCommand>();
+    case TechCommand::Factory_Number: return std::make_unique<Factory_Number>();
     default: return nullptr;
     }
 }
@@ -38,6 +39,7 @@ QString CommandFactory::commandName(TechCommand cmd) {
                                                      {TechCommand::PRBS_S2M, "Выдать тестовую последовательность"},
                                                      {TechCommand::BER_T, "Коэффициент ошибок линии ТУ"},
                                                      {TechCommand::BER_F, "Коэффициент ошибок линии ФУ"},
+                                                     { TechCommand::Factory_Number, "Выдать заводской номер устройства (0x1F)" }
                                                      };
     return names.value(cmd, "Неизвестная команда");
 }
@@ -449,3 +451,49 @@ void VolumeCommand::onOkReceived(CommandInterface* comm, uint16_t address) const
     comm->completeCurrentOperation(true, "Том ПО отправлен");
 }
 
+// ++++++++Factory_Number+++++++++++
+bool Factory_Number::parseResponseData(const QVector<QByteArray>& data,
+                                   QString& outMessage,
+                                   QVariant& outParsedData) const
+{
+    if (data.isEmpty()) {
+        outMessage = "Нет данных от команды 0x1F";
+        return false;
+    }
+
+    const QByteArray& packet = data.first();
+    // Предположим, что данные – это просто строка или число.
+    // Здесь нужно распарсить согласно протоколу.
+    // Например, если это 2 байта:
+    if (packet.size() < 2) {
+        outMessage = "Недостаточно данных";
+        return false;
+    }
+
+    uint16_t value = 0;
+    memcpy(&value, packet.constData(), 2);
+    // При необходимости преобразовать порядок байт:
+    // value = qFromBigEndian(value);
+
+    outMessage = QString("Результат команды 0x1F: 0x%1 (%2)").arg(value, 4, 16, QChar('0')).arg(value);
+
+    QVariantMap extra;
+    extra["value"] = value;
+    outParsedData = extra;
+    return true;
+}
+
+void Factory_Number::onDataReceived(CommandInterface* comm, const QVector<QByteArray>& data) const
+{
+    if (!comm) return;
+
+    QString msg;
+    QVariant parsed;
+    if (parseResponseData(data, msg, parsed)) {
+        comm->setParseResult(true, msg);
+        comm->setParseData(parsed);
+    } else {
+        comm->setParseResult(false, msg);
+    }
+    // Если нужно, можно также эмитировать сигнал для лога через comm
+}

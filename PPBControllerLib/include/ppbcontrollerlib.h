@@ -17,7 +17,7 @@ public:
     void requestStatus(uint16_t address) override;
     void resetPPB(uint16_t address) override;
     void setGeneratorParameters(uint16_t address, uint32_t duration, uint8_t duty, uint32_t delay) override;
-    void setFUReceive(uint16_t address, uint8_t period = 0) override;
+    void setFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle) override;
     void setFUTransmit(uint16_t address) override;
     void startPRBS_M2S(uint16_t address) override;
     void startPRBS_S2M(uint16_t address) override;
@@ -41,7 +41,7 @@ public:
     void saveReceivedPackets(const QVector<DataPacket>& packets) override;
     void saveSentPackets(const QVector<DataPacket>& packets) override;
     void setCommunication(ICommunication* communication) override;
-
+    void requestFabricNumber(uint16_t address) override;
 
     // ====================AKIP===============================================================================
 public:

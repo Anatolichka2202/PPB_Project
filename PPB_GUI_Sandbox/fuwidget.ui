@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>309</width>
-    <height>168</height>
+    <width>1234</width>
+    <height>688</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -26,7 +26,7 @@
       <string>Режим и параметры  ФУ</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_6">
-      <item row="0" column="1">
+      <item row="0" column="4">
        <widget class="QLineEdit" name="lineEditPulseDuration">
         <property name="maximumSize">
          <size>
@@ -35,21 +35,54 @@
          </size>
         </property>
         <property name="text">
-         <string>27000</string>
+         <string>1</string>
         </property>
        </widget>
       </item>
       <item row="2" column="1">
-       <widget class="QRadioButton" name="radioButtonFUTransmit">
-        <property name="text">
-         <string>ФУ передача</string>
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Orientation::Horizontal</enum>
         </property>
-       </widget>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
       </item>
       <item row="0" column="0">
        <widget class="QLabel" name="label_impulse">
         <property name="text">
-         <string>Длительность импульса(мкс):</string>
+         <string>длительность импульса в 1, мкс</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_PulseDelay">
+        <property name="text">
+         <string>длительность скважности, мкс</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="4">
+       <widget class="QLineEdit" name="lineEditPulseDelay">
+        <property name="maximumSize">
+         <size>
+          <width>100</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>1</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="4">
+       <widget class="QRadioButton" name="radioButtonFUTransmit">
+        <property name="text">
+         <string>ФУ передача</string>
         </property>
        </widget>
       </item>
@@ -63,25 +96,25 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_PulseDelay">
+      <item row="2" column="2">
+       <widget class="QPushButton" name="fuBtnSent">
         <property name="text">
-         <string>Задержка импульса(мкс):</string>
+         <string>отправить ФУ</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="1">
-       <widget class="QLineEdit" name="lineEditPulseDelay">
-        <property name="maximumSize">
+      <item row="2" column="3">
+       <spacer name="horizontalSpacer_2">
+        <property name="orientation">
+         <enum>Qt::Orientation::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
          <size>
-          <width>100</width>
-          <height>16777215</height>
+          <width>40</width>
+          <height>20</height>
          </size>
         </property>
-        <property name="text">
-         <string>0</string>
-        </property>
-       </widget>
+       </spacer>
       </item>
      </layout>
     </widget>

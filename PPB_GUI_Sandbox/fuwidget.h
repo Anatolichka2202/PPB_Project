@@ -54,10 +54,12 @@ signals:
  * Испускается при переключении радиокнопок.
  */
     void modeChanged(bool transmit);
-
+    void sendFuCommand(bool transmit, uint16_t pulseDuration, uint16_t dutyCycle);
 private slots:
     void onTransmitToggled(bool checked);
     void onReceiveToggled(bool checked);
+
+    void on_fuBtnSent_clicked();
 
 private:
     Ui::FuWidget *ui;

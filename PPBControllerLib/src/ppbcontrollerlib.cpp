@@ -180,14 +180,20 @@ void PPBController::setGeneratorParameters(uint16_t address, uint32_t duration, 
     // Здесь должна быть отправка команды, но в оригинале нет реализации
 }
 
-void PPBController::setFUReceive(uint16_t address, uint8_t period)
+void PPBController::setFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle)
 {
     if (m_communication && !m_communication->isBusy()) {
-        m_communication->sendFUReceive(address, period);
-        LOG_UI_RESULT(QString("Режим ФУ прием для ППБ %1").arg(address));
+        uint8_t period = (duration >> 8) & 0xFF;
+        uint8_t fuData[3] = {
+            static_cast<uint8_t>(duration & 0xFF),
+            static_cast<uint8_t>((dutyCycle >> 8) & 0xFF),
+            static_cast<uint8_t>(dutyCycle & 0xFF)
+        };
+        m_communication->sendFUReceive(address, period, fuData);
+        LOG_UI_RESULT(QString("Режим ФУ прием для ППБ %1: длит=%2, скв=%3")
+                          .arg(address).arg(duration).arg(dutyCycle));
     }
 }
-
 void PPBController::setFUTransmit(uint16_t address)
 {
     if (m_communication && !m_communication->isBusy()) {
@@ -322,6 +328,13 @@ void PPBController::onAutoPollTimeout()
     if (m_autoPollEnabled && m_communication &&
         m_communication->state() == PPBState::Ready && m_currentAddress != 0) {
         requestStatus(m_currentAddress);
+    }
+}
+
+void PPBController::requestFabricNumber(uint16_t address) {
+    if (m_communication) {
+        m_communication->executeCommand(TechCommand::Factory_Number, address);
+        LOG_UI_OPERATION(QString("Запрос заводского номера ППБ %1").arg(address));
     }
 }
 

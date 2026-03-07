@@ -67,6 +67,8 @@ void PPBController::connectCommunicationSignals()
 
     connect(m_communication, &ICommunication::clearPacketDataRequested,
             this, &PPBController::onClearPacketDataRequested, Qt::QueuedConnection);
+    connect(m_communication, &ICommunication::commandDataParsed,
+            this, &PPBController::onCommandDataParsed, Qt::QueuedConnection);
 }
 
 PPBController::PPBController(ICommunication* communication, PacketAnalyzerInterface* analyzer, QObject *parent)
@@ -234,6 +236,22 @@ void PPBController::stopAutoPoll()
     m_autoPollTimer->stop();
     emit autoPollToggled(false);
     LOG_UI_RESULT("Автоопрос выключен");
+}
+
+void PPBController::onCommandDataParsed(uint16_t address, const QVariant& data, TechCommand command)
+{
+    int index = addressToIndex(address);
+    if (index < 0) return;
+
+    if (command == TechCommand::Factory_Number) {
+        QVariantMap map = data.toMap();
+        if (map.contains("value")) {
+            m_ppbStates[index].factoryNumber = map["value"].toUInt();
+            emit fullStateUpdated(index);
+            LOG_UI_RESULT(QString("Заводской номер ППБ%1: %2").arg(index+1).arg(m_ppbStates[index].factoryNumber));
+        }
+    }
+    // Можно добавить обработку других команд (VERS, CHECKSUM и т.д.) по аналогии
 }
 
 PPBState PPBController::connectionState() const

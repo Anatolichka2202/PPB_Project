@@ -85,6 +85,8 @@ private slots:
     void onAnalyzerAnalysisProgress(int percent);
     void onAnalyzerAnalysisComplete(const QString& summary);
     void onAnalyzerDetailedResultsReady(const QVariantMap& results);
+    void onCommandDataParsed(uint16_t address, const QVariant& data, TechCommand command);
+
 
 signals:
     void fullStateUpdated(uint8_t ppbIndex);

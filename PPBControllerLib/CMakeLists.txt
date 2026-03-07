@@ -41,6 +41,7 @@ set(LIB_PUBLIC_HEADERS
 add_library(${PROJECT_NAME} STATIC
     ${LIB_SOURCES}
     ${LIB_PUBLIC_HEADERS}
+    include/ppbstate.h
 
 )
 

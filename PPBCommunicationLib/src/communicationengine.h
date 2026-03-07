@@ -14,6 +14,7 @@
 #include "commandandoperation.h"
 #include "iprotocol_adapter.h"
 
+
 namespace Internal {
 class StateManager : public QObject {       //управляет состоянием для каждого адреса
     Q_OBJECT
@@ -68,6 +69,8 @@ private:
 };
 
 } // namespace Internal, хранение и управление очередями и состояниями по каждому адресу, используется движком
+
+
 
 class communicationengine : public QObject
 {
@@ -137,6 +140,25 @@ private:
         }
     };
 
+    class DataCommand : public PPBCommand {
+    public:
+        DataCommand(TechCommand cmd, const QByteArray& data)
+            : m_cmd(cmd), m_data(data) {}
+        TechCommand commandId() const override { return m_cmd; }
+        QString name() const override { return CommandFactory::commandName(m_cmd); }
+        QByteArray buildRequest(uint16_t address) const override {
+            QByteArray base = PacketBuilder::createTURequest(address, m_cmd);
+            QByteArray payload = m_data;
+            if (payload.size() < 12) payload.resize(12, 0); // для TC всегда 12 байт
+            return base + payload;
+        }
+        int expectedResponsePackets() const override { return 0; } // TC не возвращает данные
+        int timeoutMs() const override { return PPBConstants::OPERATION_TIMEOUT_MS; }
+    private:
+        TechCommand m_cmd;
+        QByteArray m_data;
+    };
+
 public:
     void completeOperation(uint16_t address, bool success, const QString& message);  // Универсальное завершение операции (успешное или с ошибкой)
     explicit communicationengine(UDPClient* udpClient, std::unique_ptr<IProtocolAdapter> adapter, QObject* parent = nullptr);
@@ -153,6 +175,7 @@ public slots:
     bool connectToPPB(uint16_t address, const QString& ip, quint16 port);
     void disconnect();
     void executeCommand(TechCommand cmd, uint16_t address);
+    void executeCommand(TechCommand cmd, uint16_t address, const QByteArray& data);
 
 
     // ФУ команды

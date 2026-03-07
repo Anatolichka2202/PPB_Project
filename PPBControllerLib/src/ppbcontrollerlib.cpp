@@ -4,7 +4,7 @@
 #include <QDebug>
 #include <QThread>
 #include <QtEndian>
-
+#include "ds18b20.h"
 static struct MetaTypeRegistrar {
     MetaTypeRegistrar() {
         qRegisterMetaType<PPBState>();
@@ -85,10 +85,6 @@ PPBController::PPBController(ICommunication* communication, PacketAnalyzerInterf
     m_autoPollTimer->setInterval(5000);
     connect(m_autoPollTimer, &QTimer::timeout, this, &PPBController::onAutoPollTimeout);
 
-    // Инициализируем карты состояний
-    m_channel1States.clear();
-    m_channel2States.clear();
-
     // Подключаем сигналы анализатора
     if (m_packetAnalyzer) {
         connect(m_packetAnalyzer, &PacketAnalyzerInterface::analysisStarted,
@@ -165,12 +161,12 @@ void PPBController::requestStatus(uint16_t address)
     LOG_UI_OPERATION(QString("Запрос статуса ППБ %1").arg(address));
 }
 
-void PPBController::resetPPB(uint16_t address)
+void PPBController::resetPPB(uint16_t address, const TCDataPayload& payload)
 {
-    if (m_communication) {
-        m_communication->executeCommand(TechCommand::TC, address);
-    }
-    LOG_UI_OPERATION(QString("Сброс ППБ %1").arg(address));
+    // Старая реализация: просто отправляем то, что пришло (не используем состояние)
+    QByteArray data(reinterpret_cast<const char*>(&payload), sizeof(payload));
+    if (data.size() < 12) data.resize(12, 0);
+    m_communication->executeCommand(TechCommand::TC, address, data);
 }
 
 void PPBController::setGeneratorParameters(uint16_t address, uint32_t duration, uint8_t duty, uint32_t delay)
@@ -257,13 +253,30 @@ bool PPBController::isAutoPollEnabled() const
 
 UIChannelState PPBController::getChannelState(uint8_t ppbIndex, int channel) const
 {
-    if (channel == 1) {
-        return m_channel1States.value(ppbIndex);
-    } else {
-        return m_channel2States.value(ppbIndex);
-    }
-}
+    UIChannelState result;
+    auto it = m_ppbStates.find(ppbIndex);
+    if (it == m_ppbStates.end()) return result;
 
+    const auto& state = it.value();
+    if (channel == 1) {
+        result.power = state.ch1.power;
+        result.vswr = state.ch1.vswr;
+        result.isOk = state.ch1.isOk;
+        result.temperature = state.tempT1;
+    } else {
+        result.power = state.ch2.power;
+        result.vswr = state.ch2.vswr;
+        result.isOk = state.ch2.isOk;
+        result.temperature = state.tempT2;
+    }
+    // Копируем общие температуры
+    result.tempT1 = state.tempT1; result.tempT2 = state.tempT2;
+    result.tempT3 = state.tempT3; result.tempT4 = state.tempT4;
+    result.tempV1 = state.tempV1; result.tempV2 = state.tempV2;
+    result.tempOut = state.tempOut; result.tempIn = state.tempIn;
+
+    return result;
+}
 // ==================== СЛОТЫ ====================
 
 void PPBController::onStatusReceived(uint16_t address, uint16_t mask, const QVector<QByteArray>& data)
@@ -531,131 +544,93 @@ void PPBController::showPacketsTable(const QString& title, const QVector<DataPac
 
 void PPBController::processStatusData(uint16_t address, uint16_t mask, const QVector<QByteArray>& data)
 {
-    if (data.size() < 1) {
-        LOG_TECH_STATE("processStatusData: нет данных");
-        return;
-    }
+    int index = addressToIndex(address);
+    if (index < 0) return;
 
-    int index = -1;
-    switch (address) {
-    case 0x0001: index = 0; break;
-    case 0x0002: index = 1; break;
-    case 0x0004: index = 2; break;
-    case 0x0008: index = 3; break;
-    case 0x0010: index = 4; break;
-    case 0x0020: index = 5; break;
-    case 0x0040: index = 6; break;
-    case 0x0080: index = 7; break;
-    default:
-        LOG_TECH_STATE("processStatusData: неизвестный адрес " + QString::number(address, 16));
-        return;
-    }
+    PPBFullState& state = m_ppbStates[index];
+    state.addressMask = address;
+    state.statusMask = mask;
 
-    // Инициализация с дефолтными значениями (все поля как "нет данных")
-    UIChannelState ch1, ch2;
-    ch1.isOk = false;
-    ch2.isOk = false;
-    ch1.power = 0.0f;
-    ch2.power = 0.0f;
-    ch1.temperature = 0.0f;
-    ch2.temperature = 0.0f;
-    ch1.vswr = 1.0f;
-    ch2.vswr = 1.0f;
-    // остальные поля тоже обнуляем
-
-    // Проходим по битам маски (бит 0 соответствует первому пакету после маски)
     int packetIdx = 0;
-    for (int bit = 0; bit < 9; ++bit) {
+    // Биты 0..12 (всего 13)
+    for (int bit = 0; bit <= 12; ++bit) {
         if (!(mask & (1 << bit))) continue;
         if (packetIdx >= data.size()) break;
 
         const QByteArray& pkt = data[packetIdx];
         packetIdx++;
-
         if (pkt.size() < 2) continue;
 
         switch (bit) {
-        case 0: // флаги состояния каналов
-        {
-            uint8_t flags1 = static_cast<uint8_t>(pkt.at(0));
-            uint8_t flags2 = static_cast<uint8_t>(pkt.at(1));
-            ch1.isOk = (flags1 != 0);
-            ch2.isOk = (flags2 != 0);
+        case 0: // Flags
+            state.ch1.isOk = (static_cast<uint8_t>(pkt[0]) != 0);
+            state.ch2.isOk = (static_cast<uint8_t>(pkt[1]) != 0);
             break;
-        }
-        case 1: // мощность канала 1
-        {
-            uint16_t code =  qFromBigEndian<uint16_t>(pkt.constData());
-            ch1.power = DataConverter::codeToPower(code);
+        case 1: // Мощность канала 1
+            state.ch1.power = DataConverter::codeToPower(qFromBigEndian<uint16_t>(pkt.constData()));
             break;
-        }
-        case 2: // мощность канала 2
-        {
-            uint16_t code =  qFromBigEndian<uint16_t>(pkt.constData());
-            ch2.power = DataConverter::codeToPower(code);
+        case 2: // Мощность канала 2
+            state.ch2.power = DataConverter::codeToPower(qFromBigEndian<uint16_t>(pkt.constData()));
             break;
-        }
-        case 3: // температуры t1, t2
-        {
-            ch1.tempT1 = DataConverter::codeToTemperature(static_cast<int8_t>(pkt.at(0)));
-            ch1.tempT2 = DataConverter::codeToTemperature(static_cast<int8_t>(pkt.at(1)));
+        case 3: // Температура t1
+            state.tempT1 = ds18b20::convert(qFromBigEndian<int16_t>(pkt.constData()));
             break;
-        }
-        case 4: // температуры t3, t4
-        {
-            ch1.tempT3 = DataConverter::codeToTemperature(static_cast<int8_t>(pkt.at(0)));
-            ch1.tempT4 = DataConverter::codeToTemperature(static_cast<int8_t>(pkt.at(1)));
+        case 4: // Температура t2
+            state.tempT2 = ds18b20::convert(qFromBigEndian<int16_t>(pkt.constData()));
             break;
-        }
-        case 5: // температуры v1, v2
-        {
-            ch1.tempV1 = DataConverter::codeToTemperature(static_cast<int8_t>(pkt.at(0)));
-            ch1.tempV2 = DataConverter::codeToTemperature(static_cast<int8_t>(pkt.at(1)));
+        case 5: // Температура t3
+            state.tempT3 = ds18b20::convert(qFromBigEndian<int16_t>(pkt.constData()));
             break;
-        }
-        case 6: // температуры out, in
-        {
-            ch1.tempOut = DataConverter::codeToTemperature(static_cast<int8_t>(pkt.at(0)));
-            ch1.tempIn  = DataConverter::codeToTemperature(static_cast<int8_t>(pkt.at(1)));
+        case 6: // Температура t4
+            state.tempT4 = ds18b20::convert(qFromBigEndian<int16_t>(pkt.constData()));
             break;
-        }
-        case 7: // КСВН канала 1
-        {
-            uint16_t code =  qFromBigEndian<uint16_t>(pkt.constData());
-            ch1.vswr = DataConverter::codeToVSWR(code);
+        case 7: // Температура v1
+            state.tempV1 = ds18b20::convert(qFromBigEndian<int16_t>(pkt.constData()));
             break;
-        }
-        case 8: // КСВН канала 2
-        {
-            uint16_t code =  qFromBigEndian<uint16_t>(pkt.constData());
-            ch2.vswr = DataConverter::codeToVSWR(code);
+        case 8: // Температура v2
+            state.tempV2 = ds18b20::convert(qFromBigEndian<int16_t>(pkt.constData()));
             break;
-        }
+        case 9: // Температура in
+            state.tempIn = ds18b20::convert(qFromBigEndian<int16_t>(pkt.constData()));
+            break;
+        case 10: // Температура out
+            state.tempOut = ds18b20::convert(qFromBigEndian<int16_t>(pkt.constData()));
+            break;
+        case 11: // КСВН канала 1
+            state.ch1.vswr = DataConverter::codeToVSWR(qFromBigEndian<uint16_t>(pkt.constData()));
+            break;
+        case 12: // КСВН канала 2
+            state.ch2.vswr = DataConverter::codeToVSWR(qFromBigEndian<uint16_t>(pkt.constData()));
+            break;
         default:
             break;
         }
     }
 
-    // Копируем общие температуры из канала 1 в канал 2 (они общие для ППБ)
-    ch2.tempT1 = ch1.tempT1;
-    ch2.tempT2 = ch1.tempT2;
-    ch2.tempT3 = ch1.tempT3;
-    ch2.tempT4 = ch1.tempT4;
-    ch2.tempV1 = ch1.tempV1;
-    ch2.tempV2 = ch1.tempV2;
-    ch2.tempOut = ch1.tempOut;
-    ch2.tempIn  = ch1.tempIn;
+    // Эмитируем старые сигналы для совместимости
+    UIChannelState ch1UI, ch2UI;
+    ch1UI.power = state.ch1.power;
+    ch1UI.vswr = state.ch1.vswr;
+    ch1UI.isOk = state.ch1.isOk;
+    ch1UI.temperature = state.tempT1;
+    ch1UI.tempT1 = state.tempT1; ch1UI.tempT2 = state.tempT2;
+    ch1UI.tempT3 = state.tempT3; ch1UI.tempT4 = state.tempT4;
+    ch1UI.tempV1 = state.tempV1; ch1UI.tempV2 = state.tempV2;
+    ch1UI.tempOut = state.tempOut; ch1UI.tempIn = state.tempIn;
 
-    // Сохраняем состояния
-    m_channel1States[index] = ch1;
-    m_channel2States[index] = ch2;
+    ch2UI.power = state.ch2.power;
+    ch2UI.vswr = state.ch2.vswr;
+    ch2UI.isOk = state.ch2.isOk;
+    ch2UI.temperature = state.tempT2;
+    ch2UI.tempT1 = state.tempT1; ch2UI.tempT2 = state.tempT2;
+    ch2UI.tempT3 = state.tempT3; ch2UI.tempT4 = state.tempT4;
+    ch2UI.tempV1 = state.tempV1; ch2UI.tempV2 = state.tempV2;
+    ch2UI.tempOut = state.tempOut; ch2UI.tempIn = state.tempIn;
 
-    emit channelStateUpdated(index, 1, ch1);
-    emit channelStateUpdated(index, 2, ch2);
-
-    LOG_TECH_STATE(QString("Статус ППБ%1 обновлен (маска 0x%2)").arg(index + 1).arg(mask, 4, 16, QChar('0')));
+    emit channelStateUpdated(index, 1, ch1UI);
+    emit channelStateUpdated(index, 2, ch2UI);
+    emit fullStateUpdated(index);
 }
-
 
 QString PPBController::commandToName(TechCommand command) const
 {
@@ -764,8 +739,7 @@ void PPBController::setCommunication(ICommunication* communication)
         m_communication = nullptr;
 
         m_currentAddress = 0;
-        m_channel1States.clear();
-        m_channel2States.clear();
+
 
         emit connectionStateChanged(PPBState::Idle);
         LOG_TECH_STATE("Коммуникационный объект заменен");
@@ -793,6 +767,56 @@ void PPBController::setCommunication(ICommunication* communication)
     }
 }
 
+void PPBController::setChannelPower(uint8_t ppbIndex, int channel, float watts)
+{
+    auto& state = m_ppbStates[ppbIndex];
+    if (channel == 1)
+        state.ch1.power = watts;
+    else if (channel == 2)
+        state.ch2.power = watts;
+    else
+        return;
+    emit fullStateUpdated(ppbIndex);
+}
+
+void PPBController::setFuBlocked(uint8_t ppbIndex, bool blocked)
+{
+    m_ppbStates[ppbIndex].fuBlocked = blocked;
+    emit fullStateUpdated(ppbIndex);
+}
+
+void PPBController::setRebootRequested(uint8_t ppbIndex, bool reboot)
+{
+    m_ppbStates[ppbIndex].rebootRequested = reboot;
+    emit fullStateUpdated(ppbIndex);
+}
+
+void PPBController::setResetErrors(uint8_t ppbIndex, bool reset)
+{
+    m_ppbStates[ppbIndex].resetErrors = reset;
+    emit fullStateUpdated(ppbIndex);
+}
+
+void PPBController::sendTC(uint16_t address)
+{
+    int index = addressToIndex(address);
+    if (index < 0) return;
+    const auto& state = m_ppbStates[index];
+
+    TCDataPayload payload = {};  // инициализация нулями (обнуляет reserved)
+    payload.power1 = qToBigEndian(DataConverter::powerToCode(state.ch1.power));
+    payload.power2 = qToBigEndian(DataConverter::powerToCode(state.ch2.power));
+    payload.stateMask = 0;
+    if (state.fuBlocked) payload.stateMask |= 0x01;
+    if (state.rebootRequested) payload.stateMask |= 0x02;
+    if (state.resetErrors) payload.stateMask |= 0x04;
+    // reserved уже нули
+
+    QByteArray data(reinterpret_cast<const char*>(&payload), sizeof(payload));
+    if (data.size() < 12) data.resize(12, 0);
+    m_communication->executeCommand(TechCommand::TC, address, data);
+}
+
 void PPBController::setCurrentAddress(uint16_t address)
 {
     if (m_currentAddress != address) {
@@ -802,6 +826,13 @@ void PPBController::setCurrentAddress(uint16_t address)
         m_currentAddress = address;
     }
 }
+
+PPBFullState PPBController::getFullState(uint8_t ppbIndex) const
+{
+    return m_ppbStates.value(ppbIndex);
+}
+
+
 //++++++++++++++++++++++++++++++++++AKIP++++++++++++++++++++++++++++++++++++++++
 void PPBController::setAkipInterface(IAkipController* akip)
 {

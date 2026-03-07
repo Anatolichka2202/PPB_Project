@@ -15,7 +15,7 @@ public:
     void connectToPPB(uint16_t address, const QString& ip, quint16 port) override;
     void disconnect() override;
     void requestStatus(uint16_t address) override;
-    void resetPPB(uint16_t address) override;
+    void resetPPB(uint16_t address, const TCDataPayload& payload) override;
     void setGeneratorParameters(uint16_t address, uint32_t duration, uint8_t duty, uint32_t delay) override;
     void setFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle) override;
     void setFUTransmit(uint16_t address) override;
@@ -42,6 +42,14 @@ public:
     void saveSentPackets(const QVector<DataPacket>& packets) override;
     void setCommunication(ICommunication* communication) override;
     void requestFabricNumber(uint16_t address) override;
+
+public:
+    void setChannelPower(uint8_t ppbIndex, int channel, float watts);
+    void setFuBlocked(uint8_t ppbIndex, bool blocked);
+    void setRebootRequested(uint8_t ppbIndex, bool reboot);
+    void setResetErrors(uint8_t ppbIndex, bool reset);
+    void sendTC(uint16_t address);
+    PPBFullState getFullState(uint8_t ppbIndex) const;
 
     // ====================AKIP===============================================================================
 public:
@@ -78,6 +86,9 @@ private slots:
     void onAnalyzerAnalysisComplete(const QString& summary);
     void onAnalyzerDetailedResultsReady(const QVariantMap& results);
 
+signals:
+    void fullStateUpdated(uint8_t ppbIndex);
+
 private:
     void connectCommunicationSignals();
     void processStatusData(uint16_t address, uint16_t mask, const QVector<QByteArray>& data);
@@ -90,12 +101,20 @@ private:
     PacketAnalyzerInterface* m_packetAnalyzer;
     QTimer* m_autoPollTimer;
     bool m_autoPollEnabled;
-    QMap<uint8_t, UIChannelState> m_channel1States;
-    QMap<uint8_t, UIChannelState> m_channel2States;
+    QMap<uint8_t, PPBFullState> m_ppbStates;
     uint16_t m_currentAddress;
     bool busy;
     QVector<DataPacket> m_lastSentPackets;
     QVector<DataPacket> m_lastReceivedPackets;
+
+
+    int addressToIndex(uint16_t address) const
+    {
+        for (int i = 0; i < 16; ++i) {
+            if (address == (1 << i)) return i;
+        }
+        return -1;
+    }
 };
 
 #endif // PPBCONTROLLERLIB_H

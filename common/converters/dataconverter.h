@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <QString>
-
+#include "ds18b20.h"
 //тест преобразования
 class DataConverter
 {

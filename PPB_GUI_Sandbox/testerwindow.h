@@ -46,7 +46,7 @@ private slots:
  * @{
  */
     void onPollStatusClicked();          ///< Запрос статуса (от устаревшей кнопки)
-    void onResetClicked();               ///< Сброс (устаревшая кнопка)
+    //void onResetClicked();               ///< Сброс (устаревшая кнопка)
     void onApplyParametersClicked();     ///< Применить параметры АКИПа на ФУ
     void onAutoPollToggled(bool checked);///< Переключение автоопроса
     void onTestSequenceClicked();        ///< Запуск полного теста

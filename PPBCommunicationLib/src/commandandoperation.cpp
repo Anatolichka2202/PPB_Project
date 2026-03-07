@@ -9,7 +9,7 @@
 std::unique_ptr<PPBCommand> CommandFactory::create(TechCommand cmd) {
     switch (cmd) {
     case TechCommand::TS: return std::make_unique<StatusCommand>();
-    case TechCommand::TC: return std::make_unique<ResetCommand>();
+    //case TechCommand::TC: return std::make_unique<ResetCommand>();
     case TechCommand::VERS: return std::make_unique<VersCommand>();
     case TechCommand::VOLUME: return std::make_unique<VolumeCommand>();
     case TechCommand::CHECKSUM: return std::make_unique<CheckSumCommand>();
@@ -73,10 +73,8 @@ bool StatusCommand::parseResponseData(const QVector<QByteArray>& data,
         packets.append(pkt);
     }
 
-    int expectedPackets = 0;
-    for (int bit = 0; bit < 9; ++bit) {
-        if (mask & (1 << bit)) expectedPackets++;
-    }
+
+    int expectedPackets = qPopulationCount(mask);
 
     if (packets.size() != expectedPackets) {
         outMessage = QString("Предупреждение: количество пакетов (%1) не соответствует маске (%2)")

@@ -18,6 +18,7 @@
 #include "logentry.h"
 #include "logwrapper.h"
 #include "dataconverter.h"
+#include "ppbstate.h"
 #endif
 
 #endif // CONTROLLER_DEPENDENCIES_H

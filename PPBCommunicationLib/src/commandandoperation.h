@@ -128,7 +128,7 @@ public:
 };
 
 // TC команда (использует реализацию по умолчанию)
-using ResetCommand = ConcretePPBCommand<TechCommand::TC, 0>;
+//using ResetCommand = ConcretePPBCommand<TechCommand::TC, 0>;
 
 // VERS команда с переопределенным onDataReceived
 class VersCommand : public ConcretePPBCommand<TechCommand::VERS, PPBConstants::VERS_RESPONSE> {

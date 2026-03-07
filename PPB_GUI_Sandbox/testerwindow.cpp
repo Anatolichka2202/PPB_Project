@@ -41,6 +41,11 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
     m_statusWidgets.reserve(ppbCount);
 
     qDebug() << "Step 3: tabWidget cleared";
+
+    if (ui->controlWidget) {
+        ui->controlWidget->setController(m_controller);
+    }
+
     for (int i = 0; i < ppbCount; ++i) {
         QWidget *tab = new QWidget();
         QHBoxLayout *layout = new QHBoxLayout(tab);
@@ -118,7 +123,7 @@ void TesterWindow::connectSignals()
     connect(ui->controlWidget, &ControlWidget::resetClicked,
             this, [this]() {
                 uint16_t addr = getSelectedAddress();
-                m_controller->resetPPB(addr);
+                m_controller->sendTC(addr);
             });
     connect(ui->controlWidget, &ControlWidget::testSequenceClicked,
             this, &TesterWindow::onTestSequenceClicked);
@@ -180,11 +185,7 @@ void TesterWindow::onPollStatusClicked()
     m_controller->requestStatus(address);
 }
 
-void TesterWindow::onResetClicked()
-{
-    uint16_t address = getSelectedAddress();
-    m_controller->resetPPB(address);
-}
+
 void TesterWindow::onApplyParametersClicked()
 {
     if (!m_controller) return;

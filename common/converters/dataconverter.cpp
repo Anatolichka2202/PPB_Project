@@ -6,16 +6,21 @@
 
 uint16_t DataConverter::powerToCode(float watts)
 {
-    // Заглушка: 1 Вт = 1 код
-    return static_cast<uint16_t>(watts);
+    int integer = static_cast<int>(watts);
+    if (integer > 100) integer = 100;
+    if (integer < 0) integer = 0;
+    int fractional = static_cast<int>((watts - integer) * 100.0f + 0.5f);
+    if (fractional > 99) fractional = 99;
+    if (fractional < 0) fractional = 0;
+    return (static_cast<uint16_t>(integer) << 8) | static_cast<uint16_t>(fractional);
 }
 
 float DataConverter::codeToPower(uint16_t code)
 {
-    // Заглушка: 1 код = 1 Вт
-    return static_cast<float>(code);
+    int integer = (code >> 8) & 0xFF;
+    int fractional = code & 0xFF;
+    return integer + fractional / 100.0f;
 }
-
 int16_t DataConverter::temperatureToCode(float celsius)
 {
     // Заглушка: 1 °C = 1 код

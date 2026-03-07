@@ -133,6 +133,12 @@ void CommunicationFacade::executeCommand(TechCommand cmd, uint16_t address)
     invokeInThread([this, cmd, address]() { m_engine->executeCommand(cmd, address); });
 }
 
+void CommunicationFacade::executeCommand(TechCommand cmd, uint16_t address, const QByteArray& data) {
+    invokeInThread([this, cmd, address, data]() {
+        m_engine->executeCommand(cmd, address, data);
+    });
+}
+
 void CommunicationFacade::sendFUTransmit(uint16_t address)
 {
     invokeInThread([this, address]() { m_engine->sendFUTransmit(address); });

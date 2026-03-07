@@ -36,7 +36,7 @@ public:
     virtual void connectToPPB(uint16_t address, const QString& ip, quint16 port) = 0;
     virtual void disconnect() = 0;
     virtual void requestStatus(uint16_t address) = 0;
-    virtual void resetPPB(uint16_t address) = 0;
+    virtual void resetPPB(uint16_t address, const TCDataPayload& payload) = 0;
     virtual void setGeneratorParameters(uint16_t address, uint32_t duration, uint8_t duty, uint32_t delay) = 0;
     virtual void setFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle) = 0;
     virtual void setFUTransmit(uint16_t address) = 0;

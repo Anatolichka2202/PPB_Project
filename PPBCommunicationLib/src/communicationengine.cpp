@@ -301,6 +301,16 @@ void communicationengine::executeCommand(TechCommand cmd, uint16_t address) {
             }
 }
 
+void communicationengine::executeCommand(TechCommand cmd, uint16_t address, const QByteArray& data) {
+    auto command = std::make_unique<DataCommand>(cmd, data);
+    PPBState currentState = m_stateManager->getState(address);
+    if (currentState != PPBState::Ready && currentState != PPBState::Idle) {
+        m_commandQueue->enqueue(address, std::move(command));
+    } else {
+        executeCommandImmediately(address, std::move(command));
+    }
+}
+
 void communicationengine::sendFUTransmit(uint16_t address) {
     QByteArray packet = m_protocolAdapter->buildFURequest(address,1, 0, nullptr);
     sendPacketInternal(packet, "ФУ передача");

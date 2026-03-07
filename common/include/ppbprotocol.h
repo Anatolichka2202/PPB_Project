@@ -104,6 +104,15 @@ struct PPBStatus {
     bool droppedPackets;
 };
 
+#pragma pack(push, 1)
+struct TCDataPayload {
+    uint16_t power1;      // код мощности канала 1
+    uint16_t power2;      // код мощности канала 2
+    uint8_t stateMask;    // биты: 0 – блокировка, 1 – перезагрузка, 2 – сброс ошибок
+    uint8_t reserved[7];  // резерв до 12 байт (заполняется нулями)
+};
+#pragma pack(pop)
+
 #include <QMetaType>
 #include <QVector>
 

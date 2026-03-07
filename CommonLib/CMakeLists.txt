@@ -13,12 +13,15 @@ set(COMMON_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/../common/include/packetanalyzer_interface.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../common/include/ppbprotocol.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../common/performance/performancemonitor.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../common/converters/ds18b20.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../common/converters/dataconverter.h
 )
 
 # Исходные файлы (.cpp)
 set(COMMON_SOURCES
     ${CMAKE_SOURCE_DIR}/common/converters/dataconverter.cpp
     ${CMAKE_SOURCE_DIR}/common/performance/performancemonitor.cpp
+    ${CMAKE_SOURCE_DIR}/common/converters/ds18b20.cpp
 )
 
 # Добавляем и исходники, и заголовки в библиотеку

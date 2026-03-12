@@ -624,7 +624,7 @@ void communicationengine::completeOperation(uint16_t address, bool success, cons
 
     if (context->currentCommand->commandId() == TechCommand::TS && success) {
         QVariantMap map = context->parsedData.toMap();
-        uint16_t mask = map.value("mask").toUInt();
+        uint32_t mask = map.value("mask").toUInt();
         QVariantList list = map.value("packets").toList();
         QVector<QByteArray> data;
         for (const auto& item : list) {

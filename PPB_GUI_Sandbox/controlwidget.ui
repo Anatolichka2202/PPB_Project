@@ -6,9 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>967</width>
-    <height>598</height>
+    <width>700</width>
+    <height>250</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>700</width>
+    <height>250</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>Form</string>
@@ -26,58 +32,13 @@
       <string>Управление ППБ</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
-      <item row="4" column="3">
-       <widget class="QPushButton" name="pushButtonPollStatus">
-        <property name="minimumSize">
-         <size>
-          <width>0</width>
-          <height>35</height>
-         </size>
-        </property>
-        <property name="text">
-         <string>Опрос состояния ППБ</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QLabel" name="label">
-        <property name="text">
-         <string>Выбор ППБ:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="2">
-       <widget class="QComboBox" name="comboBoxPPBSelect">
-        <item>
-         <property name="text">
-          <string>ППБ1</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>ППБ2</string>
-         </property>
-        </item>
-       </widget>
-      </item>
-      <item row="6" column="3">
+      <item row="2" column="3">
        <layout class="QGridLayout" name="gridLayout_3">
-        <item row="1" column="2">
-         <widget class="QLabel" name="label_power_set_up_ch2">
-          <property name="text">
-           <string>Установка мощности канал 2</string>
-          </property>
-         </widget>
-        </item>
         <item row="2" column="0">
          <widget class="QLineEdit" name="power_set_up_ch1"/>
         </item>
-        <item row="3" column="2">
-         <widget class="QCheckBox" name="isReboot">
-          <property name="text">
-           <string>Перезагрузить?</string>
-          </property>
-         </widget>
+        <item row="2" column="2">
+         <widget class="QLineEdit" name="power_set_up_ch2"/>
         </item>
         <item row="3" column="0">
          <widget class="QCheckBox" name="disactiveFu">
@@ -93,6 +54,13 @@
           </property>
          </widget>
         </item>
+        <item row="3" column="2">
+         <widget class="QCheckBox" name="isReboot">
+          <property name="text">
+           <string>Перезагрузить?</string>
+          </property>
+         </widget>
+        </item>
         <item row="4" column="0">
          <widget class="QCheckBox" name="isreseterror">
           <property name="text">
@@ -100,20 +68,38 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="2">
-         <widget class="QLineEdit" name="power_set_up_ch2"/>
+        <item row="1" column="2">
+         <widget class="QLabel" name="label_power_set_up_ch2">
+          <property name="text">
+           <string>Установка мощности канал 2</string>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>
-      <item row="8" column="1" colspan="2">
-       <widget class="QCheckBox" name="checkBoxAutoPoll">
+      <item row="1" column="2">
+       <widget class="QComboBox" name="comboBoxPPBSelect">
+        <item>
+         <property name="text">
+          <string>ППБ1</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>ППБ2</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label">
         <property name="text">
-         <string>Автоопрос (5 сек)</string>
+         <string>Выбор ППБ:</string>
         </property>
        </widget>
       </item>
-      <item row="5" column="3">
-       <widget class="QPushButton" name="pushButtonReset">
+      <item row="1" column="3">
+       <widget class="QPushButton" name="pushButtonPollStatus">
         <property name="minimumSize">
          <size>
           <width>0</width>
@@ -121,11 +107,18 @@
          </size>
         </property>
         <property name="text">
-         <string>Сброс</string>
+         <string>Опрос состояния ППБ</string>
         </property>
        </widget>
       </item>
-      <item row="8" column="3">
+      <item row="1" column="4">
+       <widget class="QCheckBox" name="checkBoxAutoPoll">
+        <property name="text">
+         <string>Автоопрос (5 сек)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="4">
        <widget class="QPushButton" name="pushButtonTestSequence">
         <property name="minimumSize">
          <size>
@@ -135,6 +128,19 @@
         </property>
         <property name="text">
          <string>Тест последовательность </string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="2">
+       <widget class="QPushButton" name="pushButtonReset">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>35</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>отправить ТС</string>
         </property>
        </widget>
       </item>

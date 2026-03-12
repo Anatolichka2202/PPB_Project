@@ -72,7 +72,7 @@ private slots:
     void onControllerConnectionStateChanged(PPBState state);        ///< Изменение состояния подключения
     void onControllerStatusReceived(uint16_t address, const QVector<QByteArray>& data); ///< Получен статус
     void onControllerErrorOccurred(const QString& error);           ///< Ошибка
-    void onControllerChannelStateUpdated(uint8_t ppbIndex, int channel, const UIChannelState& state); ///< Обновление канала
+
     void onOperationProgress(int current, int total, const QString& operation); ///< Прогресс
     void onOperationCompleted(bool success, const QString& message);///< Завершение операции
     void onControllerBusyChanged(bool busy);                         ///< Изменение занятости

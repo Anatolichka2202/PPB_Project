@@ -1,6 +1,6 @@
 #include "pult.h"
 #include "ui_pult.h"
-
+#include <QString>
 #include "dependencies.h"
 
 #include <QTimer>
@@ -37,7 +37,7 @@ pult::pult(uint16_t address, PPBController* controller, QWidget *parent)
             this, &pult::onAnalysisProgress);
     connect(m_controller, &PPBController::analysisComplete,
             this, &pult::onAnalysisComplete);
-    // **ВАЖНО**: подключаем новый сигнал fullStateUpdated
+    // подключаем новый сигнал fullStateUpdated
     connect(m_controller, &PPBController::fullStateUpdated,
             this, &pult::onFullStateUpdated);
 
@@ -116,7 +116,9 @@ void pult::on_TCCommand_clicked()
 void pult::onPower1Changed(const QString& text)
 {
     bool ok;
-    float watts = text.toFloat(&ok);
+    QString normalized = QString(text).replace(',', '.');
+    float watts = normalized.toFloat(&ok);
+
     if (ok && m_controller) {
         int index = getPpbIndex();
         if (index >= 0)
@@ -127,7 +129,9 @@ void pult::onPower1Changed(const QString& text)
 void pult::onPower2Changed(const QString& text)
 {
     bool ok;
-    float watts = text.toFloat(&ok);
+    QString normalized = QString(text).replace(',', '.');
+    float watts = normalized.toFloat(&ok);
+
     if (ok && m_controller) {
         int index = getPpbIndex();
         if (index >= 0)

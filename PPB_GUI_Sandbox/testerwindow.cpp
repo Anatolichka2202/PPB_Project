@@ -56,6 +56,12 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
 
         ui->tabWidget->addTab(tab, QString("ППБ%1").arg(i + 1));
         m_statusWidgets.append(status);
+        connect(m_controller, &PPBController::fullStateUpdated,
+                this, [this, i](uint8_t index) {
+                    if (index == i) {
+                        m_statusWidgets[i]->updateState(m_controller->getFullState(index), m_displayAsCodes);
+                    }
+                });
     }
 
     m_stackedAkip = findChild<QStackedWidget*>("stackedAkip");
@@ -161,8 +167,7 @@ void TesterWindow::connectSignals()
             this, &TesterWindow::onControllerStatusReceived);
     connect(m_controller, &PPBController::errorOccurred,
             this, &TesterWindow::onControllerErrorOccurred);
-    connect(m_controller, &PPBController::channelStateUpdated,
-            this, &TesterWindow::onControllerChannelStateUpdated);
+
     connect(m_controller, &PPBController::autoPollToggled,
             ui->controlWidget, &ControlWidget::setAutoPollChecked);
     connect(m_controller, &PPBController::operationProgress,
@@ -277,23 +282,7 @@ void TesterWindow::onControllerErrorOccurred(const QString& error)
     LOG_TECH_DEBUG("Window: Обработана ошибка: " + error);
 }
 
-void TesterWindow::onControllerChannelStateUpdated(uint8_t ppbIndex, int channel, const UIChannelState& state)
-{
-    if (ppbIndex >= static_cast<uint8_t>(m_statusWidgets.size())) {
-        LOG_UI_ALERT(QString("onControllerChannelStateUpdated: ppbIndex %1 вне диапазона").arg(ppbIndex));
-        return;
-    }
-    StatusWidget* widget = m_statusWidgets[ppbIndex];
-    if (!widget) {
-        LOG_UI_ALERT(QString("onControllerChannelStateUpdated: widget для ppbIndex %1 равен nullptr").arg(ppbIndex));
-        return;
-    }
-    if (channel == 1) {
-        widget->setChannel1State(state, m_displayAsCodes);
-    } else if (channel == 2) {
-        widget->setChannel2State(state, m_displayAsCodes);
-    }
-}
+
 
 void TesterWindow::onOperationProgress(int current, int total, const QString& operation)
 {
@@ -396,10 +385,10 @@ void TesterWindow::onDisplayModeChanged(bool showCodes)
     m_displayAsCodes = showCodes;
     int current = ui->tabWidget->currentIndex();
     if (current >= 0 && current < m_statusWidgets.size()) {
-        UIChannelState ch1 = m_controller->getChannelState(current, 1);
-        UIChannelState ch2 = m_controller->getChannelState(current, 2);
-        m_statusWidgets[current]->setChannel1State(ch1, showCodes);
-        m_statusWidgets[current]->setChannel2State(ch2, showCodes);
+       // UIChannelState ch1 = m_controller->getChannelState(current, 1);
+        //UIChannelState ch2 = m_controller->getChannelState(current, 2);
+        //m_statusWidgets[current]->setChannel1State(ch1, showCodes);
+        //m_statusWidgets[current]->setChannel2State(ch2, showCodes);
     }
 }
 
@@ -409,10 +398,10 @@ void TesterWindow::onPPBSelected(int index)
         return;
     ui->tabWidget->setCurrentIndex(index);
     m_currentPPBIndex = static_cast<uint8_t>(index);
-    UIChannelState ch1 = m_controller->getChannelState(index, 1);
-    UIChannelState ch2 = m_controller->getChannelState(index, 2);
-    m_statusWidgets[index]->setChannel1State(ch1, m_displayAsCodes);
-    m_statusWidgets[index]->setChannel2State(ch2, m_displayAsCodes);
+    //UIChannelState ch1 = m_controller->getChannelState(index, 1);
+    //UIChannelState ch2 = m_controller->getChannelState(index, 2);
+   //m_statusWidgets[index]->setChannel1State(ch1, m_displayAsCodes);
+    //m_statusWidgets[index]->setChannel2State(ch2, m_displayAsCodes);
 }
 
 void TesterWindow::onExitClicked()

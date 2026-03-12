@@ -1,26 +1,28 @@
 #include "dataconverter.h"
 #include <cmath>
 #include <QString>
+#include <cstring>
+#include <cstring>
 
 // === ЗАГЛУШКИ - ПОКА ВОЗВРАЩАЕМ ТО ЖЕ САМОЕ ===
 
-uint16_t DataConverter::powerToCode(float watts)
+uint32_t DataConverter::powerToCode(float watts)
 {
-    int integer = static_cast<int>(watts);
-    if (integer > 100) integer = 100;
-    if (integer < 0) integer = 0;
-    int fractional = static_cast<int>((watts - integer) * 100.0f + 0.5f);
-    if (fractional > 99) fractional = 99;
-    if (fractional < 0) fractional = 0;
-    return (static_cast<uint16_t>(integer) << 8) | static_cast<uint16_t>(fractional);
+    uint32_t integer = static_cast<uint32_t>(watts);
+    float frac = watts - integer;
+    if (frac < 0) frac = 0;
+    uint32_t fractional = static_cast<uint32_t>(frac * 65536.0f + 0.5f);
+    if (fractional > 0xFFFF) fractional = 0xFFFF;
+    return (integer << 16) | (fractional & 0xFFFF);
 }
 
-float DataConverter::codeToPower(uint16_t code)
+float DataConverter::codeToPower(uint32_t code)
 {
-    int integer = (code >> 8) & 0xFF;
-    int fractional = code & 0xFF;
-    return integer + fractional / 100.0f;
+    uint32_t integer = code >> 16;
+    uint32_t fractional = code & 0xFFFF;
+    return integer + fractional / 65536.0f;
 }
+
 int16_t DataConverter::temperatureToCode(float celsius)
 {
     // Заглушка: 1 °C = 1 код

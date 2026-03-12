@@ -16,8 +16,7 @@ public:
     ~StatusWidget();
 
     // Основные методы для обновления данных
-    void setChannel1State(const UIChannelState& state, bool showCodes);
-    void setChannel2State(const UIChannelState& state, bool showCodes);
+    void updateState(const PPBFullState& state, bool showCodes);
     void setDisplayMode(bool codes); // true – коды, false – физические величины
 
 private:
@@ -27,7 +26,7 @@ private:
     QString formatVSWR(float vswr, bool codes) const;
 
     // Обновление конкретного groupBox по номеру канала (1 или 2)
-    void updateChannel(int channel, const UIChannelState& state, bool codes);
+    //void updateChannel(int channel, const UIChannelState& state, bool codes);
 
 private:
     Ui::PPBStatus *ui;

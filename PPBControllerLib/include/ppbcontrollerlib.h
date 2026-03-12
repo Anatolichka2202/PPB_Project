@@ -28,7 +28,7 @@ public:
     PPBState connectionState() const override;
     bool isBusy() const override;
     bool isAutoPollEnabled() const override;
-    UIChannelState getChannelState(uint8_t ppbIndex, int channel) const override;
+
     void requestVersion(uint16_t address) override;
     void requestVolume(uint16_t address) override;
     void requestChecksum(uint16_t address) override;
@@ -71,7 +71,7 @@ private:
 
 private slots:
     // Приватные слоты для обработки сигналов от коммуникации и анализатора
-    void onStatusReceived(uint16_t address, uint16_t mask, const QVector<QByteArray>& data);
+    void onStatusReceived(uint16_t address, uint32_t mask, const QVector<QByteArray>& data);
     void onConnectionStateChanged(PPBState state);
     void onCommandProgress(int current, int total, TechCommand command);
     void onCommandCompleted(bool success, const QString& message, TechCommand command);
@@ -93,7 +93,7 @@ signals:
 
 private:
     void connectCommunicationSignals();
-    void processStatusData(uint16_t address, uint16_t mask, const QVector<QByteArray>& data);
+    void processStatusData(uint16_t address, uint32_t mask, const QVector<QByteArray>& data);
     //UIChannelState parseChannelData(const QVector<QByteArray>& channelData);
     QString commandToName(TechCommand command) const;
     void showAnalysisResults(const QString& summary, const QVariantMap& details);

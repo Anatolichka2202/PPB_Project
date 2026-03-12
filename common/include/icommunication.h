@@ -38,7 +38,7 @@ signals:
     void receivedPacketsSaved(const QVector<DataPacket>& packets);
     void clearPacketDataRequested();
 
-    void statusReceived(uint16_t address, uint16_t mask, const QVector<QByteArray>& data);   // для TS
+    void statusReceived(uint16_t address, uint32_t mask, const QVector<QByteArray>& data);   // для TS
     void commandProgress(int current, int total, TechCommand command);        // прогресс отправки/приёма
     void busyChanged(bool busy);                                              // изменение занятости
 

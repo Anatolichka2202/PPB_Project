@@ -102,7 +102,9 @@ void ControlWidget::onComboBoxIndexChanged(int index) { emit ppbSelected(index);
 void ControlWidget::onPower1Changed(const QString& text)
 {
     bool ok;
-    float watts = text.toFloat(&ok);
+    QString normalized = QString(text).replace(',', '.');
+    float watts = normalized.toFloat(&ok);
+
     if (ok && m_controller) {
         m_controller->setChannelPower(currentPPBIndex(), 1, watts);
     }

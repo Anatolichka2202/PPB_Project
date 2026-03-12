@@ -48,52 +48,50 @@ QString CommandFactory::commandName(TechCommand cmd) {
 
 bool StatusCommand::parseResponseData(const QVector<QByteArray>& data,
                                       QString& outMessage,
-                                      QVariant& outParsedData) const {
+                                      QVariant& outParsedData) const
+{
     if (data.isEmpty()) {
         outMessage = "Ошибка: нет данных";
         return false;
     }
 
-    const QByteArray& payload = data.first();
-    if (payload.size() < 2) {
+    const QByteArray& payload = data.first(); // весь UDP-пакет (заголовок уже отброшен)
+    if (payload.size() < 3) {
         outMessage = "Ошибка: недостаточно данных (нет маски)";
         return false;
     }
 
-    uint16_t mask = qFromBigEndian<uint16_t>(payload.constData());
-    QByteArray packetsData = payload.mid(2);
+    uint32_t mask = (static_cast<uint32_t>(static_cast<uint8_t>(payload[0])) << 16) |
+                    (static_cast<uint32_t>(static_cast<uint8_t>(payload[1])) << 8) |
+                    static_cast<uint32_t>(static_cast<uint8_t>(payload[2]));
+    int offset = 3; // после маски
 
-    // Разбиваем на пакеты по 2 байта
-    QVector<DataPacket> packets;
-    const size_t packetSize = sizeof(DataPacket); // =2
-    int count = packetsData.size() / packetSize;
-    for (int i = 0; i < count; ++i) {
-        DataPacket pkt;
-        memcpy(&pkt, packetsData.constData() + i * packetSize, packetSize);
-        packets.append(pkt);
-    }
+    QVector<QByteArray> blocks;
+    // Максимальное количество двухбайтовых блоков – 24 (по числу битов в маске)
+    for (int bit = 0; bit < 24; ++bit) {
+        if (!(mask & (1 << bit))) continue;
 
+        if (offset + 2 > payload.size()) {
+            outMessage = QString("Ошибка: недостаточно данных для бита %1").arg(bit);
+            return false;
+        }
 
-    int expectedPackets = qPopulationCount(mask);
-
-    if (packets.size() != expectedPackets) {
-        outMessage = QString("Предупреждение: количество пакетов (%1) не соответствует маске (%2)")
-                         .arg(packets.size()).arg(expectedPackets);
-        // но не возвращаем false, т.к. данные могут быть неполными
-    } else {
-        outMessage = QString("Статус получен: маска 0x%1, пакетов %2")
-                         .arg(mask, 4, 16, QChar('0')).arg(packets.size());
+        QByteArray block = payload.mid(offset, 2);
+        blocks.append(block);
+        offset += 2;
     }
 
     QVariantMap result;
-    result["mask"] = mask;
-    QVariantList packetsList;
-    for (const auto& pkt : packets) {
-        QByteArray pktBytes(reinterpret_cast<const char*>(&pkt), sizeof(DataPacket));
-        packetsList.append(pktBytes);
+    result["mask"] = static_cast<uint>(mask); // сохраняем как uint (32 бита)
+    QVariantList blocksList;
+    for (const auto& block : blocks) {
+        blocksList.append(block);
     }
-    result["packets"] = packetsList;
+    result["packets"] = blocksList;
     outParsedData = result;
+    outMessage = QString("Статус получен: маска 0x%1, блоков %2")
+                     .arg(mask, 6, 16, QChar('0'))
+                     .arg(blocks.size());
     return true;
 }
 

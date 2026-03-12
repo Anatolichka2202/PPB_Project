@@ -10,8 +10,8 @@ class DataConverter
 public:
     // === ПРЕОБРАЗОВАНИЕ МОЩНОСТИ ===
     // Диапазон: 0-2000 Вт
-    static uint16_t powerToCode(float watts);
-    static float codeToPower(uint16_t code);
+    static uint32_t powerToCode(float watts);
+    static float codeToPower(uint32_t code);
 
     // === ПРЕОБРАЗОВАНИЕ ТЕМПЕРАТУРЫ ===
     // Диапазон: -55..125 °C,

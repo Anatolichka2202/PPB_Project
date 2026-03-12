@@ -106,10 +106,10 @@ struct PPBStatus {
 
 #pragma pack(push, 1)
 struct TCDataPayload {
-    uint16_t power1;      // код мощности канала 1
-    uint16_t power2;      // код мощности канала 2
+    uint32_t power1;      // код мощности канала 1
+    uint32_t power2;      // код мощности канала 2
     uint8_t stateMask;    // биты: 0 – блокировка, 1 – перезагрузка, 2 – сброс ошибок
-    uint8_t reserved[7];  // резерв до 12 байт (заполняется нулями)
+    uint8_t reserved[3];  // резерв до 12 байт (заполняется нулями)
 };
 #pragma pack(pop)
 

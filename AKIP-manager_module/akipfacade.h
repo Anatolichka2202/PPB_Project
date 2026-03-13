@@ -50,8 +50,8 @@ public:
     QStringList availableCommands() const override;
 
     // ==================== Дополнительные методы для тестирования задержек ====================
-    bool sendCommandTimed(const QString &cmd, qint64 &elapsedMs);
-    bool queryCommandTimed(const QString &cmd, QString &response, qint64 &elapsedMs);
+    bool sendCommandTimed(const QString &cmd, qint64 &elapsedMs) override;
+    bool queryCommandTimed(const QString &cmd, QString &response, qint64 &elapsedMs) override;
 
     // ==================== Доступ к внутреннему USB-объекту (для отладки) ====================
     UsbInterface* usbInterface() { return &m_usb; }

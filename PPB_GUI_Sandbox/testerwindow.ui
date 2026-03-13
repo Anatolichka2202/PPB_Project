@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1726</width>
-    <height>958</height>
+    <width>1400</width>
+    <height>900</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -20,170 +20,374 @@
    <string>Программа управления ППБ</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QHBoxLayout" name="mainLayout" stretch="3,7">
+     <layout class="QHBoxLayout" name="mainLayout">
+    <!-- ==================== ЛЕВАЯ ПАНЕЛЬ ==================== -->
     <item>
-     <widget class="QWidget" name="leftPanel" native="true">
-      <property name="enabled">
-       <bool>true</bool>
-      </property>
-      <layout class="QVBoxLayout" name="verticalLayout">
-       <item>
-        <widget class="ControlWidget" name="controlWidget" native="true"/>
-       </item>
-       <item>
-        <widget class="QStackedWidget" name="stackedAkip">
-         <property name="currentIndex">
-          <number>0</number>
-         </property>
-         <widget class="AkipWidget" name="akipWidget">
-          <property name="native" stdset="0">
-           <bool>true</bool>
+         <widget class="QSplitter" name="mainSplitter">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
           </property>
-         </widget>
-         <widget class="QWidget" name="pageGrattenPlaceholder">
-          <property name="native" stdset="0">
-           <bool>true</bool>
+          <property name="handleWidth">
+           <number>3</number>
           </property>
-         </widget>
-        </widget>
-       </item>
-       <item>
-        <widget class="FuWidget" name="fuWidget" native="true"/>
-       </item>
-       <item>
-        <widget class="ScenarioWidget" name="scenarioWidget" native="true"/>
-       </item>
-       <item>
-        <widget class="ConnectionWidget" name="connectionWidget" native="true"/>
-       </item>
-       <item>
-        <widget class="DataViewWidget" name="dataViewWidget" native="true"/>
-       </item>
-       <item>
-        <widget class="QPushButton" name="pult_active">
-         <property name="text">
-          <string>Включить пульт</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="akip_pult">
-         <property name="text">
-          <string>AKIP PULT</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="pushButton">
-         <property name="text">
-          <string>Метрики</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <spacer name="verticalSpacer">
-         <property name="orientation">
-          <enum>Qt::Orientation::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-      </layout>
-     </widget>
-    </item>
-    <item>
-     <widget class="QSplitter" name="rightPanel">
-      <property name="orientation">
-       <enum>Qt::Orientation::Vertical</enum>
-      </property>
-      <property name="handleWidth">
-       <number>3</number>
-      </property>
-      <widget class="QWidget" name="topRight" native="true">
-       <layout class="QVBoxLayout" name="stateLayout">
-        <item>
-         <widget class="QTabWidget" name="tabWidget">
-          <property name="currentIndex">
-           <number>0</number>
+          <property name="childrenCollapsible">
+           <bool>false</bool>
           </property>
-          <widget class="QWidget" name="tab_PPB1">
-           <attribute name="title">
-            <string>ППБ1</string>
-           </attribute>
-           <layout class="QVBoxLayout" name="verticalLayout_3"/>
+          <!-- Левая панель -->
+          <widget class="QWidget" name="leftPanel" native="true">
+           <property name="minimumSize">
+            <size>
+             <width>300</width>
+             <height>0</height>
+            </size>
+           </property>
+           <layout class="QVBoxLayout" name="leftPanelLayout">
+            <!-- Индикатор выбранных ППБ -->
+            <item>
+             <widget class="QLabel" name="selectedCountLabel">
+              <property name="visible">
+               <bool>false</bool>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">background-color: #e6f0ff; border: 1px solid #99ccff; border-radius: 4px; padding: 4px; font-weight: bold;</string>
+              </property>
+              <property name="text">
+               <string>Выбрано: 2 ППБ</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+             </widget>
+            </item>
+
+            <!-- Скроллируемая область -->
+            <item>
+             <widget class="QScrollArea" name="leftScrollArea">
+              <property name="widgetResizable">
+               <bool>true</bool>
+              </property>
+              <property name="frameShape">
+               <enum>QFrame::NoFrame</enum>
+              </property>
+              <property name="horizontalScrollBarPolicy">
+               <enum>Qt::ScrollBarAlwaysOff</enum>
+              </property>
+              <widget class="QWidget" name="leftScrollContent">
+               <layout class="QVBoxLayout" name="scrollContentLayout">
+                <!-- ControlWidget -->
+                <item>
+                 <widget class="ControlWidget" name="controlWidget">
+                  <property name="minimumSize">
+                   <size>
+                    <width>280</width>
+                    <height>180</height>
+                   </size>
+                  </property>
+                 </widget>
+                </item>
+
+                <!-- Генератор (AkipWidget или заглушка) -->
+                <item>
+                 <widget class="QStackedWidget" name="generatorStack">
+                  <property name="minimumSize">
+                   <size>
+                    <width>280</width>
+                    <height>200</height>
+                   </size>
+                  </property>
+                  <property name="currentIndex">
+                   <number>0</number>
+                  </property>
+                  <widget class="AkipWidget" name="akipWidget"/>
+                  <widget class="QWidget" name="manualGeneratorPage">
+                   <layout class="QVBoxLayout" name="manualLayout">
+                    <item>
+                     <widget class="QLabel" name="manualLabel">
+                      <property name="text">
+                       <string>Генератор не обнаружен.
+    Ручное управление.</string>
+                      </property>
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QPushButton" name="reconnectGeneratorBtn">
+                      <property name="text">
+                       <string>Переподключиться</string>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </widget>
+                 </widget>
+                </item>
+
+                <!-- ФУ (всегда видим) -->
+                <item>
+                 <widget class="FuWidget" name="fuWidget">
+                  <property name="minimumSize">
+                   <size>
+                    <width>280</width>
+                    <height>150</height>
+                   </size>
+                  </property>
+                 </widget>
+                </item>
+
+                <!-- ConnectionWidget (сеть) -->
+                <item>
+                 <widget class="ConnectionWidget" name="connectionWidget">
+                  <property name="minimumSize">
+                   <size>
+                    <width>280</width>
+                    <height>100</height>
+                   </size>
+                  </property>
+                 </widget>
+                </item>
+
+                <!-- ScenarioWidget -->
+                <item>
+                 <widget class="ScenarioWidget" name="scenarioWidget">
+                  <property name="minimumSize">
+                   <size>
+                    <width>280</width>
+                    <height>80</height>
+                   </size>
+                  </property>
+                 </widget>
+                </item>
+
+                <!-- Растяжка -->
+                <item>
+                 <spacer name="verticalSpacer">
+                  <property name="orientation">
+                   <enum>Qt::Vertical</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>20</width>
+                    <height>40</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </widget>
+             </widget>
+            </item>
+
+            <!-- Фиксированная нижняя часть левой панели (кнопки расширенного управления) -->
+            <item>
+             <widget class="QWidget" name="bottomFixedPanel" native="true">
+              <layout class="QHBoxLayout" name="bottomFixedLayout">
+               <property name="spacing">
+                <number>6</number>
+               </property>
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="QPushButton" name="pultBtn">
+                 <property name="text">
+                  <string>Пульт</string>
+                 </property>
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>32</height>
+                  </size>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="metricsBtn">
+                 <property name="text">
+                  <string>Метрики</string>
+                 </property>
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>32</height>
+                  </size>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="akipPultBtn">
+                 <property name="text">
+                  <string>АКИП пульт</string>
+                 </property>
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>32</height>
+                  </size>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
           </widget>
-          <widget class="QWidget" name="tab_PPB2">
-           <attribute name="title">
-            <string>ППБ2</string>
-           </attribute>
-           <layout class="QVBoxLayout" name="verticalLayout_4"/>
+
+    <!-- ==================== ПРАВАЯ ПАНЕЛЬ ==================== -->
+    <widget class="QSplitter" name="rightSplitter">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="handleWidth">
+            <number>3</number>
+           </property>
+           <property name="childrenCollapsible">
+            <bool>false</bool>
+           </property>
+           <!-- Верхняя часть (вкладки ППБ и статус) -->
+           <widget class="QWidget" name="rightTopPanel">
+            <layout class="QVBoxLayout" name="rightTopLayout">
+             <property name="spacing">
+              <number>4</number>
+             </property>
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <!-- DataViewWidget и вкладки ППБ в одной строке -->
+             <item>
+              <layout class="QHBoxLayout" name="topBarLayout">
+               <item>
+               <widget class="DataViewWidget" name="dataViewWidget">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>150</width>
+                  <height>40</height>
+                 </size>
+                </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QTabBar" name="ppbTabBar">
+                 <property name="expanding">
+                  <bool>false</bool>
+                 </property>
+                 <property name="drawBase">
+                  <bool>false</bool>
+                 </property>
+                 <property name="currentIndex">
+                  <number>0</number>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </item>
+             <!-- Stacked виджет с содержимым вкладок -->
+             <item>
+              <widget class="QStackedWidget" name="ppbStack">
+               <property name="currentIndex">
+                <number>0</number>
+               </property>
+               <!-- Страницы будут добавлены динамически в коде -->
+              </widget>
+             </item>
+            </layout>
+           </widget>
+           <!-- Нижняя часть (лог) -->
+           <widget class="LogWidget" name="logWidget">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>150</height>
+             </size>
+            </property>
+           </widget>
           </widget>
          </widget>
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="bottomRight" native="true">
-       <layout class="QVBoxLayout" name="logLayout">
-        <item>
-         <widget class="LogWidget" name="logWidget" native="true"/>
-        </item>
-       </layout>
-      </widget>
-     </widget>
-    </item>
-   </layout>
-  </widget>
+
+  <!-- Строка состояния -->
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+
+ <!-- Подключение кастомных виджетов -->
  <customwidgets>
-  <customwidget>
-   <class>ConnectionWidget</class>
-   <extends>QWidget</extends>
-   <header location="global">connectionwidget.h</header>
-   <container>1</container>
-  </customwidget>
   <customwidget>
    <class>ControlWidget</class>
    <extends>QWidget</extends>
    <header>controlwidget.h</header>
-   <container>1</container>
   </customwidget>
   <customwidget>
    <class>AkipWidget</class>
    <extends>QWidget</extends>
    <header>akipwidget.h</header>
-   <container>1</container>
   </customwidget>
   <customwidget>
    <class>FuWidget</class>
    <extends>QWidget</extends>
    <header>fuwidget.h</header>
-   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ConnectionWidget</class>
+   <extends>QWidget</extends>
+   <header>connectionwidget.h</header>
   </customwidget>
   <customwidget>
    <class>ScenarioWidget</class>
    <extends>QWidget</extends>
    <header>scenariowidget.h</header>
-   <container>1</container>
   </customwidget>
   <customwidget>
    <class>DataViewWidget</class>
    <extends>QWidget</extends>
    <header>dataviewwidget.h</header>
-   <container>1</container>
   </customwidget>
   <customwidget>
    <class>LogWidget</class>
    <extends>QWidget</extends>
    <header>logwidget.h</header>
-   <container>1</container>
   </customwidget>
  </customwidgets>
+
  <resources/>
  <connections/>
 </ui>

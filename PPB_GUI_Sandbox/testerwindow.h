@@ -12,132 +12,75 @@
 
 #include <QMainWindow>
 #include <QGroupBox>
+#include <QSet>
 #include <QStackedWidget>
 #include "grattencontrolwidget.h"
 #include "iakipcontroller.h"
 #include "statuswidget.h"
 #include "pult.h"
+#include "ppbcontrollerlib.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class TesterWindow; }
 QT_END_NAMESPACE
-/**
- * @class TesterWindow
- * @brief Главное окно программы управления ППБ.
- *
- * Является центральным элементом GUI. Инициализирует интерфейс,
- * соединяет сигналы виджетов с методами контроллера и обрабатывает
- * ответы от контроллера, обновляя отображение.
- */
+
 class TesterWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    explicit TesterWindow(PPBController* controller = nullptr, QWidget *parent = nullptr);
-    ~TesterWindow() override;
-    void setSignalGeneratorController(IAkipController* ctrl); ///< Установка контроллера генератора
+    explicit TesterWindow(PPBController* controller, QWidget *parent = nullptr);
+    ~TesterWindow();
+
+    // Установка контроллера генератора (из ApplicationManager)
+    void setSignalGeneratorController(IAkipController* ctrl);
+
 protected:
     void closeEvent(QCloseEvent *event) override;
 
 private slots:
-    /**
- * @name Слоты UI
- * @{
- */
-    void onPollStatusClicked();          ///< Запрос статуса (от устаревшей кнопки)
-    //void onResetClicked();               ///< Сброс (устаревшая кнопка)
-    void onApplyParametersClicked();     ///< Применить параметры АКИПа на ФУ
-    void onAutoPollToggled(bool checked);///< Переключение автоопроса
-    void onTestSequenceClicked();        ///< Запуск полного теста
-    void onDisplayModeChanged(bool showCodes); ///< Смена режима отображения
-    void onPPBSelected(int index);       ///< Выбор ППБ в комбобоксе
-    void onExitClicked();                ///< Выход из приложения
-    void onLoadScenario();               ///< Загрузить сценарий
-    void onRunScenario();                ///< Запустить сценарий
-    void onStopScenario();               ///< Остановить сценарий
-    void onPRBSM2SClicked();             ///< PRBS M2S (устаревшая кнопка)
-    void onPRBSS2MClicked();             ///< PRBS S2M (устаревшая кнопка)
-    void on_pult_active_clicked();       ///< Открыть окно пульта
-    void onAkipApplyClicked();           ///< применить к генератору АКИП
-    void onAkipAvailabilityChanged(bool available); ///< пизменение параметров
-     void onGeneratorAvailabilityChanged(bool available); ///< реакция на отключение
-        void on_btnPerformance_clicked(); ///< слот кнопки метрик
-    /** @} */
+    // Слоты от контроллера ППБ
+    void onFullStateUpdated(uint8_t ppbIndex);
+    void onConnectionStateChanged(PPBState state);
+    void onErrorOccurred(const QString &error);
+    void onBusyChanged(bool busy);
+    void onOperationProgress(int current, int total, const QString &operation);
+    void onOperationCompleted(bool success, const QString &message);
 
-    /**
- * @name Слоты от контроллера
- * @{
- */
-    void onControllerConnectionStateChanged(PPBState state);        ///< Изменение состояния подключения
-    void onControllerStatusReceived(uint16_t address, const QVector<QByteArray>& data); ///< Получен статус
-    void onControllerErrorOccurred(const QString& error);           ///< Ошибка
+    // Слоты от виджетов левой панели
+    void onConnectRequested(const QString &ip, quint16 port);
+    void onDisconnectRequested();
+    void onExitClicked();
+    void onPultClicked();
+    void onMetricsClicked();
+    void onAkipPultClicked();
+    void onReconnectGeneratorClicked();
 
-    void onOperationProgress(int current, int total, const QString& operation); ///< Прогресс
-    void onOperationCompleted(bool success, const QString& message);///< Завершение операции
-    void onControllerBusyChanged(bool busy);                         ///< Изменение занятости
-    void onTabChanged(int index);                                    ///< Переключение вкладки с ППБ
-    /** @} */
-private:
-    /**
- * @brief Инициализация пользовательского интерфейса.
- */
-    void initializeUI();
+    // Слоты от DataViewWidget
+    void onDisplayModeChanged(bool codes);
 
-    /**
- * @brief Соединение сигналов виджетов и контроллера.
- */
-    void connectSignals();
-
-    /**
- * @brief Обновление элементов управления согласно состоянию подключения.
- */
-    void updateConnectionUI();
-
-    /**
- * @brief Обновление доступности кнопок (блокировка при busy).
- */
-    void updateControlsState();
-
-    /**
- * @brief Включить/отключить левую панель (виджеты управления).
- * @param enabled true – включить.
- */
-    void setLeftPanelEnabled(bool enabled);
-
-    /**
- * @brief Вывод сообщения в статусную строку.
- * @param message Текст.
- * @param timeout Время отображения (мс).
- */
-    void showStatusMessage(const QString& message, int timeout = 3000);
-
-    /**
- * @brief Обновить заголовок окна (отображает состояние).
- */
-    void updateWindowTitle();
-
-    /**
- * @brief Получить битовую маску адреса для выбранного ППБ.
- * @return (1 << currentIndex).
- */
-    uint16_t getSelectedAddress() const;
-
-
-
+    // Слоты для вкладок ППБ
+    void onTabClicked(int index);
+    void onTabBarCurrentChanged(int index);
 
 private:
-    Ui::TesterWindow *ui;                     ///< Главный UI (из ui-файла)
-    PPBController* m_controller;               ///< Указатель на контроллер
-    pult* m_pultWindow;                        ///< Окно пульта (если открыто)
-    bool m_displayAsCodes;                     ///< Текущий режим отображения (коды/физика)
-    uint8_t m_currentPPBIndex;                  ///< Индекс текущего ППБ
-    bool m_isExiting;                           ///< Флаг завершения приложения
-    QVector<StatusWidget*> m_statusWidgets;     ///< Виджеты состояния для каждой вкладки
+    void setupPpbTabs(int count = 16);
+    void updateSelectedCountLabel();
+    QList<uint16_t> getSelectedAddresses() const;
+    uint16_t getSelectedAddress() const; // для обратной совместимости
+    void updateGeneratorUi();
 
-    QStackedWidget* m_stackedAkip = nullptr;    ///< Ви
-    GrattenControlWidget* m_grattenWidget = nullptr;
-    IAkipController* m_signalGenerator = nullptr; // не владеет
+    Ui::TesterWindow *ui;
+    PPBController* m_controller;
+    IAkipController* m_signalGenerator = nullptr;
+
+    // Данные для множественного выбора вкладок
+    QSet<int> m_selectedTabs;
+    int m_lastSelectedTab = -1;
+    QVector<StatusWidget*> m_statusWidgets;
+
+    bool m_displayAsCodes = false;
+    bool m_isExiting = false;
 };
 
 #endif // TESTERWINDOW_H

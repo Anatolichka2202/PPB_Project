@@ -78,8 +78,8 @@ set(RESOURCES
 # Подключаем директории с заголовками
 target_include_directories(PPB_GUI_Sandbox PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}/PPB_GUI_Sandbox_autogen/include
     ${CMAKE_SOURCE_DIR}/common/include
-    #${CMAKE_SOURCE_DIR}/stubs
     ${CMAKE_SOURCE_DIR}/common/logging
     ${CMAKE_SOURCE_DIR}/common/converters
     ${CMAKE_SOURCE_DIR}/AKIP-manager_module

@@ -10,11 +10,16 @@
     <height>600</height>
    </rect>
   </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
   <property name="windowTitle">
    <string>Gratten GA1483 Управление</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
-   <!-- Верхняя часть: управление частотой, амплитудой, выходом -->
    <item>
     <layout class="QHBoxLayout" name="layoutFreq">
      <item>
@@ -106,7 +111,7 @@
      <item>
       <spacer name="horizontalSpacer">
        <property name="orientation">
-        <enum>Qt::Horizontal</enum>
+        <enum>Qt::Orientation::Horizontal</enum>
        </property>
        <property name="sizeHint" stdset="0">
         <size>
@@ -125,7 +130,6 @@
      </property>
     </widget>
    </item>
-   <!-- Терминал -->
    <item>
     <widget class="QPlainTextEdit" name="terminalEdit">
      <property name="font">
@@ -134,15 +138,14 @@
        <pointsize>9</pointsize>
       </font>
      </property>
+     <property name="lineWrapMode">
+      <enum>QPlainTextEdit::LineWrapMode::NoWrap</enum>
+     </property>
      <property name="readOnly">
       <bool>true</bool>
      </property>
-     <property name="lineWrapMode">
-      <enum>QPlainTextEdit::NoWrap</enum>
-     </property>
     </widget>
    </item>
-   <!-- Строка ввода и кнопка отправки -->
    <item>
     <layout class="QHBoxLayout" name="layoutCmd">
      <item>

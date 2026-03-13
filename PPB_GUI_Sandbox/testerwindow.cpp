@@ -346,11 +346,32 @@ void TesterWindow::setSignalGeneratorController(IAkipController* ctrl)
 
 void TesterWindow::updateGeneratorUi()
 {
-    if (m_signalGenerator && m_signalGenerator->isAvailable()) {
-        // Определяем тип контроллера и показываем соответствующий виджет
-        // Пока предполагаем только AkipWidget
+    // Сначала скрываем все страницы (опционально)
+    if (!m_signalGenerator || !m_signalGenerator->isAvailable()) {
+        ui->generatorStack->setCurrentWidget(ui->manualGeneratorPage);
+        return;
+    }
+
+    // Определяем тип контроллера
+    if (dynamic_cast<AkipFacade*>(m_signalGenerator)) {
         ui->generatorStack->setCurrentWidget(ui->akipWidget);
-    } else {
+    }
+    else if (dynamic_cast<GrattenGa1483Controller*>(m_signalGenerator)) {
+        // Если страница для Gratten ещё не содержит виджет, создаём его
+        QLayout* layout = ui->grattenPage->layout();
+        if (layout->count() == 0) {
+            GrattenControlWidget* grattenWidget = new GrattenControlWidget(m_signalGenerator, ui->grattenPage);
+            // Пробрасываем сигнал logMessage, если нужно
+            connect(grattenWidget, &GrattenControlWidget::logMessage,
+                    this, [this](const QString& msg) {
+                        statusBar()->showMessage(msg, 3000);
+                    });
+            layout->addWidget(grattenWidget);
+        }
+        ui->generatorStack->setCurrentWidget(ui->grattenPage);
+    }
+    else {
+        // Неизвестный тип – ручное управление
         ui->generatorStack->setCurrentWidget(ui->manualGeneratorPage);
     }
 }

@@ -88,40 +88,40 @@
 
                 <!-- Генератор (AkipWidget или заглушка) -->
                 <item>
-                 <widget class="QStackedWidget" name="generatorStack">
-                  <property name="minimumSize">
-                   <size>
-                    <width>280</width>
-                    <height>200</height>
-                   </size>
-                  </property>
-                  <property name="currentIndex">
-                   <number>0</number>
-                  </property>
-                  <widget class="AkipWidget" name="akipWidget"/>
-                  <widget class="QWidget" name="manualGeneratorPage">
-                   <layout class="QVBoxLayout" name="manualLayout">
-                    <item>
-                     <widget class="QLabel" name="manualLabel">
-                      <property name="text">
-                       <string>Генератор не обнаружен.
-    Ручное управление.</string>
-                      </property>
-                      <property name="alignment">
-                       <set>Qt::AlignCenter</set>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QPushButton" name="reconnectGeneratorBtn">
-                      <property name="text">
-                       <string>Переподключиться</string>
-                      </property>
-                     </widget>
-                    </item>
-                   </layout>
-                  </widget>
+                <widget class="QStackedWidget" name="generatorStack">
+                 <property name="currentIndex">
+                  <number>0</number>
+                 </property>
+                 <widget class="AkipWidget" name="akipWidget"/>
+                 <widget class="QWidget" name="manualGeneratorPage">
+                  <layout class="QVBoxLayout" name="manualLayout">
+                   <item>
+                    <widget class="QLabel" name="manualLabel">
+                     <property name="text">
+                      <string>Генератор не обнаружен.
+                Ручное управление.</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="reconnectGeneratorBtn">
+                     <property name="text">
+                      <string>Переподключиться</string>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
                  </widget>
+                 <!-- Новая страница для Gratten -->
+                 <widget class="QWidget" name="grattenPage">
+                  <layout class="QVBoxLayout" name="grattenPageLayout">
+                   <!-- Сюда динамически добавится GrattenControlWidget -->
+                  </layout>
+                 </widget>
+                </widget>
                 </item>
 
                 <!-- ФУ (всегда видим) -->

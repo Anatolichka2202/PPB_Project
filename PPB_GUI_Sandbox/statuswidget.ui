@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1336</width>
-    <height>897</height>
+    <width>440</width>
+    <height>233</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -221,6 +221,27 @@
           </property>
          </spacer>
         </item>
+        <item row="9" column="0">
+         <widget class="QLabel" name="tem_circle_label_ppb_bp">
+          <property name="text">
+           <string/>
+          </property>
+         </widget>
+        </item>
+        <item row="10" column="0">
+         <widget class="QLabel" name="tem_circle_label_ppb_v1">
+          <property name="text">
+           <string/>
+          </property>
+         </widget>
+        </item>
+        <item row="11" column="0">
+         <widget class="QLabel" name="tem_circle_label_ppb_in">
+          <property name="text">
+           <string/>
+          </property>
+         </widget>
+        </item>
        </layout>
       </widget>
      </item>
@@ -428,6 +449,27 @@
            </size>
           </property>
          </spacer>
+        </item>
+        <item row="9" column="0">
+         <widget class="QLabel" name="tem_circle_label_ppb_out">
+          <property name="text">
+           <string/>
+          </property>
+         </widget>
+        </item>
+        <item row="8" column="0">
+         <widget class="QLabel" name="tem_circle_label_ppb_v2">
+          <property name="text">
+           <string/>
+          </property>
+         </widget>
+        </item>
+        <item row="7" column="0">
+         <widget class="QLabel" name="tem_circle_label_ppb_bp2">
+          <property name="text">
+           <string/>
+          </property>
+         </widget>
         </item>
        </layout>
       </widget>

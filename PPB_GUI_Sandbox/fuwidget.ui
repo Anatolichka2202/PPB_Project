@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1234</width>
-    <height>688</height>
+    <width>421</width>
+    <height>168</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -26,19 +26,6 @@
       <string>Режим и параметры  ФУ</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_6">
-      <item row="0" column="4">
-       <widget class="QLineEdit" name="lineEditPulseDuration">
-        <property name="maximumSize">
-         <size>
-          <width>100</width>
-          <height>16777215</height>
-         </size>
-        </property>
-        <property name="text">
-         <string>1</string>
-        </property>
-       </widget>
-      </item>
       <item row="2" column="1">
        <spacer name="horizontalSpacer">
         <property name="orientation">
@@ -52,17 +39,40 @@
         </property>
        </spacer>
       </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_impulse">
-        <property name="text">
-         <string>длительность импульса в 1, мкс</string>
-        </property>
-       </widget>
-      </item>
       <item row="1" column="0">
        <widget class="QLabel" name="label_PulseDelay">
         <property name="text">
          <string>длительность скважности, мкс</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QRadioButton" name="radioButtonFUReceive">
+        <property name="text">
+         <string>ФУ прием</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="4">
+       <widget class="QLineEdit" name="lineEditPulseDuration">
+        <property name="maximumSize">
+         <size>
+          <width>100</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>1</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_impulse">
+        <property name="text">
+         <string>длительность импульса в 1, мкс</string>
         </property>
        </widget>
       </item>
@@ -79,31 +89,21 @@
         </property>
        </widget>
       </item>
-      <item row="2" column="4">
+      <item row="3" column="0">
        <widget class="QRadioButton" name="radioButtonFUTransmit">
         <property name="text">
          <string>ФУ передача</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="0">
-       <widget class="QRadioButton" name="radioButtonFUReceive">
-        <property name="text">
-         <string>ФУ прием</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="2">
+      <item row="3" column="1">
        <widget class="QPushButton" name="fuBtnSent">
         <property name="text">
          <string>отправить ФУ</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="3">
+      <item row="3" column="2">
        <spacer name="horizontalSpacer_2">
         <property name="orientation">
          <enum>Qt::Orientation::Horizontal</enum>

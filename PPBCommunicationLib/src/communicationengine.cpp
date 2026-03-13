@@ -487,8 +487,9 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
                 // После возврата из onDataReceived команда могла установить результаты через host
                 completeOperation(address, context->parsedSuccess, context->parsedMessage);
             }
-        break;
 
+        break;
+        }
     case ProtocolEvent::BridgeResponse:
         LOG_TECH_PROTOCOL(QString("Bridge response: addr=0x%1, status=%2").arg(event.address,4,16,QLatin1Char('0')).arg(event.status));
         // Для бриджа не меняем состояние, просто эмитим сигнал
@@ -499,7 +500,6 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
         LOG_TECH_DEBUG("Unknown event type, ignored");;
         break;
     }
-}
 }
 void communicationengine::onNetworkError(const QString& error) {
     emit errorOccurred(error);

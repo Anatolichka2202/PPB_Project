@@ -81,23 +81,6 @@
      <property name="verticalSpacing">
       <number>4</number>
      </property>
-     <item row="0" column="0">
-      <widget class="QLabel" name="label_power_set_up_ch1">
-       <property name="text">
-        <string>Канал 1, Вт:</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="1">
-      <widget class="QLineEdit" name="power_set_up_ch1">
-       <property name="minimumSize">
-        <size>
-         <width>0</width>
-         <height>24</height>
-        </size>
-       </property>
-      </widget>
-     </item>
      <item row="0" column="2">
       <widget class="QCheckBox" name="disactiveFu">
        <property name="text">
@@ -105,10 +88,10 @@
        </property>
       </widget>
      </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="label_power_set_up_ch2">
+     <item row="0" column="0">
+      <widget class="QLabel" name="label_power_set_up_ch1">
        <property name="text">
-        <string>Канал 2, Вт:</string>
+        <string>Канал 1, Вт:</string>
        </property>
       </widget>
      </item>
@@ -129,7 +112,31 @@
        </property>
       </widget>
      </item>
-     <item row="2" column="0" colspan="3">
+     <item row="1" column="0">
+      <widget class="QLabel" name="label_power_set_up_ch2">
+       <property name="text">
+        <string>Канал 2, Вт:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="power_set_up_ch1">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>24</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="2">
+      <widget class="QCheckBox" name="powerCheckBox">
+       <property name="text">
+        <string>Питание</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="2">
       <widget class="QCheckBox" name="isreseterror">
        <property name="text">
         <string>Сброс ошибок</string>

@@ -10,9 +10,10 @@ struct PPBFullState {
     uint32_t statusMask = 0;    // маска, полученная в последнем TS
 
     // Флаги управления (из TC или состояния)
-    bool fuBlocked = false;     // блокировка ФУ
-    bool rebootRequested = false;
-    bool resetErrors = false;
+    bool fuBlocked = false;     // блокировка ФУ            бит 1
+    bool rebootRequested = false;   // бит перезагрузки     бит 2
+    bool resetErrors = false; // бит сброса ошибок          бит 3
+    bool powerEnabled = false;   // бит 8 (0x80) в TC       бит 8
 
     // Температуры (общие для ППБ)
     float tempT1 = 0.0f, tempT2 = 0.0f, tempT3 = 0.0f, tempT4 = 0.0f;

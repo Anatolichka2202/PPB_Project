@@ -60,6 +60,8 @@ public:
     void setAkipOutput(int channel, bool enable);
     void setAkipWaveform(int channel, const QString &wave);
     void setAkipDutyCycle(int channel, double percent);
+
+    void setPowerEnabled(uint8_t ppbIndex, bool enabled);
     // Сигнал о доступности
 signals:
     void akipAvailabilityChanged(bool available);

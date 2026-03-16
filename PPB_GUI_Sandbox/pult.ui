@@ -13,8 +13,8 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout_2">
-   <item row="0" column="0">
+  <layout class="QVBoxLayout" name="verticalLayout_2">
+   <item>
     <layout class="QGridLayout" name="gridLayout">
      <item row="6" column="0">
       <widget class="QPushButton" name="AnalizeBttn">
@@ -146,6 +146,13 @@ TC</string>
            </property>
           </widget>
          </item>
+         <item row="3" column="2">
+          <widget class="QCheckBox" name="powerCheckBox">
+           <property name="text">
+            <string>Питание</string>
+           </property>
+          </widget>
+         </item>
         </layout>
        </item>
       </layout>
@@ -259,7 +266,7 @@ BER_T</string>
      </item>
     </layout>
    </item>
-   <item row="2" column="0">
+   <item>
     <widget class="QLabel" name="statusbar">
      <property name="text">
       <string/>

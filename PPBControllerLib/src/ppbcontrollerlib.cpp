@@ -838,7 +838,7 @@ void PPBController::sendTC(uint16_t address)
     if (state.fuBlocked) payload.stateMask |= 0x01;
     if (state.rebootRequested) payload.stateMask |= 0x02;
     if (state.resetErrors) payload.stateMask |= 0x04;
-
+    if (state.powerEnabled) payload.stateMask |= 0x80;
     // Упаковка в QByteArray с преобразованием в big-endian
     QByteArray data;
     data.resize(sizeof(payload));
@@ -903,4 +903,11 @@ void PPBController::setAkipWaveform(int channel, const QString &wave)
 void PPBController::setAkipDutyCycle(int channel, double percent)
 {
     if (m_akip) m_akip->setDutyCycle(channel, percent);
+}
+void PPBController::setPowerEnabled(uint8_t ppbIndex, bool enabled)
+{
+    if (ppbIndex < 16) {
+        m_ppbStates[ppbIndex].powerEnabled = enabled;
+        emit fullStateUpdated(ppbIndex);
+    }
 }

@@ -27,6 +27,9 @@ ControlWidget::ControlWidget(QWidget *parent) :
     connect(ui->isReboot, &QCheckBox::toggled, this, &ControlWidget::onRebootToggled);
     connect(ui->isreseterror, &QCheckBox::toggled, this, &ControlWidget::onResetErrorsToggled);
 
+    connect(ui->powerCheckBox, &QCheckBox::toggled,
+            this, &ControlWidget::onPowerToggled);
+
     if (m_controller) {
         connect(m_controller, &PPBController::fullStateUpdated, this, &ControlWidget::onFullStateUpdated);
     }
@@ -158,6 +161,10 @@ void ControlWidget::onFullStateUpdated(uint8_t ppbIndex)
     ui->isreseterror->blockSignals(true);
     ui->isreseterror->setChecked(state.resetErrors);
     ui->isreseterror->blockSignals(false);
+
+    ui->powerCheckBox->blockSignals(true);
+    ui->powerCheckBox->setChecked(state.powerEnabled);
+    ui->powerCheckBox->blockSignals(false);
 }
 
 uint16_t ControlWidget::getSelectedAddress() const
@@ -168,5 +175,9 @@ uint16_t ControlWidget::getSelectedAddress() const
     return 0;
 }
 
-
-
+void ControlWidget::onPowerToggled(bool checked)
+{
+    if (m_controller) {
+        m_controller->setPowerEnabled(currentPPBIndex(), checked);
+    }
+}

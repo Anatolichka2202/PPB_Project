@@ -246,6 +246,8 @@ void TesterWindow::onDisplayModeChanged(bool codes)
 
 void TesterWindow::onConnectionStateChanged(PPBState state)
 {
+    bool connected = (state == PPBState::Ready);
+    ui->controlWidget->setConnected(connected);
     ui->connectionWidget->setConnectionState(state, m_controller->isBusy());
 }
 
@@ -297,10 +299,36 @@ void TesterWindow::onPultClicked()
     if (m_selectedTabs.isEmpty()) return;
     int index = *m_selectedTabs.begin();
     uint16_t addr = (1 << index);
-    // Создаём без родителя, чтобы окно было независимым
+
+    // Проверяем, открыт ли уже пульт для этого адреса
+    if (m_pultWindows.contains(addr)) {
+        pult* existing = m_pultWindows[addr];
+        existing->show();
+        existing->raise();
+        existing->activateWindow();
+        return;
+    }
+
+    // Создаём новый пульт
     pult* p = new pult(addr, m_controller, nullptr);
     p->setAttribute(Qt::WA_DeleteOnClose);
-    p->setWindowFlags(Qt::Window); // можно и так, но без родителя уже окно
+    p->setWindowFlags(Qt::Window); // независимое окно
+
+    // Подключаем сигнал destroyed для удаления из карты
+    connect(p, &pult::destroyed, this, &TesterWindow::onPultDestroyed);
+
+    // Позиционируем пульт справа от главного окна
+    QRect mainGeo = geometry();
+    QRect pultGeo = p->geometry(); // начальная геометрия (можно задать в ui)
+    // Если геометрия не задана, установим разумный размер
+    if (pultGeo.width() < 100) pultGeo.setWidth(600);  // примерная ширина пульта
+    if (pultGeo.height() < 100) pultGeo.setHeight(800);
+
+    pultGeo.moveTopLeft(mainGeo.topRight() + QPoint(10, 0)); // справа с отступом 10px
+    // Проверка, чтобы не уходил за пределы экрана – можно улучшить, но пока так
+    p->setGeometry(pultGeo);
+
+    m_pultWindows[addr] = p;
     p->show();
 }
 void TesterWindow::onMetricsClicked()
@@ -390,9 +418,27 @@ void TesterWindow::closeEvent(QCloseEvent *event)
         }
     }
 
+    for (pult* p : m_pultWindows) {
+        p->close(); // или deleteLater; close() инициирует закрытие
+    }
+    m_pultWindows.clear(); // очищаем карту
+
     QSettings settings;
     settings.setValue("geometry", saveGeometry());
     settings.setValue("rightSplitter", ui->rightSplitter->saveState());
 
     event->accept();
+}
+void TesterWindow::onPultDestroyed(QObject* obj)
+{
+    // Ищем адрес по указателю
+    uint16_t addrToRemove = 0;
+    for (auto it = m_pultWindows.begin(); it != m_pultWindows.end(); ++it) {
+        if (it.value() == obj) {
+            addrToRemove = it.key();
+            break;
+        }
+    }
+    if (addrToRemove != 0)
+        m_pultWindows.remove(addrToRemove);
 }

@@ -19,6 +19,7 @@
 #include "statuswidget.h"
 #include "pult.h"
 #include "ppbcontrollerlib.h"
+#include <QMap>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class TesterWindow; }
@@ -63,6 +64,9 @@ private slots:
     void onTabClicked(int index);
     void onTabBarCurrentChanged(int index);
 
+    //пульты
+    void onPultDestroyed(QObject* obj); // новый слот для очистки карты
+
 private:
     void setupPpbTabs(int count = 16);
     void updateSelectedCountLabel();
@@ -81,6 +85,8 @@ private:
 
     bool m_displayAsCodes = false;
     bool m_isExiting = false;
+
+     QMap<uint16_t, pult*> m_pultWindows; // карта открытых пультов
 };
 
 #endif // TESTERWINDOW_H

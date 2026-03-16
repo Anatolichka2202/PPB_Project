@@ -56,6 +56,7 @@ private slots:
     void onRebootToggled(bool checked);
     void onResetErrorsToggled(bool checked);
     void onFullStateUpdated(uint8_t ppbIndex);
+    void onPowerToggled(bool checked);
 
 private:
     uint16_t getSelectedAddress() const;

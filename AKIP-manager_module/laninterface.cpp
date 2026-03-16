@@ -66,7 +66,7 @@ bool LanInterface::sendScpiCommand(const QString &command)
         return false;
     }
 
-    QByteArray data = command.toLatin1() + "\r\n";
+    QByteArray data = command.toLatin1() + "\n";
     qint64 written = m_socket->write(data);
     if (written != data.size()) {
         emit errorOccurred(tr("Failed to write all data (written %1 of %2)").arg(written).arg(data.size()));

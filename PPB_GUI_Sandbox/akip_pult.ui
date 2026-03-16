@@ -1,179 +1,405 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>akip_pult</class>
- <widget class="QWidget" name="akip_pult">
+ <class>GeneratorPult</class>
+ <widget class="QWidget" name="GeneratorPult">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1546</width>
-    <height>1155</height>
+    <width>800</width>
+    <height>700</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>Пульт управления генератором</string>
   </property>
-  <widget class="QWidget" name="horizontalLayoutWidget">
-   <property name="geometry">
-    <rect>
-     <x>200</x>
-     <y>530</y>
-     <width>1041</width>
-     <height>341</height>
-    </rect>
-   </property>
-   <layout class="QHBoxLayout" name="horizontalLayout">
-    <item>
-     <layout class="QGridLayout" name="gridLayout">
-      <property name="sizeConstraint">
-       <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
-      </property>
-      <item row="5" column="1">
-       <widget class="QPushButton" name="pushButton">
+  <layout class="QVBoxLayout" name="verticalLayout_2">
+   <item>
+    <widget class="QLabel" name="lblIdentity">
+     <property name="text">
+      <string>Генератор: [идентификация]</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBoxChannel">
+     <property name="title">
+      <string>Канал</string>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <item>
+       <widget class="QRadioButton" name="radioCh1">
         <property name="text">
-         <string>частота АМ</string>
+         <string>Канал 1</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
-      <item row="3" column="1">
-       <widget class="QPushButton" name="pushButton_3">
+      <item>
+       <widget class="QRadioButton" name="radioCh2">
         <property name="text">
-         <string>выходная частота, МГц</string>
+         <string>Канал 2</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="1">
-       <widget class="QLabel" name="label">
-        <property name="maximumSize">
+      <item>
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
          <size>
-          <width>150</width>
-          <height>16777215</height>
+          <width>40</width>
+          <height>20</height>
          </size>
         </property>
-        <property name="text">
-         <string>CHANEL A</string>
-        </property>
-       </widget>
-      </item>
-      <item row="4" column="1">
-       <widget class="QPushButton" name="pushButton_2">
-        <property name="text">
-         <string>мощность, Дбм</string>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="2">
-       <widget class="QLineEdit" name="lineEdit">
-        <property name="maximumSize">
-         <size>
-          <width>100</width>
-          <height>16777215</height>
-         </size>
-        </property>
-       </widget>
-      </item>
-      <item row="4" column="2">
-       <widget class="QLineEdit" name="lineEdit_2">
-        <property name="maximumSize">
-         <size>
-          <width>100</width>
-          <height>16777215</height>
-         </size>
-        </property>
-       </widget>
-      </item>
-      <item row="5" column="2">
-       <widget class="QLineEdit" name="lineEdit_3">
-        <property name="maximumSize">
-         <size>
-          <width>100</width>
-          <height>16777215</height>
-         </size>
-        </property>
-       </widget>
+       </spacer>
       </item>
      </layout>
-    </item>
-    <item>
-     <layout class="QGridLayout" name="gridLayout_3"/>
-    </item>
-    <item>
-     <layout class="QGridLayout" name="gridLayout_2">
-      <item row="1" column="1">
-       <widget class="QPushButton" name="pushButton_6">
-        <property name="text">
-         <string>уровень, Vpp</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="2">
-       <layout class="QGridLayout" name="gridLayout_4"/>
-      </item>
-      <item row="0" column="1">
-       <widget class="QLabel" name="label_2">
-        <property name="maximumSize">
-         <size>
-          <width>150</width>
-          <height>16777215</height>
-         </size>
-        </property>
-        <property name="text">
-         <string>CHANEL B</string>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="1">
-       <widget class="QPushButton" name="pushButton_4">
-        <property name="text">
-         <string>режим модуляции (кан А)</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="2">
-       <widget class="QLineEdit" name="lineEdit_4">
-        <property name="maximumSize">
-         <size>
-          <width>100</width>
-          <height>16777215</height>
-         </size>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="QPushButton" name="pushButton_5">
-        <property name="text">
-         <string>скважность, %</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="2">
-       <widget class="QLineEdit" name="lineEdit_5">
-        <property name="maximumSize">
-         <size>
-          <width>100</width>
-          <height>16777215</height>
-         </size>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="2">
-       <widget class="QComboBox" name="comboBox">
+    </widget>
+   </item>
+   <item>
+    <layout class="QGridLayout" name="gridLayout">
+     <item row="0" column="0">
+      <widget class="QGroupBox" name="groupBoxFreq">
+       <property name="title">
+        <string>Частота несущей</string>
+       </property>
+       <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
-         <property name="text">
-          <string>выкл</string>
-         </property>
+         <widget class="QLineEdit" name="editFreq"/>
         </item>
         <item>
-         <property name="text">
-          <string>внешняя амплитудная модуляция</string>
-         </property>
+         <widget class="QLabel" name="label_2">
+          <property name="text">
+           <string>Гц</string>
+          </property>
+         </widget>
         </item>
-       </widget>
-      </item>
-     </layout>
-    </item>
-   </layout>
-  </widget>
+        <item>
+         <widget class="QPushButton" name="btnSetFreq">
+          <property name="text">
+           <string>Уст</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnQueryFreq">
+          <property name="text">
+           <string>Запр</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QGroupBox" name="groupBoxOutput">
+       <property name="title">
+        <string>Выход</string>
+       </property>
+       <layout class="QHBoxLayout" name="horizontalLayout_3">
+        <item>
+         <widget class="QCheckBox" name="chkOutput">
+          <property name="text">
+           <string>Включен</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnSetOutput">
+          <property name="text">
+           <string>Уст</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnQueryOutput">
+          <property name="text">
+           <string>Запр</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="1" column="0" colspan="2">
+      <widget class="QGroupBox" name="groupBoxAmpl">
+       <property name="title">
+        <string>Амплитуда</string>
+       </property>
+       <layout class="QHBoxLayout" name="horizontalLayout_4">
+        <item>
+         <widget class="QLineEdit" name="editAmpl"/>
+        </item>
+        <item>
+         <widget class="QComboBox" name="cmbAmplUnit"/>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnSetAmpl">
+          <property name="text">
+           <string>Уст</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnQueryAmpl">
+          <property name="text">
+           <string>Запр</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="2" column="0">
+      <widget class="QGroupBox" name="groupBoxWaveform">
+       <property name="title">
+        <string>Форма сигнала</string>
+       </property>
+       <layout class="QHBoxLayout" name="horizontalLayout_5">
+        <item>
+         <widget class="QComboBox" name="cmbWaveform"/>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnSetWaveform">
+          <property name="text">
+           <string>Уст</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnQueryWaveform">
+          <property name="text">
+           <string>Запр</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QGroupBox" name="groupBoxDuty">
+       <property name="title">
+        <string>Duty cycle (SQUARE)</string>
+       </property>
+       <layout class="QHBoxLayout" name="horizontalLayout_6">
+        <item>
+         <widget class="QLineEdit" name="editDuty"/>
+        </item>
+        <item>
+         <widget class="QLabel" name="label">
+          <property name="text">
+           <string>%</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnSetDuty">
+          <property name="text">
+           <string>Уст</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnQueryDuty">
+          <property name="text">
+           <string>Запр</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="3" column="0" colspan="2">
+      <widget class="QGroupBox" name="groupBoxAM">
+       <property name="title">
+        <string>AM модуляция</string>
+       </property>
+       <layout class="QGridLayout" name="gridLayout_2">
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_3">
+          <property name="text">
+           <string>Частота AM:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLineEdit" name="editAMFreq"/>
+        </item>
+        <item row="0" column="2">
+         <widget class="QLabel" name="label_4">
+          <property name="text">
+           <string>Гц</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3">
+         <widget class="QPushButton" name="btnSetAMFreq">
+          <property name="text">
+           <string>Уст</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="4">
+         <widget class="QPushButton" name="btnQueryAMFreq">
+          <property name="text">
+           <string>Запр</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_5">
+          <property name="text">
+           <string>Глубина AM:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLineEdit" name="editAMDepth"/>
+        </item>
+        <item row="1" column="2">
+         <widget class="QLabel" name="label_6">
+          <property name="text">
+           <string>%</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="3">
+         <widget class="QPushButton" name="btnSetAMDepth">
+          <property name="text">
+           <string>Уст</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="4">
+         <widget class="QPushButton" name="btnQueryAMDepth">
+          <property name="text">
+           <string>Запр</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0" colspan="5">
+         <layout class="QHBoxLayout" name="horizontalLayout_7">
+          <item>
+           <widget class="QCheckBox" name="chkAMState">
+            <property name="text">
+             <string>AM включена</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btnSetAMState">
+            <property name="text">
+             <string>Уст</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btnQueryAMState">
+            <property name="text">
+             <string>Запр</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_2">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="4" column="0" colspan="2">
+      <widget class="QGroupBox" name="groupBoxCustom">
+       <property name="title">
+        <string>Произвольная SCPI команда</string>
+       </property>
+       <layout class="QHBoxLayout" name="horizontalLayout_8">
+        <item>
+         <widget class="QLineEdit" name="customCommandEdit"/>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btnSendCustom">
+          <property name="text">
+           <string>Отправить</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_9">
+     <item>
+      <widget class="QPushButton" name="btnReset">
+       <property name="text">
+        <string>Сброс (*RST)</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer_3">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QLabel" name="lblLastOpTime">
+       <property name="text">
+        <string>Время последней операции: --</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QPlainTextEdit" name="logEdit">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>150</height>
+      </size>
+     </property>
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="lineWrapMode">
+      <enum>QPlainTextEdit::NoWrap</enum>
+     </property>
+     <property name="font">
+      <font>
+       <family>Courier New</family>
+       <pointsize>9</pointsize>
+      </font>
+     </property>
+    </widget>
+   </item>
+  </layout>
  </widget>
  <resources/>
  <connections/>

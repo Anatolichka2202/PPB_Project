@@ -74,6 +74,8 @@ private:
     uint16_t getSelectedAddress() const; // для обратной совместимости
     void updateGeneratorUi();
 
+    void updateTabSelectionStyle();
+
     Ui::TesterWindow *ui;
     PPBController* m_controller;
     IAkipController* m_signalGenerator = nullptr;

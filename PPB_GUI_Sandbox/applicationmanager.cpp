@@ -337,6 +337,19 @@ void ApplicationManager::configureGenerator()
     // Для Gratten можно добавить аналогичную настройку, если требуется
 }
 
+void ApplicationManager::reconnectGenerator()
+{
+    if (m_signalGenerator) {
+        // Если хотим мягко закрыть, можно вызвать closeDevice() перед удалением
+        // Но unique_ptr с DeleteLaterDeleter сам вызовет deleteLater при сбросе.
+        m_signalGenerator.reset();
+    }
+    detectAndSelectGenerator();
+    if (m_signalGenerator && m_mainWindow) {
+        m_mainWindow->setSignalGeneratorController(m_signalGenerator.get());
+    }
+}
+
 void ApplicationManager::logGeneratorState()
 {
     if (!m_signalGenerator || !m_signalGenerator->isAvailable()) return;

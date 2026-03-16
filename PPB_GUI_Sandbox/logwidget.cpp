@@ -274,6 +274,19 @@ void LogWidget::updateCategoryComboBox(const QStringList &categories)
 
 void LogWidget::onLogEntryReceived(const LogEntry &entry)
 {
+
+        // Ограничим общее количество записей, например, 10000
+        if (m_model->rowCount() > 10000) {
+            // Можно очищать половину, но проще просто не добавлять новые
+            // или реализовать кольцевой буфер. Пока предложу простой лимит:
+            static bool warned = false;
+            if (!warned) {
+                qWarning() << "Достигнут лимит лога (10000), новые записи игнорируются";
+                warned = true;
+            }
+            return;
+        }
+
     m_model->addEntry(entry);
 
     // Автопрокрутка вниз, если пользователь не скроллил вверх

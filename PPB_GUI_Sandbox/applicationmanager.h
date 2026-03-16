@@ -30,6 +30,7 @@ public:
     PPBController* controller() const { return m_controller.get(); }
     CommunicationFacade* communication() const { return m_communication.get(); }
 
+    void reconnectGenerator();
 signals:
     void initializationComplete();
     void initializationFailed(const QString& error);
@@ -48,6 +49,7 @@ private:
     void detectAndSelectGenerator();          // обнаружение и выбор устройства
     void configureGenerator();                 // начальная настройка (если нужно)
     void logGeneratorState();                  // логирование состояния
+
 
 private:
     static ApplicationManager* m_instance;

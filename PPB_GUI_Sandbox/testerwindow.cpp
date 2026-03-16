@@ -151,6 +151,7 @@ void TesterWindow::setupPpbTabs(int count)
     for (int i = 0; i < count; ++i) {
         QString name = QString("ППБ%1").arg(i + 1);
         ui->ppbTabBar->addTab(name);
+        ui->ppbTabBar->setTabData(i, i); // сохраняем индекс в данных вкладки
         StatusWidget* sw = new StatusWidget(ui->ppbStack);
         ui->ppbStack->addWidget(sw);
         m_statusWidgets.append(sw);
@@ -159,7 +160,7 @@ void TesterWindow::setupPpbTabs(int count)
     ui->ppbTabBar->setCurrentIndex(0);
     ui->ppbStack->setCurrentIndex(0);
     updateSelectedCountLabel();
-
+    updateTabSelectionStyle();
     // Подключение сигналов вкладок
     connect(ui->ppbTabBar, &QTabBar::tabBarClicked,
             this, &TesterWindow::onTabClicked);
@@ -203,6 +204,19 @@ void TesterWindow::onTabClicked(int index)
     ui->ppbTabBar->setCurrentIndex(index);
     ui->ppbStack->setCurrentIndex(index);
     updateSelectedCountLabel();
+    updateTabSelectionStyle();
+}
+
+//изменение кнопки при выборе нескольких
+void TesterWindow::updateTabSelectionStyle()
+{
+    for (int i = 0; i < ui->ppbTabBar->count(); ++i) {
+        if (m_selectedTabs.contains(i)) {
+            ui->ppbTabBar->setTabTextColor(i, palette().highlight().color());
+        } else {
+            ui->ppbTabBar->setTabTextColor(i, palette().windowText().color());
+        }
+    }
 }
 
 void TesterWindow::onTabBarCurrentChanged(int index)
@@ -360,11 +374,8 @@ void TesterWindow::onAkipPultClicked()
 void TesterWindow::onReconnectGeneratorClicked()
 {
     statusBar()->showMessage("Переподключение генератора...", 2000);
-    // Здесь можно вызвать метод ApplicationManager для повторного обнаружения
-    // auto& manager = ApplicationManager::instance();
-    // manager.reconnectGenerator(); // нужно добавить такой метод
+    ApplicationManager::instance().reconnectGenerator();
 }
-
 // ---------- Управление генератором ----------
 void TesterWindow::setSignalGeneratorController(IAkipController* ctrl)
 {

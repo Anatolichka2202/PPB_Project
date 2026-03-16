@@ -8,7 +8,11 @@
 #include <QVariantMap>
 #include "ppbprotocol.h"  // для PPBState, TechCommand и DataPacket
 
-
+struct UIChannelState {
+    float power = 0.0f;
+    float vswr = 1.0f;
+    bool isOk = false;
+};
 
 class IController : public QObject {
     Q_OBJECT

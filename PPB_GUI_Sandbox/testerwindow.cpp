@@ -274,6 +274,11 @@ void TesterWindow::onFullStateUpdated(uint8_t ppbIndex)
     if (ppbIndex < m_statusWidgets.size()) {
         auto state = m_controller->getFullState(ppbIndex);
         m_statusWidgets[ppbIndex]->updateState(state, m_displayAsCodes);
+        // ППБ жив – ставим зелёную иконку
+        QPixmap pix(16, 16);
+        pix.fill(Qt::green);
+        QIcon icon(pix);
+        ui->ppbTabBar->setTabIcon(ppbIndex, icon);
     }
 }
 

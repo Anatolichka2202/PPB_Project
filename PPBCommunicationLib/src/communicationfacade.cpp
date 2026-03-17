@@ -42,6 +42,8 @@ CommunicationFacade::CommunicationFacade(UDPClient* udpClient,
             this, &CommunicationFacade::onEngineCommandProgress);
     connect(m_engine, &communicationengine::busyChanged,
             this, &CommunicationFacade::onEngineBusyChanged);
+    connect(m_engine, &communicationengine::groupCommandCompleted,
+            this, &CommunicationFacade::onEngineGroupCommandCompleted);
 }
 
 CommunicationFacade::CommunicationFacade(QObject* parent)
@@ -100,6 +102,8 @@ void CommunicationFacade::initialize()
             this, &CommunicationFacade::onEngineCommandProgress);
     connect(m_engine, &communicationengine::busyChanged,
             this, &CommunicationFacade::onEngineBusyChanged);
+    connect(m_engine, &communicationengine::groupCommandCompleted,
+            this, &CommunicationFacade::onEngineGroupCommandCompleted);
 
     // Инициализируем UDPClient в его потоке
     QMetaObject::invokeMethod(m_udpClient, "initializeInThread", Qt::QueuedConnection);
@@ -138,6 +142,28 @@ void CommunicationFacade::executeCommand(TechCommand cmd, uint16_t address, cons
         m_engine->executeCommand(cmd, address, data);
     });
 }
+
+quint64 CommunicationFacade::executeGroupCommand(TechCommand cmd, uint16_t mask, const QByteArray& data)
+{
+    // Проверка потока
+    if (QThread::currentThread() != thread()) {
+        quint64 result = 0;
+        QMetaObject::invokeMethod(this, "executeGroupCommand", Qt::BlockingQueuedConnection,
+                                  Q_RETURN_ARG(quint64, result),
+                                  Q_ARG(TechCommand, cmd),
+                                  Q_ARG(uint16_t, mask),
+                                  Q_ARG(QByteArray, data));
+        return result;
+    }
+    // Вызов метода движка (предполагается, что он уже добавлен)
+    return m_engine->executeGroupCommand(cmd, mask, data);
+}
+
+void CommunicationFacade::onEngineGroupCommandCompleted(quint64 groupId, bool allSuccess, const QString& summary)
+{
+    emit groupCommandCompleted(groupId, allSuccess, summary);
+}
+
 
 void CommunicationFacade::sendFUTransmit(uint16_t address)
 {

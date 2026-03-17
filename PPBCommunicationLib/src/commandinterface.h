@@ -39,6 +39,7 @@ public:
     virtual void notifyReceivedPackets(const QVector<DataPacket>& packets) = 0;
     virtual void requestClearPacketData() = 0;
 
+
 signals:
     void statusDataReady(const QVector <QByteArray>& data);
     void testDataReady(const QVector<DataPacket>& data);

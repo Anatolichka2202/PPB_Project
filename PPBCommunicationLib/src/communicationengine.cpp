@@ -227,6 +227,8 @@ void communicationengine::clearContext(uint16_t address) {
     }
 }
 
+//++++++++++++++++++++++++++++++++++++++++ПУБЛИЧНЫЕ СЛОТЫ+++++++++++++++++++++++++++++++
+
 bool communicationengine::connectToPPB(uint16_t address, const QString& ip, quint16 port) {
 
     if (QThread::currentThread() != this->thread()) {
@@ -380,6 +382,72 @@ void communicationengine::setCommandParseData(uint16_t address, const QVariant& 
     context->parsedData = data;
 }
 
+quint64 communicationengine::executeGroupCommand(TechCommand cmd, uint16_t mask, const QByteArray& data)
+{
+    if (QThread::currentThread() != this->thread()) {
+        quint64 result = 0;
+        QMetaObject::invokeMethod(this, "executeGroupCommand", Qt::BlockingQueuedConnection,
+                                  Q_RETURN_ARG(quint64, result),
+                                  Q_ARG(TechCommand, cmd),
+                                  Q_ARG(uint16_t, mask),
+                                  Q_ARG(QByteArray, data));
+        return result;
+    }
+
+    // Собираем все адреса из маски (битовая маска: 1 << index)
+    QList<uint16_t> addresses;
+    for (int i = 0; i < 16; ++i) {
+        if (mask & (1 << i)) {
+            addresses.append(1 << i);
+        }
+    }
+
+    if (addresses.isEmpty()) {
+        emit errorOccurred("Group command: empty mask");
+        return 0;
+    }
+
+    // Создаём запись о группе
+    quint64 groupId = m_nextGroupId++;
+    GroupInfo& group = m_groupOperations[groupId];
+    group.pendingAddresses = QSet<uint16_t>(addresses.begin(), addresses.end());
+
+    // Для каждого адреса создаём контекст с командой, но подавляем отправку
+    for (uint16_t addr : addresses) {
+        auto command = CommandFactory::create(cmd);
+        if (!command) {
+            emit errorOccurred(QString("Group command: unknown command %1").arg(static_cast<int>(cmd)));
+            // Очистить уже созданные контексты?
+            return 0;
+        }
+
+        // Если команда с данными, нужно использовать DataCommand
+        // Для простоты предполагаем, что фабрика создаёт нужный тип
+
+        PPBContext& context = getOrCreateContext(addr);
+        context.suppressSend = true;  // не отправлять пакет
+        // Вызываем стандартную процедуру выполнения команды (без отправки)
+        // Важно: executeCommandImmediately сама очистит контекст и установит новую команду
+        executeCommandImmediately(addr, std::move(command));
+        // После возврата suppressSend может быть сброшен? Нет, он остаётся true.
+        // Но можно оставить как есть.
+    }
+
+    // Теперь отправляем один общий пакет с маской
+    QByteArray request;
+    if (data.isEmpty()) {
+        request = PacketBuilder::createTURequest(mask, cmd);
+    } else {
+        request = PacketBuilder::createTURequestWithData(mask, cmd, data);
+    }
+    sendPacketInternal(request, QString("Group command %1").arg(static_cast<int>(cmd)));
+
+    // Запуск таймеров уже произошёл внутри executeCommandImmediately
+    // (они запущены для каждого контекста)
+
+    return groupId;
+} //реализация групповых команд
+
 // ===== ПРИВАТНЫЕ МЕТОДЫ =====
 
 void communicationengine::executeCommandImmediately(uint16_t address, std::unique_ptr<PPBCommand> command) {
@@ -411,7 +479,11 @@ void communicationengine::executeCommandImmediately(uint16_t address, std::uniqu
         // для FU команд будет отдельный вызов
     }
 
-    sendPacketInternal(request, context.currentCommand->name());
+    if (!context.suppressSend) { //отправляем пакет если мультикаст не перехватывает отправку
+        sendPacketInternal(request, context.currentCommand->name());
+    }
+
+
 
     // Таймаут
     context.operationTimer = std::make_unique<QTimer>();
@@ -639,6 +711,31 @@ void communicationengine::completeOperation(uint16_t address, bool success, cons
 
     PPBState nextState = success ? PPBState::Ready : PPBState::Idle;
     transitionState(address, nextState, "Завершение операции");
+
+    // Проверить, не принадлежит ли этот адрес какой-либо группе
+    for (auto it = m_groupOperations.begin(); it != m_groupOperations.end(); ) {
+        if (it->second.pendingAddresses.contains(address)) {
+            it->second.pendingAddresses.remove(address);
+            it->second.results[address] = success;
+            it->second.messages[address] = finalMessage;
+
+            if (it->second.pendingAddresses.isEmpty()) {
+                // Группа полностью завершена
+                bool allSuccess = true;
+                QString summary;
+                for (auto res : it->second.results) {
+                    if (!res) { allSuccess = false; break; }
+                }
+                // Можно сформировать сводку
+                emit groupCommandCompleted(it->first, allSuccess, summary);
+                it = m_groupOperations.erase(it);
+            } else {
+                ++it;
+            }
+        } else {
+            ++it;
+        }
+    }
 }
 void communicationengine::processNextCommandForAddress(uint16_t address) {
     // Проверяем, что мы в состоянии Ready

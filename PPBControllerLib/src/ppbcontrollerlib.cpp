@@ -71,6 +71,8 @@ void PPBController::connectCommunicationSignals()
 
     connect(m_communication, &ICommunication::commandDataParsed,
             this, &PPBController::onCommandDataParsed);
+    connect(m_communication, &ICommunication::groupCommandCompleted,
+            this, &PPBController::onGroupCommandCompleted);
 }
 
 PPBController::PPBController(ICommunication* communication, PacketAnalyzerInterface* analyzer, QObject *parent)
@@ -158,13 +160,19 @@ void PPBController::requestStatus(uint16_t address)
         LOG_TECH_STATE("requestStatus: контроллер занят, запрос отклонён");
         return;
     }
-    setCurrentAddress(address);
+    setCurrentAddress(address); // для совместимости, хотя адрес может быть маской
     if (m_communication) {
-        m_communication->executeCommand(TechCommand::TS, address);
+        // Проверяем, является ли address степенью двойки (один ППБ)
+        if ((address & (address - 1)) == 0) {
+            // Одиночный адрес
+            m_communication->executeCommand(TechCommand::TS, address);
+        } else {
+            // Множественный адрес – групповая команда
+            quint64 groupId = m_communication->executeGroupCommand(TechCommand::TS, 0x0003); // ППБ1 и ППБ2
+        }
     }
     LOG_UI_OPERATION(QString("Запрос статуса ППБ %1").arg(address));
 }
-
 void PPBController::resetPPB(uint16_t address, const TCDataPayload& payload)
 {
     // Старая реализация: просто отправляем то, что пришло (не используем состояние)
@@ -242,6 +250,11 @@ void PPBController::stopAutoPoll()
 
 void PPBController::onCommandDataParsed(uint16_t address, const QVariant& data, TechCommand command)
 {
+    if (command == TechCommand::IS_YOU) {
+        emit commandDataParsed(address, data, command);
+        return;
+    }
+
     int index = addressToIndex(address);
     if (index < 0) return;
 
@@ -250,11 +263,11 @@ void PPBController::onCommandDataParsed(uint16_t address, const QVariant& data, 
         if (map.contains("value")) {
             m_ppbStates[index].factoryNumber = map["value"].toUInt();
             emit fullStateUpdated(index);
-              emit commandDataParsed(address, data, command);
+            emit commandDataParsed(address, data, command);
             LOG_UI_RESULT(QString("Заводской номер ППБ%1: %2").arg(index+1).arg(m_ppbStates[index].factoryNumber));
         }
     }
-    // Можно добавить обработку других команд (VERS, CHECKSUM и т.д.) по аналогии
+    // Можно добавить обработку других команд
 }
 
 PPBState PPBController::connectionState() const
@@ -679,7 +692,8 @@ QString PPBController::commandToName(TechCommand command) const
         {TechCommand::PRBS_M2S, "PRBS передача"},
         {TechCommand::PRBS_S2M, "PRBS приём"},
         {TechCommand::BER_T, "BER ТУ"},
-        {TechCommand::BER_F, "BER ФУ"}
+        {TechCommand::BER_F, "BER ФУ"},
+        {TechCommand::IS_YOU, "Прозвон сети"},
     };
     return names.value(command, "Неизвестная команда");
 }
@@ -929,4 +943,7 @@ void PPBController::setBridgeAddress(const QString &ip, quint16 port)
         m_communication->setBridgeAddress(ip, port);
 }
 
-
+void PPBController::onGroupCommandCompleted(quint64 groupId, bool allSuccess, const QString& summary)
+{
+    emit groupCommandCompleted(groupId, allSuccess, summary);
+}

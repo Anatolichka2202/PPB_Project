@@ -97,7 +97,7 @@ void ControlWidget::setAutoPollChecked(bool checked)
 }
 
 void ControlWidget::onPollClicked()      { emit pollStatusClicked(); }
-void ControlWidget::onResetClicked()     { emit resetClicked(); } // теперь без данных
+void ControlWidget::onResetClicked()     { emit resetClicked(); }
 void ControlWidget::onTestClicked()      { emit testSequenceClicked(); }
 void ControlWidget::onAutoPollToggled(bool checked) { emit autoPollToggled(checked); }
 void ControlWidget::onComboBoxIndexChanged(int index) { emit ppbSelected(index); }

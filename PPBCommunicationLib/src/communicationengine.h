@@ -93,8 +93,8 @@ private:
         QVariant parsedData;             // Дополнительные распарсенные данные
         QVector<DataPacket> parsedPackets; // Для команд с пакетами (PRBS_S2M)
 
-         PPBState stateBeforeCommand = PPBState::Idle;  // Состояние перед началом команды
-
+        PPBState stateBeforeCommand = PPBState::Idle;  // Состояние перед началом команды
+        bool suppressSend = false; //флаг мультивещания для создания контекстов
         // Конструкторы и операторы
         PPBContext() = default;
         PPBContext(const PPBContext&) = delete;
@@ -139,6 +139,17 @@ private:
             parsedPackets.clear();
         }
     };
+
+    //++++++++++++++++++++++++++++++++++++информация группового контекста+++++++++++++++++++++++//
+    struct GroupInfo {
+        QSet<uint16_t> pendingAddresses;   // адреса, ещё не ответившие
+        QMap<uint16_t, bool> results;      // результаты по каждому адресу (успех/ошибка)
+        QMap<uint16_t, QString> messages;  // сообщения для каждого адреса
+        // Можно добавить общий таймер группы, если нужен
+    };
+    std::map<quint64, GroupInfo> m_groupOperations;
+    quint64 m_nextGroupId = 1;
+    //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
 
     class DataCommand : public PPBCommand {
     public:
@@ -197,6 +208,8 @@ public slots:
     void requestClearPacketData();
     void sendDataPackets(const QVector<DataPacket>& packets);
 
+    quint64 executeGroupCommand(TechCommand cmd, uint16_t mask, const QByteArray& data = {});
+
 signals:
     void stateChanged(uint16_t address, PPBState state);
     void connected();
@@ -217,7 +230,9 @@ signals:
     void clearPacketDataRequested();
 
     void statusReceived(uint16_t address, uint16_t mask, const QVector<QByteArray>& data);
-        void busyChanged(bool busy);
+    void busyChanged(bool busy);
+
+    void groupCommandCompleted(quint64 groupId, bool allSuccess, const QString& summary);
 
 private slots:
     void onDataReceived(const QByteArray& data, const QHostAddress& sender, quint16 port);

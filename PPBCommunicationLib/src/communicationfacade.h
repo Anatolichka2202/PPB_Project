@@ -36,11 +36,11 @@ public:
 
     void setBridgeAddress(const QString &ip, quint16 port) override;
 
-
+    Q_INVOKABLE quint64 executeGroupCommand(TechCommand cmd, uint16_t mask, const QByteArray& data = {});
 signals:
     // Сигнал об успешной инициализации
     void initialized();
-
+    void groupCommandCompleted(quint64 groupId, bool allSuccess, const QString& summary);
 private slots:
     // Внутренние слоты для проброса сигналов от движка
     void onEngineStateChanged(uint16_t address, PPBState state);
@@ -52,6 +52,7 @@ private slots:
     void onEngineClearPacketDataRequested();
     void onEngineCommandProgress(int current, int total, TechCommand command);
     void onEngineBusyChanged(bool busy);
+    void onEngineGroupCommandCompleted(quint64 groupId, bool allSuccess, const QString& summary);
 
 private:
     // Вспомогательный метод для перенаправления вызовов в правильный поток

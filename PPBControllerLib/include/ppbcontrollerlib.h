@@ -68,7 +68,6 @@ public:
     // Сигнал о доступности
 signals:
     void akipAvailabilityChanged(bool available);
-
 private:
     IAkipController* m_akip; // не владеет, просто указатель
 
@@ -91,12 +90,14 @@ private slots:
     void onAnalyzerAnalysisComplete(const QString& summary);
     void onAnalyzerDetailedResultsReady(const QVariantMap& results);
     void onCommandDataParsed(uint16_t address, const QVariant& data, TechCommand command);
-
+    void onGroupCommandCompleted(quint64 groupId, bool allSuccess, const QString& summary);
 
 signals:
     void fullStateUpdated(uint8_t ppbIndex);
-     void commandDataParsed(uint16_t address, const QVariant& data, TechCommand command);
+    void commandDataParsed(uint16_t address, const QVariant& data, TechCommand command);
     void commandCompleted(bool success, const QString& message, TechCommand command);
+    void groupCommandCompleted(quint64 groupId, bool allSuccess, const QString& summary);
+
 private:
     void connectCommunicationSignals();
     void processStatusData(uint16_t address, uint32_t mask, const QVector<QByteArray>& data);

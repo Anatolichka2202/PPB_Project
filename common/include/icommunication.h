@@ -29,6 +29,7 @@ public:
     virtual bool isBusy() const = 0;
 
     virtual void setBridgeAddress(const QString &ip, quint16 port) = 0;
+    virtual quint64 executeGroupCommand(TechCommand cmd, uint16_t mask, const QByteArray& data = {}) = 0;
 
 signals:
     void stateChanged(uint16_t address, PPBState state);
@@ -45,6 +46,7 @@ signals:
     void commandProgress(int current, int total, TechCommand command);        // прогресс отправки/приёма
     void busyChanged(bool busy);                                              // изменение занятости
 
+    void groupCommandCompleted(quint64 groupId, bool allSuccess, const QString& summary);
 };
 
 #endif // ICOMMUNICATION_H

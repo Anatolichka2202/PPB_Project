@@ -2,6 +2,7 @@
 #include "ui_connectionwidget.h"
 #include <QMessageBox>
 #include <QHostAddress>
+
 ConnectionWidget::ConnectionWidget(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::ConnectionWidget)
@@ -12,11 +13,12 @@ ConnectionWidget::ConnectionWidget(QWidget *parent) :
     ui->lineEditIPAddress->setText("192.168.0.230");
     ui->lineEditPort->setText("1080");
 
-    // Подключение кнопки
-    connect(ui->pushButtonConnect, &QPushButton::clicked,
-            this, &ConnectionWidget::onConnectButtonClicked);
+    // Подключение кнопок
+    connect(ui->pushButtonConnect, &QPushButton::clicked, this, [this]() {
+        emit bridgePingRequested(ip(), port());
+    });
+
     connect(ui->pushButtonExit, &QPushButton::clicked, this, &ConnectionWidget::exitClicked);
-    qDebug() << "Constructor of ConnectionWidget";
 }
 
 ConnectionWidget::~ConnectionWidget()
@@ -34,48 +36,39 @@ quint16 ConnectionWidget::port() const
     return ui->lineEditPort->text().toUShort();
 }
 
+
+
 void ConnectionWidget::setConnectionState(PPBState state, bool busy)
 {
     m_currentState = state;
 
     QString buttonText;
-    QString indicatorStyle;
-    QString tooltip;
     switch (state) {
     case PPBState::Idle:
-        indicatorStyle = "border-radius: 10px; border: 2px solid #666; background-color: #ff0000;";
         buttonText = "Подключиться";
-        tooltip = "Отключено";
         break;
-
     case PPBState::Ready:
-        if (busy) {
-            indicatorStyle = "border-radius: 10px; border: 2px solid #666; background-color: #ffff00;";
+        if (busy)
             buttonText = "Выполняется операция...";
-            tooltip = "Выполняется операция";
-        } else {
-            indicatorStyle = "border-radius: 10px; border: 2px solid #666; background-color: #00ff00;";
+        else
             buttonText = "Отключиться";
-            tooltip = "Подключено";
-        }
         break;
-
-    case PPBState::SendingCommand:
-
-
     default:
-        indicatorStyle = "border-radius: 10px; border: 2px solid #666; background-color: #cccccc;";
         buttonText = "Ожидание...";
-        tooltip = "Неизвестное состояние";
         break;
     }
     ui->pushButtonConnect->setText(buttonText);
-    ui->labelConnectionStatus->setStyleSheet(indicatorStyle);
-    ui->labelConnectionStatus->setToolTip(tooltip);
 
-    // Поля ввода доступны только в состоянии Idle и когда не busy Лучше управлять из главного окна, но можно и здесь
+    // Поля ввода доступны только в Idle
     ui->lineEditIPAddress->setEnabled(state == PPBState::Idle);
     ui->lineEditPort->setEnabled(state == PPBState::Idle);
+}
+
+void ConnectionWidget::setBridgeStatus(bool available)
+{
+    QString color = available ? "#00ff00" : "#ff0000";
+    QString style = QString("border-radius: 10px; border: 2px solid #666; background-color: %1;").arg(color);
+    ui->labelConnectionStatus->setStyleSheet(style);
 }
 
 void ConnectionWidget::onConnectButtonClicked()
@@ -91,10 +84,15 @@ void ConnectionWidget::onConnectButtonClicked()
             QMessageBox::warning(this, "Ошибка", "Неверный порт");
             return;
         }
-        emit connectRequested(ip(), p);
+        emit bridgePingRequested(ip(), p); // теперь это пинг бриджа
     }
     else if (m_currentState == PPBState::Ready) {
         emit disconnectRequested();
     }
-    // В других состояниях (SendingCommand, WaitingData) кнопка должна быть заблокирована, но на всякий случай ничего не делаем
+}
+
+void ConnectionWidget::onCallButtonClicked()
+{
+    uint16_t mask = 0;
+
 }

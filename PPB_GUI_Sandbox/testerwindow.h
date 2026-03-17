@@ -49,7 +49,7 @@ private slots:
     void onOperationCompleted(bool success, const QString &message);
 
     // Слоты от виджетов левой панели
-    void onConnectRequested(const QString &ip, quint16 port);
+   // void onConnectRequested(const QString &ip, quint16 port);
     void onDisconnectRequested();
     void onExitClicked();
     void onPultClicked();
@@ -60,6 +60,9 @@ private slots:
     // Слоты от DataViewWidget
     void onDisplayModeChanged(bool codes);
 
+    void onBridgePingRequested(const QString &ip, quint16 port);
+    void onPpbProbeRequested(uint16_t mask);
+
     // Слоты для вкладок ППБ
     void onTabClicked(int index);
     void onTabBarCurrentChanged(int index);
@@ -67,11 +70,14 @@ private slots:
     //пульты
     void onPultDestroyed(QObject* obj); // новый слот для очистки карты
 
+
+
 private:
     void setupPpbTabs(int count = 16);
     void updateSelectedCountLabel();
     QList<uint16_t> getSelectedAddresses() const;
     uint16_t getSelectedAddress() const; // для обратной совместимости
+    uint16_t getSelectedMask() const;
     void updateGeneratorUi();
 
     void updateTabSelectionStyle();

@@ -170,6 +170,10 @@ public:
 
     PPBState overallState() const;
     bool isBusy() const { return m_busy; }
+
+    void setBridgeAddress(const QString &ip, quint16 port);
+
+
 public slots:
     // Основные методы
     bool connectToPPB(uint16_t address, const QString& ip, quint16 port);

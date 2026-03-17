@@ -29,6 +29,7 @@ public:
     bool isBusy() const override;
     bool isAutoPollEnabled() const override;
 
+    void exucuteCommand(TechCommand tech, uint16_t) override;
     void requestVersion(uint16_t address) override;
     void requestVolume(uint16_t address) override;
     void requestChecksum(uint16_t address) override;
@@ -42,6 +43,8 @@ public:
     void saveSentPackets(const QVector<DataPacket>& packets) override;
     void setCommunication(ICommunication* communication) override;
     void requestFabricNumber(uint16_t address) override;
+
+    void setBridgeAddress(const QString &ip, quint16 port);
 
 public:
     void setChannelPower(uint8_t ppbIndex, int channel, float watts);
@@ -92,7 +95,8 @@ private slots:
 
 signals:
     void fullStateUpdated(uint8_t ppbIndex);
-
+     void commandDataParsed(uint16_t address, const QVariant& data, TechCommand command);
+    void commandCompleted(bool success, const QString& message, TechCommand command);
 private:
     void connectCommunicationSignals();
     void processStatusData(uint16_t address, uint32_t mask, const QVector<QByteArray>& data);

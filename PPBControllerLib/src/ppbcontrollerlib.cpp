@@ -68,6 +68,9 @@ void PPBController::connectCommunicationSignals()
             this, &PPBController::onClearPacketDataRequested, Qt::QueuedConnection);
     connect(m_communication, &ICommunication::commandDataParsed,
             this, &PPBController::onCommandDataParsed, Qt::QueuedConnection);
+
+    connect(m_communication, &ICommunication::commandDataParsed,
+            this, &PPBController::onCommandDataParsed);
 }
 
 PPBController::PPBController(ICommunication* communication, PacketAnalyzerInterface* analyzer, QObject *parent)
@@ -247,6 +250,7 @@ void PPBController::onCommandDataParsed(uint16_t address, const QVariant& data, 
         if (map.contains("value")) {
             m_ppbStates[index].factoryNumber = map["value"].toUInt();
             emit fullStateUpdated(index);
+              emit commandDataParsed(address, data, command);
             LOG_UI_RESULT(QString("Заводской номер ППБ%1: %2").arg(index+1).arg(m_ppbStates[index].factoryNumber));
         }
     }
@@ -320,6 +324,7 @@ void PPBController::onCommandCompleted(bool success, const QString& message, Tec
     }
 
     emit operationCompleted(success, message);
+    emit commandCompleted(success, message, command);
 }
 
 void PPBController::onErrorOccurred(const QString& error)
@@ -679,6 +684,12 @@ QString PPBController::commandToName(TechCommand command) const
     return names.value(command, "Неизвестная команда");
 }
 
+void PPBController::exucuteCommand(TechCommand tech, uint16_t address)
+{
+    if(m_communication) {m_communication->executeCommand(tech,address);}
+
+}
+
 void PPBController::requestVersion(uint16_t address)
 {
     if (m_communication) {
@@ -911,3 +922,11 @@ void PPBController::setPowerEnabled(uint8_t ppbIndex, bool enabled)
         emit fullStateUpdated(ppbIndex);
     }
 }
+
+void PPBController::setBridgeAddress(const QString &ip, quint16 port)
+{
+    if (m_communication)
+        m_communication->setBridgeAddress(ip, port);
+}
+
+

@@ -208,6 +208,14 @@ public:
     static QString commandName(TechCommand cmd);
 };
 
+class IsYouCommand : public ConcretePPBCommand<TechCommand::IS_YOU, 1, 1000> {
+public:
+    QString name() const override { return "Прозвон сети"; }
+    void onDataReceived(CommandInterface* comm, const QVector<QByteArray>& data) const override;
+    bool parseResponseData(const QVector<QByteArray>& data, QString& outMessage, QVariant& outParsedData) const override;
+    QByteArray buildRequest(uint16_t address) const override;
+};
+
 // Определяем метод name() для ConcretePPBCommand
 template<TechCommand CmdId, int ExpectedPackets, int Timeout>
 QString ConcretePPBCommand<CmdId, ExpectedPackets, Timeout>::name() const {

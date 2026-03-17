@@ -41,6 +41,12 @@ bool ProtocolAdapter::parseIncomingPacket(const QByteArray& data, ProtocolEvent&
         }
     }
 
+    if (data.size() == 2) {
+        event.address = 0; // адрес бриджа условно
+        event.type = ProtocolEvent::Data; // используем тип Data
+        event.payload = data;
+        return true;
+    }
     return false;
 }
 

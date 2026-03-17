@@ -27,6 +27,8 @@ public:
     quint16 boundPort() const { return m_boundPort; }
     QHostAddress boundAddress() const { return m_boundAddress; }
 
+
+
 signals:
     void dataReceived(const QByteArray& data, const QHostAddress& sender, quint16 port);
     void bindingChanged(bool bound);

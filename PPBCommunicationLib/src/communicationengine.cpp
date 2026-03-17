@@ -453,8 +453,7 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
     // Определяем адрес, к которому относится событие
     uint16_t address = event.address;
     if (address == 0) {
-        LOG_TECH_PROTOCOL("Event with zero address, ignored");
-        return;
+        LOG_TECH_PROTOCOL("Zero adress. Request from bridge");
     }
 
     // Получаем контекст для этого адреса
@@ -723,3 +722,16 @@ PPBState communicationengine::overallState() const
     if (hasSending) return PPBState::SendingCommand;
     return PPBState::Idle;
 }
+
+void communicationengine::setBridgeAddress(const QString &ip, quint16 port)
+{
+    if (QThread::currentThread() != this->thread()) {
+        QMetaObject::invokeMethod(this, "setBridgeAddress", Qt::QueuedConnection,
+                                  Q_ARG(QString, ip), Q_ARG(quint16, port));
+        return;
+    }
+    m_currentIP = ip;
+    m_currentPort = port;
+    LOG_TECH_DEBUG(QString("communicationengine: bridge address set to %1:%2").arg(ip).arg(port));
+}
+

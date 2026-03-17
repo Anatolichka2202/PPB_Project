@@ -34,6 +34,9 @@ public:
     PPBState state() const override;
     bool isBusy() const override;
 
+    void setBridgeAddress(const QString &ip, quint16 port) override;
+
+
 signals:
     // Сигнал об успешной инициализации
     void initialized();

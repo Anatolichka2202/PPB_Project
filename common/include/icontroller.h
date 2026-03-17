@@ -37,7 +37,7 @@ public:
     virtual PPBState connectionState() const = 0;
     virtual bool isBusy() const = 0;
     virtual bool isAutoPollEnabled() const = 0;
-
+    virtual void exucuteCommand(TechCommand tech, uint16_t address) = 0;
     virtual void requestVersion(uint16_t address) = 0;
     virtual void requestVolume(uint16_t address) = 0;
     virtual void requestChecksum(uint16_t address) = 0;

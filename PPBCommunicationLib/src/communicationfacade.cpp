@@ -226,3 +226,10 @@ void CommunicationFacade::onEngineBusyChanged(bool busy)
 {
     emit busyChanged(busy);
 }
+
+void CommunicationFacade::setBridgeAddress(const QString &ip, quint16 port)
+{
+    invokeInThread([this, ip, port]() { m_engine->setBridgeAddress(ip, port); });
+}
+
+

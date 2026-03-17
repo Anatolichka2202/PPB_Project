@@ -52,12 +52,37 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
             this, &TesterWindow::onBusyChanged);
     connect(m_controller, &PPBController::operationProgress,
             this, &TesterWindow::onOperationProgress);
-    connect(m_controller, &PPBController::operationCompleted,
-            this, &TesterWindow::onOperationCompleted);
+
+    connect(m_controller, &PPBController::commandCompleted,
+            this, [this](bool success, const QString& message, TechCommand command) {
+                if (command == TechCommand::IS_YOU && !success) {
+                    ui->connectionWidget->setBridgeStatus(false);
+                    statusBar()->showMessage("Бридж недоступен: " + message, 3000);
+                }
+            });
+
+    connect(m_controller, &PPBController::commandDataParsed,
+            this, [this](uint16_t /*address*/, const QVariant& data, TechCommand command) {
+                if (command == TechCommand::IS_YOU) {
+                    QVariantMap map = data.toMap();
+                    uint16_t mask = map.value("mask").toUInt();
+                    // Бридж ответил – значит, доступен
+                    ui->connectionWidget->setBridgeStatus(true);
+                    statusBar()->showMessage("Бридж доступен", 2000);
+                    // Обновляем иконки вкладок согласно маске
+                    for (int i = 0; i < 16; ++i) {
+                        bool available = mask & (1 << i);
+                        QPixmap pix(16, 16);
+                        pix.fill(available ? Qt::green : Qt::red);
+                        QIcon icon(pix);
+                        ui->ppbTabBar->setTabIcon(i, icon);
+                    }
+                }
+            });
 
     // Подключение сигналов от виджетов левой панели
-    connect(ui->connectionWidget, &ConnectionWidget::connectRequested,
-            this, &TesterWindow::onConnectRequested);
+    connect(ui->connectionWidget, &ConnectionWidget::bridgePingRequested,
+            this, &TesterWindow::onBridgePingRequested);
     connect(ui->connectionWidget, &ConnectionWidget::disconnectRequested,
             this, &TesterWindow::onDisconnectRequested);
     connect(ui->connectionWidget, &ConnectionWidget::exitClicked,
@@ -82,13 +107,17 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
                     statusBar()->showMessage("Контроллер занят", 2000);
                     return;
                 }
-                auto addrs = getSelectedAddresses();
-                for (uint16_t addr : addrs)
-                    m_controller->requestStatus(addr);
+                uint16_t mask = getSelectedMask();
+                if (mask == 0) {
+                    statusBar()->showMessage("Не выбрано ни одного ППБ", 2000);
+                    return;
+                }
+                // Отправляем одну команду с маской
+                m_controller->requestStatus(mask);
             });
     connect(ui->controlWidget, &ControlWidget::resetClicked,
             this, [this]() {
-                auto addrs = getSelectedAddresses();
+                auto addrs = getSelectedAddresses(); // список адресов
                 for (uint16_t addr : addrs)
                     m_controller->sendTC(addr);
             });
@@ -289,14 +318,36 @@ void TesterWindow::onOperationCompleted(bool success, const QString &message)
 }
 
 // ---------- Слоты левой панели ----------
-void TesterWindow::onConnectRequested(const QString &ip, quint16 port)
+/*void TesterWindow::onConnectRequested(const QString &ip, quint16 port)
 {
-    // Новая логика: подключаемся к бриджу (ping), затем отправляем TS на выбранные ППБ
-    // Пока оставляем как есть, но можно изменить после доработки контроллера
-    uint16_t addr = getSelectedAddress();
-    m_controller->connectToPPB(addr, ip, port);
+    uint16_t mask = getSelectedMask();
+    if (mask == 0) {
+        statusBar()->showMessage("Не выбрано ни одного ППБ", 2000);
+        return;
+    }
+    m_controller->connectToPPB(mask, ip, port);
+} */
+
+void TesterWindow::onBridgePingRequested(const QString &ip, quint16 port)
+{
+    // Сохраняем адрес бриджа для последующих команд
+    m_controller->setBridgeAddress(ip, port);
+    statusBar()->showMessage("Проверка бриджа...", 1000);
+    // Отправляем команду IS_YOU на адрес 0 (бридж)
+    m_controller->exucuteCommand(TechCommand::IS_YOU, 0);
 }
 
+void TesterWindow::onPpbProbeRequested(uint16_t mask)
+{
+    if (mask == 0) {
+        mask = getSelectedMask(); // если чекбокс "Все ППБ" не выбран, используем текущий выбор
+    }
+    if (mask == 0) {
+        statusBar()->showMessage("Нет ППБ для прозвона", 2000);
+        return;
+    }
+    m_controller->requestStatus(mask);
+}
 void TesterWindow::onDisconnectRequested()
 {
     m_controller->disconnect();
@@ -452,4 +503,13 @@ void TesterWindow::onPultDestroyed(QObject* obj)
     }
     if (addrToRemove != 0)
         m_pultWindows.remove(addrToRemove);
+}
+uint16_t TesterWindow::getSelectedMask() const
+{
+    uint16_t mask = 0;
+    for (int idx : m_selectedTabs) {
+        if (idx >= 0 && idx < 16)
+            mask |= (1 << idx);
+    }
+    return mask;
 }

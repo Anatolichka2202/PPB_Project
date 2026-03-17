@@ -21,6 +21,7 @@ std::unique_ptr<PPBCommand> CommandFactory::create(TechCommand cmd) {
     case TechCommand::BER_T: return std::make_unique<BER_TCommand>();
     case TechCommand::BER_F: return std::make_unique<BER_FCommand>();
     case TechCommand::Factory_Number: return std::make_unique<Factory_Number>();
+    case TechCommand::IS_YOU: return std::make_unique<IsYouCommand>();
     default: return nullptr;
     }
 }
@@ -39,7 +40,8 @@ QString CommandFactory::commandName(TechCommand cmd) {
                                                      {TechCommand::PRBS_S2M, "Выдать тестовую последовательность"},
                                                      {TechCommand::BER_T, "Коэффициент ошибок линии ТУ"},
                                                      {TechCommand::BER_F, "Коэффициент ошибок линии ФУ"},
-                                                     { TechCommand::Factory_Number, "Выдать заводской номер устройства (0x1F)" }
+                                                     { TechCommand::Factory_Number, "Выдать заводской номер устройства (0x1F)" },
+                                                     {TechCommand::IS_YOU, "Проверка доступных ППБ(0x20)"}
                                                      };
     return names.value(cmd, "Неизвестная команда");
 }
@@ -492,4 +494,47 @@ void Factory_Number::onDataReceived(CommandInterface* comm, const QVector<QByteA
         comm->setParseResult(false, msg);
     }
     // Если нужно, можно также эмитировать сигнал для лога через comm
+}
+
+//++++++++++++++++++IsYou++++++++++++++++++
+//так же переопределяем базовые методы для конкретной команды. Эта команда "обмака" для архитектуры движка
+QByteArray IsYouCommand::buildRequest(uint16_t address) const
+{
+    BaseRequest req;
+    req.address = qToBigEndian(address); // обычно 0
+    req.command = static_cast<uint8_t>(TechCommand::IS_YOU);
+    req.sign = static_cast<uint8_t>(Sign::IsYou);
+    req.fu_period = 0;
+    memset(req.fu_data, 0, 3);
+    return QByteArray(reinterpret_cast<const char*>(&req), sizeof(req));
+}
+
+bool IsYouCommand::parseResponseData(const QVector<QByteArray>& data,
+                                     QString& outMessage,
+                                     QVariant& outParsedData) const
+{
+    if (data.isEmpty() || data.first().size() < 2) {
+        outMessage = "Недостаточно данных";
+        return false;
+    }
+    const QByteArray& payload = data.first();
+    uint16_t mask = (static_cast<uint8_t>(payload[0]) << 8) | static_cast<uint8_t>(payload[1]);
+    outMessage = QString("Маска активных ППБ: 0x%1").arg(mask, 4, 16, QChar('0'));
+    QVariantMap map;
+    map["mask"] = mask;
+    outParsedData = map;
+    return true;
+}
+
+void IsYouCommand::onDataReceived(CommandInterface* comm, const QVector<QByteArray>& data) const
+{
+    if (!comm) return;
+    QString msg;
+    QVariant parsed;
+    if (parseResponseData(data, msg, parsed)) {
+        comm->setParseResult(true, msg);
+        comm->setParseData(parsed);
+    } else {
+        comm->setParseResult(false, msg);
+    }
 }

@@ -8,19 +8,15 @@
 
 uint32_t DataConverter::powerToCode(float watts)
 {
-    uint32_t integer = static_cast<uint32_t>(watts);
-    float frac = watts - integer;
-    if (frac < 0) frac = 0;
-    uint32_t fractional = static_cast<uint32_t>(frac * 65536.0f + 0.5f);
-    if (fractional > 0xFFFF) fractional = 0xFFFF;
-    return (integer << 16) | (fractional & 0xFFFF);
+    return ((uint32_t)(*((uint32_t *)& watts)))    ;
+
+
 }
 
 float DataConverter::codeToPower(uint32_t code)
 {
-    uint32_t integer = code >> 16;
-    uint32_t fractional = code & 0xFFFF;
-    return integer + fractional / 65536.0f;
+
+    return ((uint32_t)(*((uint32_t *)& code))) ;
 }
 
 int16_t DataConverter::temperatureToCode(float celsius)

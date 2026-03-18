@@ -122,6 +122,7 @@ private:
                 generatedPackets = std::move(other.generatedPackets);
                 receivedPackets = std::move(other.receivedPackets);
                 waitingForOk = other.waitingForOk;
+                if (operationTimer) operationTimer->stop();
                 operationTimer = std::move(other.operationTimer);
             }
             return *this;
@@ -234,6 +235,8 @@ signals:
 
     void groupCommandCompleted(quint64 groupId, bool allSuccess, const QString& summary);
 
+    void fuCommandCompleted(uint16_t address, bool success, const QString& message);
+
 private slots:
     void onDataReceived(const QByteArray& data, const QHostAddress& sender, quint16 port);
     void onNetworkError(const QString& error);
@@ -241,7 +244,7 @@ private slots:
     void processCommandQueue();
     void sendFUReceiveImpl(uint16_t address, uint8_t period, const QByteArray& fuData = QByteArray());
 private:
-    void executeCommandImmediately(uint16_t address, std::unique_ptr<PPBCommand> command);
+    void executeCommandImmediately(uint16_t address, std::unique_ptr<PPBCommand> command, bool suppressSend = false);
     void clearContext(uint16_t address);
     //PPBContext* getContext(uint16_t address);
 
@@ -257,6 +260,8 @@ private:
     bool canExecuteCommand(uint16_t address, const PPBCommand* command) const;
 
     void updateBusyState();
+
+    QString errorCodeToString(uint8_t code) const;
 private:
 
     UDPClient* m_udpClient;

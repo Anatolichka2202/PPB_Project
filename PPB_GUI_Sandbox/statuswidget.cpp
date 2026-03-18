@@ -43,9 +43,10 @@ void StatusWidget::updateState(const PPBFullState& state, bool showCodes)
     QString styleNormal  = "border-radius: 10px; border: 2px solid #666; background-color: #00ff00;";
     QString styleWarning = "border-radius: 10px; border: 2px solid #666; background-color: #ffff00;";
     QString styleAlarm   = "border-radius: 10px; border: 2px solid #666; background-color: #ff0000;";
+    QString styleUnknown = "border-radius: 10px; border: 2px solid #666; background-color: #cccccc;";
 
     // ==================== Канал 1 ====================
-    // Питание
+    // Питание (isOk)
     if (state.ch1.isOk) {
         ui->Power_circle_label_ppb_chanel_1->setStyleSheet(styleNormal);
         ui->statuslabel_power_ppb_chanel_1->setText(showCodes ? "0x01" : "В норме");
@@ -55,8 +56,14 @@ void StatusWidget::updateState(const PPBFullState& state, bool showCodes)
     }
 
     // Мощность
-    QString powerValue = formatPower(state.ch1.power, showCodes);
-    ui->statuslabel_capacity_ppb_chanel_1->setText(powerValue);
+    if (showCodes) {
+        ui->statuslabel_capacity_ppb_chanel_1->setText(
+            QString("0x%1").arg(state.ch1.powerCode, 8, 16, QChar('0')).toUpper());
+    } else {
+        ui->statuslabel_capacity_ppb_chanel_1->setText(
+            QString("%1 Вт").arg(state.ch1.power, 0, 'f', 1));
+    }
+    // Индикатор мощности (по физическому значению)
     if (state.ch1.power >= 1200.0f && state.ch1.power <= 1300.0f) {
         ui->Capacity_circle_label_ppb_chanel_1->setStyleSheet(styleNormal);
     } else if (state.ch1.power >= 550.0f) {
@@ -66,8 +73,13 @@ void StatusWidget::updateState(const PPBFullState& state, bool showCodes)
     }
 
     // КСВН
-    QString vswrValue = formatVSWR(state.ch1.vswr, showCodes);
-    ui->statuslabel_kswn_ppb_chanel_1->setText(vswrValue);
+    if (showCodes) {
+        ui->statuslabel_kswn_ppb_chanel_1->setText(
+            QString("0x%1").arg(state.ch1.vswrCode, 4, 16, QChar('0')).toUpper());
+    } else {
+        ui->statuslabel_kswn_ppb_chanel_1->setText(
+            QString::number(state.ch1.vswr, 'f', 2));
+    }
     if (state.ch1.vswr <= 1.3f) {
         ui->KSWN_circle_label_ppb_chanel_1->setStyleSheet(styleNormal);
     } else if (state.ch1.vswr <= 4.0f) {
@@ -76,9 +88,14 @@ void StatusWidget::updateState(const PPBFullState& state, bool showCodes)
         ui->KSWN_circle_label_ppb_chanel_1->setStyleSheet(styleAlarm);
     }
 
-    // Температуры канала 1
-    QString temp1Value = formatTemperature(state.tempT1, showCodes);
-    ui->statuslabel_temp_ppb_chanel_1->setText(temp1Value);
+    // Температура t1
+    if (showCodes) {
+        ui->statuslabel_temp_ppb_chanel_1->setText(
+            QString("0x%1").arg(static_cast<uint16_t>(state.tempT1Code), 4, 16, QChar('0')).toUpper());
+    } else {
+        ui->statuslabel_temp_ppb_chanel_1->setText(
+            QString("%1°C").arg(state.tempT1, 0, 'f', 1));
+    }
     if (state.tempT1 <= 70.0f) {
         ui->tem_circle_label_ppb_chanel_1->setStyleSheet(styleNormal);
     } else if (state.tempT1 <= 85.0f) {
@@ -87,13 +104,57 @@ void StatusWidget::updateState(const PPBFullState& state, bool showCodes)
         ui->tem_circle_label_ppb_chanel_1->setStyleSheet(styleAlarm);
     }
 
-    // Дополнительные температуры
-    ui->statuslabel_temp_3_ppb_chanel_1->setText(formatTemperature(state.tempT3, showCodes));
-    ui->statuslabel_tempv1_ppb_chanel_1->setText(formatTemperature(state.tempV1, showCodes));
-    ui->statuslabel_temp_in_ppb_chanel_1->setText(formatTemperature(state.tempIn, showCodes));
+    // Температура t3
+    if (showCodes) {
+        ui->statuslabel_temp_3_ppb_chanel_1->setText(
+            QString("0x%1").arg(static_cast<uint16_t>(state.tempT3Code), 4, 16, QChar('0')).toUpper());
+    } else {
+        ui->statuslabel_temp_3_ppb_chanel_1->setText(
+            QString("%1°C").arg(state.tempT3, 0, 'f', 1));
+    }
+    // Индикатор для t3 (используем тот же порог 70/85)
+    if (state.tempT3 <= 70.0f) {
+        ui->tem_circle_label_ppb_bp->setStyleSheet(styleNormal);
+    } else if (state.tempT3 <= 85.0f) {
+        ui->tem_circle_label_ppb_bp->setStyleSheet(styleWarning);
+    } else {
+        ui->tem_circle_label_ppb_bp->setStyleSheet(styleAlarm);
+    }
+
+    // Температура v1
+    if (showCodes) {
+        ui->statuslabel_tempv1_ppb_chanel_1->setText(
+            QString("0x%1").arg(static_cast<uint16_t>(state.tempV1Code), 4, 16, QChar('0')).toUpper());
+    } else {
+        ui->statuslabel_tempv1_ppb_chanel_1->setText(
+            QString("%1°C").arg(state.tempV1, 0, 'f', 1));
+    }
+    if (state.tempV1 <= 70.0f) {
+        ui->tem_circle_label_ppb_v1->setStyleSheet(styleNormal);
+    } else if (state.tempV1 <= 85.0f) {
+        ui->tem_circle_label_ppb_v1->setStyleSheet(styleWarning);
+    } else {
+        ui->tem_circle_label_ppb_v1->setStyleSheet(styleAlarm);
+    }
+
+    // Температура t_in
+    if (showCodes) {
+        ui->statuslabel_temp_in_ppb_chanel_1->setText(
+            QString("0x%1").arg(static_cast<uint16_t>(state.tempInCode), 4, 16, QChar('0')).toUpper());
+    } else {
+        ui->statuslabel_temp_in_ppb_chanel_1->setText(
+            QString("%1°C").arg(state.tempIn, 0, 'f', 1));
+    }
+    if (state.tempIn <= 70.0f) {
+        ui->tem_circle_label_ppb_in->setStyleSheet(styleNormal);
+    } else if (state.tempIn <= 85.0f) {
+        ui->tem_circle_label_ppb_in->setStyleSheet(styleWarning);
+    } else {
+        ui->tem_circle_label_ppb_in->setStyleSheet(styleAlarm);
+    }
 
     // ==================== Канал 2 ====================
-    // Питание
+    // Питание (isOk)
     if (state.ch2.isOk) {
         ui->Power_circle_label_ppb_chanel_2->setStyleSheet(styleNormal);
         ui->statuslabel_power_ppb_chanel_2->setText(showCodes ? "0x01" : "В норме");
@@ -103,8 +164,13 @@ void StatusWidget::updateState(const PPBFullState& state, bool showCodes)
     }
 
     // Мощность
-    powerValue = formatPower(state.ch2.power, showCodes);
-    ui->statuslabel_capacity_ppb_chanel_2->setText(powerValue);
+    if (showCodes) {
+        ui->statuslabel_capacity_ppb_chanel_2->setText(
+            QString("0x%1").arg(state.ch2.powerCode, 8, 16, QChar('0')).toUpper());
+    } else {
+        ui->statuslabel_capacity_ppb_chanel_2->setText(
+            QString("%1 Вт").arg(state.ch2.power, 0, 'f', 1));
+    }
     if (state.ch2.power >= 1200.0f && state.ch2.power <= 1300.0f) {
         ui->Capacity_circle_label_ppb_chanel_2->setStyleSheet(styleNormal);
     } else if (state.ch2.power >= 550.0f) {
@@ -114,8 +180,13 @@ void StatusWidget::updateState(const PPBFullState& state, bool showCodes)
     }
 
     // КСВН
-    vswrValue = formatVSWR(state.ch2.vswr, showCodes);
-    ui->statuslabel_kswn_ppb_chanel_2->setText(vswrValue);
+    if (showCodes) {
+        ui->statuslabel_kswn_ppb_chanel_2->setText(
+            QString("0x%1").arg(state.ch2.vswrCode, 4, 16, QChar('0')).toUpper());
+    } else {
+        ui->statuslabel_kswn_ppb_chanel_2->setText(
+            QString::number(state.ch2.vswr, 'f', 2));
+    }
     if (state.ch2.vswr <= 1.3f) {
         ui->KSWN_circle_label_ppb_chanel_2->setStyleSheet(styleNormal);
     } else if (state.ch2.vswr <= 4.0f) {
@@ -124,9 +195,14 @@ void StatusWidget::updateState(const PPBFullState& state, bool showCodes)
         ui->KSWN_circle_label_ppb_chanel_2->setStyleSheet(styleAlarm);
     }
 
-    // Температуры канала 2
-    QString temp2Value = formatTemperature(state.tempT2, showCodes);
-    ui->statuslabel_temp_ppb_chanel_2->setText(temp2Value);
+    // Температура t2
+    if (showCodes) {
+        ui->statuslabel_temp_ppb_chanel_2->setText(
+            QString("0x%1").arg(static_cast<uint16_t>(state.tempT2Code), 4, 16, QChar('0')).toUpper());
+    } else {
+        ui->statuslabel_temp_ppb_chanel_2->setText(
+            QString("%1°C").arg(state.tempT2, 0, 'f', 1));
+    }
     if (state.tempT2 <= 70.0f) {
         ui->tem_circle_label_ppb_chanel_2->setStyleSheet(styleNormal);
     } else if (state.tempT2 <= 85.0f) {
@@ -135,10 +211,53 @@ void StatusWidget::updateState(const PPBFullState& state, bool showCodes)
         ui->tem_circle_label_ppb_chanel_2->setStyleSheet(styleAlarm);
     }
 
-    // Дополнительные температуры
-    ui->statuslabel_temp_4_ppb_chanel_2->setText(formatTemperature(state.tempT4, showCodes));
-    ui->statuslabel_tempv2_ppb_chanel_2->setText(formatTemperature(state.tempV2, showCodes));
-    ui->statuslabel_temp_out_ppb_chanel_2->setText(formatTemperature(state.tempOut, showCodes));
+    // Температура t4
+    if (showCodes) {
+        ui->statuslabel_temp_4_ppb_chanel_2->setText(
+            QString("0x%1").arg(static_cast<uint16_t>(state.tempT4Code), 4, 16, QChar('0')).toUpper());
+    } else {
+        ui->statuslabel_temp_4_ppb_chanel_2->setText(
+            QString("%1°C").arg(state.tempT4, 0, 'f', 1));
+    }
+    if (state.tempT4 <= 70.0f) {
+        ui->tem_circle_label_ppb_bp2->setStyleSheet(styleNormal);
+    } else if (state.tempT4 <= 85.0f) {
+        ui->tem_circle_label_ppb_bp2->setStyleSheet(styleWarning);
+    } else {
+        ui->tem_circle_label_ppb_bp2->setStyleSheet(styleAlarm);
+    }
+
+    // Температура v2
+    if (showCodes) {
+        ui->statuslabel_tempv2_ppb_chanel_2->setText(
+            QString("0x%1").arg(static_cast<uint16_t>(state.tempV2Code), 4, 16, QChar('0')).toUpper());
+    } else {
+        ui->statuslabel_tempv2_ppb_chanel_2->setText(
+            QString("%1°C").arg(state.tempV2, 0, 'f', 1));
+    }
+    if (state.tempV2 <= 70.0f) {
+        ui->tem_circle_label_ppb_v2->setStyleSheet(styleNormal);
+    } else if (state.tempV2 <= 85.0f) {
+        ui->tem_circle_label_ppb_v2->setStyleSheet(styleWarning);
+    } else {
+        ui->tem_circle_label_ppb_v2->setStyleSheet(styleAlarm);
+    }
+
+    // Температура t_out
+    if (showCodes) {
+        ui->statuslabel_temp_out_ppb_chanel_2->setText(
+            QString("0x%1").arg(static_cast<uint16_t>(state.tempOutCode), 4, 16, QChar('0')).toUpper());
+    } else {
+        ui->statuslabel_temp_out_ppb_chanel_2->setText(
+            QString("%1°C").arg(state.tempOut, 0, 'f', 1));
+    }
+    if (state.tempOut <= 70.0f) {
+        ui->tem_circle_label_ppb_out->setStyleSheet(styleNormal);
+    } else if (state.tempOut <= 85.0f) {
+        ui->tem_circle_label_ppb_out->setStyleSheet(styleWarning);
+    } else {
+        ui->tem_circle_label_ppb_out->setStyleSheet(styleAlarm);
+    }
 }
 
 QString StatusWidget::formatPower(float watts, bool codes) const

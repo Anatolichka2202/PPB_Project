@@ -15,6 +15,9 @@ public:
     QByteArray buildRequest(uint16_t address, TechCommand cmd, const QByteArray& payload = {}) override;
     QByteArray buildFURequest(uint16_t address, uint8_t cmd ,uint8_t period, const uint8_t fuData[3] = nullptr) override;
     QVector<DataPacket> extractDataPackets(const QByteArray& payload) override;
+
+    bool parseTUResponse(const QByteArray& data, ProtocolEvent& event) override;
+    bool parseBridgeResponse(const QByteArray& data, ProtocolEvent& event) override;
 };
 
 #endif // PROTOCOLADAPTER_H

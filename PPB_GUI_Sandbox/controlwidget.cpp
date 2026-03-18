@@ -13,26 +13,31 @@ ControlWidget::ControlWidget(QWidget *parent) :
     for (int i = 0; i < 16; ++i) {
         ui->comboBoxPPBSelect->addItem(QString("ППБ%1").arg(i + 1));
     }
-    connect(ui->pushButtonPollStatus, &QPushButton::clicked, this, &ControlWidget::onPollClicked);
-    connect(ui->pushButtonReset, &QPushButton::clicked, this, &ControlWidget::onResetClicked);
-    connect(ui->pushButtonTestSequence, &QPushButton::clicked, this, &ControlWidget::onTestClicked);
-    connect(ui->checkBoxAutoPoll, &QCheckBox::toggled, this, &ControlWidget::onAutoPollToggled);
+
+    connect(ui->pushButtonPollStatus, &QPushButton::clicked,
+            this, &ControlWidget::onPollClicked);
+    connect(ui->pushButtonReset, &QPushButton::clicked,
+            this, &ControlWidget::onResetClicked);
+    connect(ui->pushButtonTestSequence, &QPushButton::clicked,
+            this, &ControlWidget::onTestClicked);
+    connect(ui->checkBoxAutoPoll, &QCheckBox::toggled,
+            this, &ControlWidget::onAutoPollToggled);
     connect(ui->comboBoxPPBSelect, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ControlWidget::onComboBoxIndexChanged);
 
     // Поля ввода
-    connect(ui->power_set_up_ch1, &QLineEdit::textChanged, this, &ControlWidget::onPower1Changed);
-    connect(ui->power_set_up_ch2, &QLineEdit::textChanged, this, &ControlWidget::onPower2Changed);
-    connect(ui->disactiveFu, &QCheckBox::toggled, this, &ControlWidget::onFuBlockedToggled);
-    connect(ui->isReboot, &QCheckBox::toggled, this, &ControlWidget::onRebootToggled);
-    connect(ui->isreseterror, &QCheckBox::toggled, this, &ControlWidget::onResetErrorsToggled);
-
+    connect(ui->power_set_up_ch1, &QLineEdit::textChanged,
+            this, &ControlWidget::onPower1Changed);
+    connect(ui->power_set_up_ch2, &QLineEdit::textChanged,
+            this, &ControlWidget::onPower2Changed);
+    connect(ui->disactiveFu, &QCheckBox::toggled,
+            this, &ControlWidget::onFuBlockedToggled);
+    connect(ui->isReboot, &QCheckBox::toggled,
+            this, &ControlWidget::onRebootToggled);
+    connect(ui->isreseterror, &QCheckBox::toggled,
+            this, &ControlWidget::onResetErrorsToggled);
     connect(ui->powerCheckBox, &QCheckBox::toggled,
             this, &ControlWidget::onPowerToggled);
-
-    if (m_controller) {
-        connect(m_controller, &PPBController::fullStateUpdated, this, &ControlWidget::onFullStateUpdated);
-    }
 }
 
 ControlWidget::~ControlWidget()
@@ -48,16 +53,18 @@ void ControlWidget::setController(PPBController* controller)
     if (m_controller) {
         disconnect(m_controller, &PPBController::fullStateUpdated,
                    this, &ControlWidget::onFullStateUpdated);
+        disconnect(m_controller, &PPBController::userSettingsChanged,
+                   this, &ControlWidget::onUserSettingsChanged);
     }
 
     m_controller = controller;
 
-    // Подключаем новый
     if (m_controller) {
         connect(m_controller, &PPBController::fullStateUpdated,
                 this, &ControlWidget::onFullStateUpdated);
-        // Инициализируем поля текущим состоянием
-        onFullStateUpdated(currentPPBIndex());
+        connect(m_controller, &PPBController::userSettingsChanged,
+                this, &ControlWidget::onUserSettingsChanged);
+        refreshSettings(); // инициализация полей
     }
 }
 
@@ -68,8 +75,12 @@ int ControlWidget::currentPPBIndex() const
 
 void ControlWidget::setCurrentPPBIndex(int index)
 {
-    if (index >= 0 && index < ui->comboBoxPPBSelect->count())
+    if (index >= 0 && index < ui->comboBoxPPBSelect->count()) {
+        ui->comboBoxPPBSelect->blockSignals(true);
         ui->comboBoxPPBSelect->setCurrentIndex(index);
+        ui->comboBoxPPBSelect->blockSignals(false);
+        refreshSettings();
+    }
 }
 
 void ControlWidget::setBusy(bool busy)
@@ -96,74 +107,107 @@ void ControlWidget::setAutoPollChecked(bool checked)
     ui->checkBoxAutoPoll->blockSignals(false);
 }
 
+void ControlWidget::refreshSettings()
+{
+    if (m_controller) {
+        onUserSettingsChanged(currentPPBIndex());
+    }
+}
+
+// ==================== СЛОТЫ UI ====================
+
 void ControlWidget::onPollClicked()      { emit pollStatusClicked(); }
 void ControlWidget::onResetClicked()     { emit resetClicked(); }
 void ControlWidget::onTestClicked()      { emit testSequenceClicked(); }
 void ControlWidget::onAutoPollToggled(bool checked) { emit autoPollToggled(checked); }
 void ControlWidget::onComboBoxIndexChanged(int index) { emit ppbSelected(index); }
 
+// Редактирование полей – вызываем методы установки настроек
 void ControlWidget::onPower1Changed(const QString& text)
 {
     bool ok;
     QString normalized = QString(text).replace(',', '.');
     float watts = normalized.toFloat(&ok);
-
     if (ok && m_controller) {
-        m_controller->setChannelPower(currentPPBIndex(), 1, watts);
+        m_controller->setPowerSetting(currentPPBIndex(), 1, watts);
     }
 }
 
 void ControlWidget::onPower2Changed(const QString& text)
 {
     bool ok;
-    float watts = text.toFloat(&ok);
+    QString normalized = QString(text).replace(',', '.');
+    float watts = normalized.toFloat(&ok);
     if (ok && m_controller) {
-        m_controller->setChannelPower(currentPPBIndex(), 2, watts);
+        m_controller->setPowerSetting(currentPPBIndex(), 2, watts);
     }
 }
 
 void ControlWidget::onFuBlockedToggled(bool checked)
 {
-    if (m_controller) m_controller->setFuBlocked(currentPPBIndex(), checked);
+    if (m_controller) {
+        m_controller->setFuBlockedSetting(currentPPBIndex(), checked);
+    }
 }
 
 void ControlWidget::onRebootToggled(bool checked)
 {
-    if (m_controller) m_controller->setRebootRequested(currentPPBIndex(), checked);
+    if (m_controller) {
+        m_controller->setRebootRequestedSetting(currentPPBIndex(), checked);
+    }
 }
 
 void ControlWidget::onResetErrorsToggled(bool checked)
 {
-    if (m_controller) m_controller->setResetErrors(currentPPBIndex(), checked);
+    if (m_controller) {
+        m_controller->setResetErrorsSetting(currentPPBIndex(), checked);
+    }
 }
+
+void ControlWidget::onPowerToggled(bool checked)
+{
+    if (m_controller) {
+        m_controller->setPowerEnabledSetting(currentPPBIndex(), checked);
+    }
+}
+
+// ==================== СЛОТЫ ОТ КОНТРОЛЛЕРА ====================
 
 void ControlWidget::onFullStateUpdated(uint8_t ppbIndex)
 {
-    if (ppbIndex != currentPPBIndex()) return;
-    auto state = m_controller->getFullState(ppbIndex);
+    Q_UNUSED(ppbIndex);
+    // Реальное состояние не влияет на поля ввода – оставляем пустым
+    // Если появятся индикаторы, их можно обновлять здесь
+}
+
+void ControlWidget::onUserSettingsChanged(uint8_t ppbIndex)
+{
+    if (ppbIndex != currentPPBIndex() || !m_controller) return;
+
+    auto settings = m_controller->getUserSettings(ppbIndex);
 
     ui->power_set_up_ch1->blockSignals(true);
-    ui->power_set_up_ch1->setText(QString::number(state.ch1.power));
+    ui->power_set_up_ch1->setText(QString::number(settings.power1));
     ui->power_set_up_ch1->blockSignals(false);
 
     ui->power_set_up_ch2->blockSignals(true);
-    ui->power_set_up_ch2->setText(QString::number(state.ch2.power));
+    ui->power_set_up_ch2->setText(QString::number(settings.power2));
     ui->power_set_up_ch2->blockSignals(false);
 
     ui->disactiveFu->blockSignals(true);
-    ui->disactiveFu->setChecked(state.fuBlocked);
+    ui->disactiveFu->setChecked(settings.fuBlocked);
     ui->disactiveFu->blockSignals(false);
 
     ui->isReboot->blockSignals(true);
-    ui->isReboot->setChecked(state.rebootRequested);
+    ui->isReboot->setChecked(settings.rebootRequested);
     ui->isReboot->blockSignals(false);
 
     ui->isreseterror->blockSignals(true);
-    ui->isreseterror->setChecked(state.resetErrors);
+    ui->isreseterror->setChecked(settings.resetErrors);
     ui->isreseterror->blockSignals(false);
 
     ui->powerCheckBox->blockSignals(true);
-    ui->powerCheckBox->setChecked(state.powerEnabled);
+    ui->powerCheckBox->setChecked(settings.powerEnabled);
     ui->powerCheckBox->blockSignals(false);
 }
 
@@ -173,11 +217,4 @@ uint16_t ControlWidget::getSelectedAddress() const
     if (index >= 0 && index < 16)
         return (1 << index);
     return 0;
-}
-
-void ControlWidget::onPowerToggled(bool checked)
-{
-    if (m_controller) {
-        m_controller->setPowerEnabled(currentPPBIndex(), checked);
-    }
 }

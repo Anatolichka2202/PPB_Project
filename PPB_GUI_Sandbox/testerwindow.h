@@ -71,7 +71,6 @@ private slots:
     void onPultDestroyed(QObject* obj); // новый слот для очистки карты
 
 
-
 private:
     void setupPpbTabs(int count = 16);
     void updateSelectedCountLabel();

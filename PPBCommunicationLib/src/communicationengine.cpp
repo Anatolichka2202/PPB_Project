@@ -1,7 +1,7 @@
 #include "communicationengine.h"
 #include <QMutex>
 #include <QThread>
-
+#include <QtEndian>
 #include "../comm_dependencies.h"
 
 static int techCommandType = qRegisterMetaType<TechCommand>("TechCommand");
@@ -384,6 +384,7 @@ void communicationengine::setCommandParseData(uint16_t address, const QVariant& 
 
 quint64 communicationengine::executeGroupCommand(TechCommand cmd, uint16_t mask, const QByteArray& data)
 {
+
     if (QThread::currentThread() != this->thread()) {
         quint64 result = 0;
         QMetaObject::invokeMethod(this, "executeGroupCommand", Qt::BlockingQueuedConnection,
@@ -396,9 +397,20 @@ quint64 communicationengine::executeGroupCommand(TechCommand cmd, uint16_t mask,
 
     // Собираем все адреса из маски (битовая маска: 1 << index)
     QList<uint16_t> addresses;
+
+
+
     for (int i = 0; i < 16; ++i) {
         if (mask & (1 << i)) {
             addresses.append(1 << i);
+        }
+    }
+
+    for (uint16_t addr : addresses) {
+        PPBState state = m_stateManager->getState(addr);
+        if (state != PPBState::Ready && state != PPBState::Idle) {
+            emit errorOccurred(QString("Address 0x%1 is busy, cannot start group command").arg(addr,4,16,QChar('0')));
+            return 0;
         }
     }
 
@@ -450,7 +462,7 @@ quint64 communicationengine::executeGroupCommand(TechCommand cmd, uint16_t mask,
 
 // ===== ПРИВАТНЫЕ МЕТОДЫ =====
 
-void communicationengine::executeCommandImmediately(uint16_t address, std::unique_ptr<PPBCommand> command) {
+void communicationengine::executeCommandImmediately(uint16_t address, std::unique_ptr<PPBCommand> command, bool suppressSend) {
     if (!command) return;
 
     // Проверяем, можем ли выполнить команду
@@ -466,8 +478,9 @@ void communicationengine::executeCommandImmediately(uint16_t address, std::uniqu
     PPBContext& context = getOrCreateContext(address);
     context = PPBContext(); // очистка
     context.currentCommand = std::move(command);
+    context.suppressSend = suppressSend; // восстанавливаем флаг
+
     context.operationCompleted = false;
-    // context->packetsExpected и т.д. больше не используются
 
     transitionState(address, PPBState::SendingCommand, "Начинаем " + context.currentCommand->name());
     updateBusyState();
@@ -513,63 +526,104 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
     Q_UNUSED(sender)
     Q_UNUSED(port)
 
-   LOG_TECH_DEBUG(QString("onDataReceived: size=%1").arg(data.size()));
+    LOG_TECH_DEBUG(QString("onDataReceived: size=%1").arg(data.size()));
 
-    // Получаем событие от адаптера
-    ProtocolEvent event;
-    if (!m_protocolAdapter->parseIncomingPacket(data, event)) {
-            LOG_TECH_DEBUG("Packet not recognized, ignored");
+    // Минимальный размер для извлечения адреса (2 байта)
+    if (data.size() < 2) {
+        LOG_TECH_DEBUG("Packet too short, ignored");
         return;
     }
 
-    // Определяем адрес, к которому относится событие
-    uint16_t address = event.address;
-    if (address == 0) {
-        LOG_TECH_PROTOCOL("Zero adress. Request from bridge");
+    // Извлекаем адрес из первых двух байт (big-endian)
+    uint16_t address = qFromBigEndian(*reinterpret_cast<const uint16_t*>(data.constData()));
+
+    // Ищем контекст для этого адреса
+    PPBContext* context = findContext(address);
+
+    ProtocolEvent event;
+
+    if (context && context->currentCommand && !context->operationCompleted) {
+        // Есть активная TU-команда – парсим как TU-ответ
+        if (!m_protocolAdapter->parseTUResponse(data, event)) {
+            LOG_TECH_DEBUG("Failed to parse TU response, ignoring");
+            return;
+        }
+    } else {
+        // Нет активной TU-команды – пробуем как ответ бриджа
+        if (!m_protocolAdapter->parseBridgeResponse(data, event)) {
+            LOG_TECH_DEBUG("Not a BridgeResponse, ignoring");
+            return;
+        }
+        // Для BridgeResponse адрес уже заполнен парсером
+        address = event.address;
     }
 
-    // Получаем контекст для этого адреса
-    PPBContext* context = findContext(address);
-    if (!context || !context->currentCommand || context->operationCompleted) {
-        LOG_TECH_PROTOCOL(QString("Event for addr 0x%1 without active command").arg(address,4,16,QLatin1Char('0')));
+    // Для TU-событий проверяем, что адрес не нулевой
+    if (address == 0 && event.type != ProtocolEvent::BridgeResponse) {
+        LOG_TECH_PROTOCOL("Zero address in TU event, ignored");
         return;
     }
 
     // Обработка в зависимости от типа события
     switch (event.type) {
     case ProtocolEvent::Error:
+        // Расшифровываем код ошибки
         completeOperation(address, false,
-                          QString("Ошибка ППБ: 0x%1").arg(event.status, 2, 16, QChar('0')));
+                          QString("Ошибка ППБ: 0x%1 (%2)")
+                              .arg(event.status, 2, 16, QChar('0'))
+                              .arg(errorCodeToString(event.status)));
         break;
 
     case ProtocolEvent::Ok:
-        // Команда выполнена успешно без данных
+        // Команда выполнена успешно без данных – вызываем onOkReceived
+        if (context && context->currentCommand) {
+            CommandHost host(this, address);
+            context->currentCommand->onOkReceived(&host, address);
+        }
         completeOperation(address, true, "Команда выполнена");
         break;
 
-    case ProtocolEvent::Data:
+    case ProtocolEvent::Data: {
         // Есть данные – передаём команде
-        {
-            {
-                QVector<QByteArray> dataList;
-                dataList.append(event.payload);
-                CommandHost host(this, address);
-                context->currentCommand->onDataReceived(&host, dataList);
-                // После возврата из onDataReceived команда могла установить результаты через host
-                completeOperation(address, context->parsedSuccess, context->parsedMessage);
-            }
-
-        break;
+        if (!context || !context->currentCommand) {
+            LOG_TECH_DEBUG("Data event without active command, ignored");
+            return;
         }
-    case ProtocolEvent::BridgeResponse:
-        LOG_TECH_PROTOCOL(QString("Bridge response: addr=0x%1, status=%2").arg(event.address,4,16,QLatin1Char('0')).arg(event.status));
-        // Для бриджа не меняем состояние, просто эмитим сигнал
-        emit commandCompleted(event.status == 1, "ФУ команда выполнена", TechCommand::TS); // TODO: передавать команду
+        QVector<QByteArray> dataList;
+        dataList.append(event.payload);
+        CommandHost host(this, address);
+        context->currentCommand->onDataReceived(&host, dataList);
+        // Если команда уже завершила операцию внутри onDataReceived, не завершаем повторно
+        if (!context->operationCompleted) {
+            completeOperation(address, context->parsedSuccess, context->parsedMessage);
+        }
         break;
+    }
+
+    case ProtocolEvent::BridgeResponse: {
+        QString msg = (event.status == 1) ? "ФУ команда выполнена" : "Ошибка ФУ";
+        if (event.payload.size() == 3 && event.payload == "ERR") {
+            msg = "Необъяснимая ошибка от бриджа (ERR)";
+        }
+        emit fuCommandCompleted(event.address, event.status == 1, msg);
+        break;
+    }
 
     default:
-        LOG_TECH_DEBUG("Unknown event type, ignored");;
+        LOG_TECH_DEBUG("Unknown event type, ignored");
         break;
+    }
+}
+
+// Вспомогательная функция для расшифровки кодов ошибок
+QString communicationengine::errorCodeToString(uint8_t code) const {
+    switch (code) {
+    case 0x00: return "OK";
+    case 0x01: return "Нет ответа от ППБ";
+    case 0x02: return "Неверный формат сообщения";
+    case 0x03: return "ППБ не ожидал такой команды";
+    case 0x04: return "Неизвестная команда";
+    default:   return QString("Неизвестный код ошибки 0x%1").arg(code, 2, 16, QChar('0'));
     }
 }
 void communicationengine::onNetworkError(const QString& error) {

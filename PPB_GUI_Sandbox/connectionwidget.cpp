@@ -91,8 +91,5 @@ void ConnectionWidget::onConnectButtonClicked()
     }
 }
 
-void ConnectionWidget::onCallButtonClicked()
-{
-    uint16_t mask = 0;
 
-}
+

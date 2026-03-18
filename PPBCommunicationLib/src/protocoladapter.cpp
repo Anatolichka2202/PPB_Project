@@ -65,3 +65,60 @@ QByteArray ProtocolAdapter::buildFURequest(uint16_t address, uint8_t cmd, uint8_
 QVector<DataPacket> ProtocolAdapter::extractDataPackets(const QByteArray& payload) {
     return PacketBuilder::extractDataPackets(payload);
 }
+
+bool ProtocolAdapter::parseTUResponse(const QByteArray& data, ProtocolEvent& event) {
+    event = ProtocolEvent();
+    if (data.size() < 3) return false;
+
+    uint16_t address = qFromBigEndian(*reinterpret_cast<const uint16_t*>(data.constData()));
+    uint8_t status = static_cast<uint8_t>(data[2]);
+
+    event.address = address;
+    event.status = status;
+
+    if (status != 0) {
+        event.type = ProtocolEvent::Error;
+        return true;
+    }
+
+    // Статус 0 – OK
+    if (data.size() == 3) {
+        event.type = ProtocolEvent::Ok;                // старый 3-байтовый OK
+    } else if (data.size() == 4) {
+        event.type = ProtocolEvent::Ok;                // новый 4-байтовый OK (команда игнорируется)
+    } else {
+        event.type = ProtocolEvent::Data;              // есть данные
+        event.payload = data.mid(3);                   // данные после 3-байтового заголовка
+    }
+    return true;
+}
+
+bool ProtocolAdapter::parseBridgeResponse(const QByteArray& data, ProtocolEvent& event) {
+    event = ProtocolEvent();
+
+    // Проверка на "ERR" (3 байта)
+    if (data.size() == 3 && data == QByteArray("ERR")) {
+        event.address = 0; // адрес не определён
+        event.status = 0;  // ошибка
+        event.type = ProtocolEvent::BridgeResponse;
+        // Можно сохранить сырые данные для логирования
+        event.payload = data;
+        return true;
+    }
+
+    // Обычный 4-байтовый ответ
+    if (data.size() != 4) return false;
+
+    BridgeResponse resp;
+    memcpy(&resp, data.constData(), 4);
+    resp.address = qFromBigEndian(resp.address);
+
+    // Дополнительная проверка: команда должна быть 0 или 1
+    if (resp.command != 0 && resp.command != 1) return false;
+
+    event.address = resp.address;
+    event.status = resp.status; // 1 – OK, 0 – ошибка
+    event.type = ProtocolEvent::BridgeResponse;
+    event.payload = data; // можно сохранить для отладки
+    return true;
+}

@@ -10,7 +10,6 @@ uint32_t DataConverter::powerToCode(float watts)
 {
     return ((uint32_t)(*((uint32_t *)& watts)))    ;
 
-
 }
 
 float DataConverter::codeToPower(uint32_t code)

@@ -1,35 +1,23 @@
-/**
- * @file controlwidget.h
- * @brief Виджет управления выбором ППБ и основными командами.
- *
- * Позволяет выбрать номер ППБ (0-15), выполнить опрос состояния, сброс,
- * тестовую последовательность, а также включить/выключить автоопрос.
- * Блокируется при отсутствии подключения или занятости контроллера.
- */
 #ifndef CONTROLWIDGET_H
 #define CONTROLWIDGET_H
 
 #include <QWidget>
 #include <ppbprotocol.h>
 #include "ppbcontrollerlib.h"
+
 namespace Ui {
 class ControlWidget;
 }
-/**
-* @class ControlWidget
-     * @brief Панель управления ППБ.
-         *
-             * Содержит комбобокс выбора ППБ, кнопки «Опрос», «Сброс», «Тест»,
-    * чекбокс «Автоопрос». Все элементы (кроме комбобокса) блокируются,
-    * если нет подключения или идёт операция.
-            */
+
 class ControlWidget : public QWidget
 {
     Q_OBJECT
+
 public:
     explicit ControlWidget(QWidget *parent = nullptr);
     ~ControlWidget();
-     void setController(PPBController* controller);
+
+    void setController(PPBController* controller);
 
     int currentPPBIndex() const;
     void setCurrentPPBIndex(int index);
@@ -37,9 +25,12 @@ public:
     void setBusy(bool busy);
     void setConnected(bool connected);
 
+public slots:
+    void refreshSettings(); // принудительное обновление полей из настроек
+
 signals:
     void pollStatusClicked();
-    void resetClicked();                  // теперь без данных
+    void resetClicked();
     void testSequenceClicked();
     void autoPollToggled(bool checked);
     void ppbSelected(int index);
@@ -55,8 +46,13 @@ private slots:
     void onFuBlockedToggled(bool checked);
     void onRebootToggled(bool checked);
     void onResetErrorsToggled(bool checked);
-    void onFullStateUpdated(uint8_t ppbIndex);
     void onPowerToggled(bool checked);
+
+    // Новые слоты для работы с настройками
+    void onUserSettingsChanged(uint8_t ppbIndex);
+
+    // Оставляем для возможного использования, но не обновляем поля ввода
+    void onFullStateUpdated(uint8_t ppbIndex);
 
 private:
     uint16_t getSelectedAddress() const;
@@ -66,4 +62,5 @@ private:
     bool m_busy = false;
     bool m_connected = false;
 };
-#endif
+
+#endif // CONTROLWIDGET_H

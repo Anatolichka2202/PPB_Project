@@ -62,21 +62,39 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
             });
 
     connect(m_controller, &PPBController::commandDataParsed,
-            this, [this](uint16_t /*address*/, const QVariant& data, TechCommand command) {
-                if (command == TechCommand::IS_YOU) {
-                    QVariantMap map = data.toMap();
-                    uint16_t mask = map.value("mask").toUInt();
-                    // Бридж ответил – значит, доступен
-                    ui->connectionWidget->setBridgeStatus(true);
-                    statusBar()->showMessage("Бридж доступен", 2000);
-                    // Обновляем иконки вкладок согласно маске
-                    for (int i = 0; i < 16; ++i) {
-                        bool available = mask & (1 << i);
-                        QPixmap pix(16, 16);
-                        pix.fill(available ? Qt::green : Qt::red);
-                        QIcon icon(pix);
-                        ui->ppbTabBar->setTabIcon(i, icon);
-                    }
+            this, [this](uint16_t address, const QVariant& data, TechCommand command) {
+                QString msg;
+                if (command == TechCommand::VERS) {
+                    auto map = data.toMap();
+                    msg = QString("Версия ППБ 0x%1: CRC32=0x%2")
+                              .arg(address, 4, 16, QChar('0'))
+                              .arg(map["crc32"].toUInt(), 8, 16, QChar('0'));
+                } else if (command == TechCommand::CHECKSUM) {
+                    auto map = data.toMap();
+                    msg = QString("Контр. сумма ППБ 0x%1: 0x%2")
+                              .arg(address, 4, 16, QChar('0'))
+                              .arg(map["checksum"].toUInt(), 4, 16, QChar('0'));
+                } else if (command == TechCommand::DROP) {
+                    auto map = data.toMap();
+                    msg = QString("Отброш. пакеты ППБ 0x%1: %2")
+                              .arg(address, 4, 16, QChar('0'))
+                              .arg(map["dropped"].toUInt());
+                } else if (command == TechCommand::BER_T || command == TechCommand::BER_F) {
+                    auto map = data.toMap();
+                    msg = QString("%1 ППБ 0x%2: ошибок=%3, BER=%4")
+                              .arg(command == TechCommand::BER_T ? "BER ТУ" : "BER ФУ")
+                              .arg(address, 4, 16, QChar('0'))
+                              .arg(map["errors"].toUInt())
+                              .arg(map["ber"].toDouble(), 0, 'e', 6);
+                } else if (command == TechCommand::Factory_Number) {
+                    auto map = data.toMap();
+                    msg = QString("Заводской номер ППБ 0x%1: %2")
+                              .arg(address, 4, 16, QChar('0'))
+                              .arg(map["value"].toUInt());
+                }
+                if (!msg.isEmpty()) {
+                    statusBar()->showMessage(msg, 5000);
+                    LOG_UI_RESULT(msg);
                 }
             });
 
@@ -251,6 +269,10 @@ void TesterWindow::updateTabSelectionStyle()
 void TesterWindow::onTabBarCurrentChanged(int index)
 {
     ui->ppbStack->setCurrentIndex(index);
+    // Синхронизируем ControlWidget с текущей вкладкой
+    if (ui->controlWidget) {
+        ui->controlWidget->setCurrentPPBIndex(index);
+    }
 }
 
 uint16_t TesterWindow::getSelectedAddress() const
@@ -339,6 +361,7 @@ void TesterWindow::onBridgePingRequested(const QString &ip, quint16 port)
     m_controller->setBridgeAddress(ip, port);
     statusBar()->showMessage("Проверка бриджа...", 1000);
     // Отправляем команду IS_YOU на адрес 0 (бридж)
+    // Исправлено: exucuteCommand -> executeCommand
     m_controller->exucuteCommand(TechCommand::IS_YOU, 0);
 }
 
@@ -366,6 +389,7 @@ void TesterWindow::onExitClicked()
 
 void TesterWindow::onPultClicked()
 {
+    if (!m_controller) return; // добавим проверку
     if (m_selectedTabs.isEmpty()) return;
     int index = *m_selectedTabs.begin();
     uint16_t addr = (1 << index);
@@ -382,20 +406,16 @@ void TesterWindow::onPultClicked()
     // Создаём новый пульт
     pult* p = new pult(addr, m_controller, nullptr);
     p->setAttribute(Qt::WA_DeleteOnClose);
-    p->setWindowFlags(Qt::Window); // независимое окно
+    p->setWindowFlags(Qt::Window);
 
-    // Подключаем сигнал destroyed для удаления из карты
     connect(p, &pult::destroyed, this, &TesterWindow::onPultDestroyed);
 
     // Позиционируем пульт справа от главного окна
     QRect mainGeo = geometry();
-    QRect pultGeo = p->geometry(); // начальная геометрия (можно задать в ui)
-    // Если геометрия не задана, установим разумный размер
-    if (pultGeo.width() < 100) pultGeo.setWidth(600);  // примерная ширина пульта
+    QRect pultGeo = p->geometry();
+    if (pultGeo.width() < 100) pultGeo.setWidth(600);
     if (pultGeo.height() < 100) pultGeo.setHeight(800);
-
-    pultGeo.moveTopLeft(mainGeo.topRight() + QPoint(10, 0)); // справа с отступом 10px
-    // Проверка, чтобы не уходил за пределы экрана – можно улучшить, но пока так
+    pultGeo.moveTopLeft(mainGeo.topRight() + QPoint(10, 0));
     p->setGeometry(pultGeo);
 
     m_pultWindows[addr] = p;
@@ -518,3 +538,4 @@ uint16_t TesterWindow::getSelectedMask() const
     }
     return mask;
 }
+

@@ -36,7 +36,6 @@ signals:
 
 private slots:
     void onConnectButtonClicked();
-    void onCallButtonClicked(); // новая кнопка "прозвон ппб"
 
 private:
     Ui::ConnectionWidget *ui;

@@ -10,6 +10,7 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core)
 set(COMMON_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/../common/include/icommunication.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../common/include/icontroller.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../common/include/ppbstate.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../common/include/packetanalyzer_interface.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../common/include/ppbprotocol.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../common/performance/performancemonitor.h

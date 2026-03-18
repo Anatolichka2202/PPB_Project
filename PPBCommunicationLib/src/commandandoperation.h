@@ -10,7 +10,7 @@
 #include <QTimer>
 
 namespace PPBConstants {
-constexpr int OPERATION_TIMEOUT_MS = 5000;    // Таймаут операции 5 сек
+constexpr int OPERATION_TIMEOUT_MS = 800;    // Таймаут операции 5 сек
 constexpr int PACKET_TIMEOUT_MS = 1000;       // Таймаут между пакетами 1 сек
 constexpr int TEST_PACKET_COUNT = 512;        // 512 тестовых пакетов
 constexpr int PACKET_INTERVAL_MS = 100;       // Интервал 10 Гц = 100 мс
@@ -19,8 +19,8 @@ constexpr int STATUS_RESPONSE =1;             // 1 пакетов статуса
 constexpr int VERS_RESPONSE = 1;               //1 пакеты версии
 constexpr int CHECKSUM_RESPONSE=1;            //1 пакета контр суммы
 
-constexpr int TS_TIMEOUT_MS = 1000;          // Таймаут подключения
-constexpr int DATA_TIMEOUT_MS = 1000;       // Таймаут получения данных
+constexpr int TS_TIMEOUT_MS = 200;          // Таймаут подключения
+constexpr int DATA_TIMEOUT_MS = 200;       // Таймаут получения данных
 constexpr int PRBS_TIMEOUT_MS = 100;       // Таймаут для тестовых последовательностей
 }
 
@@ -105,7 +105,7 @@ public:
 };
 
 // Базовый шаблонный класс конкретной команды
-template<TechCommand CmdId, int ExpectedPackets = 0, int Timeout = 3000>
+template<TechCommand CmdId, int ExpectedPackets = 0, int Timeout = PPBConstants::OPERATION_TIMEOUT_MS>
 class ConcretePPBCommand : public PPBCommand {
 public:
     TechCommand commandId() const override { return CmdId; }
@@ -171,7 +171,7 @@ public:
 };
 
 // PRBS_S2M команда с переопределенным onDataReceived
-class PRBS_S2MCommand : public ConcretePPBCommand<TechCommand::PRBS_S2M, PPBConstants::TEST_PACKET_COUNT, 10000> {
+class PRBS_S2MCommand : public ConcretePPBCommand<TechCommand::PRBS_S2M, PPBConstants::TEST_PACKET_COUNT, PPBConstants::PACKET_TIMEOUT_MS> {
 public:
     void onDataReceived(CommandInterface* comm, const QVector<QByteArray>& data) const override;
     bool parseResponseData(const QVector<QByteArray>& data, QString& outMessage, QVariant& outParsedData) const override;

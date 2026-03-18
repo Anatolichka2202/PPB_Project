@@ -37,6 +37,12 @@ public:
 
     // Разбор payload на массив DataPacket (если нужно для тестовых последовательностей)
     virtual QVector<DataPacket> extractDataPackets(const QByteArray& payload) = 0;
+
+    // Парсинг TU-ответа (вызывается, когда есть активная команда)
+    virtual bool parseTUResponse(const QByteArray& data, ProtocolEvent& event) = 0;
+
+    // Парсинг ответа бриджа (когда нет контекста)
+    virtual bool parseBridgeResponse(const QByteArray& data, ProtocolEvent& event) = 0;
 };
 
 #endif // IPROTOCOL_ADAPTER_H

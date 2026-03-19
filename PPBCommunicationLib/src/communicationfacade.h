@@ -36,7 +36,7 @@ public:
 
     void setBridgeAddress(const QString &ip, quint16 port) override;
 
-    Q_INVOKABLE quint64 executeGroupCommand(TechCommand cmd, uint16_t mask, const QByteArray& data = {});
+  Q_INVOKABLE quint64 executeGroupCommand(TechCommand cmd, uint16_t mask, const QByteArray& data = {}) override;
 signals:
     // Сигнал об успешной инициализации
     void initialized();

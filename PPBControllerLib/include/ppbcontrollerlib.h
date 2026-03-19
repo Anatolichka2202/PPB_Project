@@ -5,6 +5,7 @@
 #include <QTimer>
 #include <QMap>
 
+class ScenarioEngine;
 class PPBController : public IController {
     Q_OBJECT
 public:
@@ -81,6 +82,11 @@ public:
 
 
     void runFullTest(uint16_t address) override;
+
+    //++++++++Сценарии++++++++++++++++++++++++++++++++
+    Q_INVOKABLE void loadScenario(const QString &fileName);
+    Q_INVOKABLE void runScenario();
+    Q_INVOKABLE void stopScenario();
 private slots:
     // Приватные слоты для обработки сигналов от коммуникации и анализатора
     void onStatusReceived(uint16_t address, uint32_t mask, const QVector<QByteArray>& data);
@@ -110,6 +116,9 @@ signals:
     void akipAvailabilityChanged(bool available);
     void autoPollToggled(bool checked);
 
+    void scenarioLog(const QString &message);
+    void scenarioFinished(bool success);
+    void scenarioError(const QString &error);
 private:
     void connectCommunicationSignals();
     void processStatusData(uint16_t address, uint32_t mask, const QVector<QByteArray>& data);
@@ -137,6 +146,9 @@ private:
     QVector<DataPacket> m_lastReceivedPackets;
 
     IAkipController* m_akip; // не владеет
+
+    std::unique_ptr<ScenarioEngine> m_scenarioEngine;
+    QString m_scenarioFileName;
 };
 
 #endif // PPBCONTROLLERLIB_H

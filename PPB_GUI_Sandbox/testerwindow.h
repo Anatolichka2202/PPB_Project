@@ -20,7 +20,6 @@
 #include "pult.h"
 #include "ppbcontrollerlib.h"
 #include <QMap>
-
 QT_BEGIN_NAMESPACE
 namespace Ui { class TesterWindow; }
 QT_END_NAMESPACE
@@ -70,6 +69,9 @@ private slots:
     //пульты
     void onPultDestroyed(QObject* obj); // новый слот для очистки карты
 
+    void onLoadScenario();
+    void onRunScenario();
+    void onStopScenario();
 
 private:
     void setupPpbTabs(int count = 16);
@@ -93,7 +95,9 @@ private:
     bool m_displayAsCodes = false;
     bool m_isExiting = false;
 
-     QMap<uint16_t, pult*> m_pultWindows; // карта открытых пультов
+    QMap<uint16_t, pult*> m_pultWindows; // карта открытых пультов
+
+
 };
 
 #endif // TESTERWINDOW_H

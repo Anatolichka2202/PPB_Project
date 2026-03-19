@@ -5,7 +5,7 @@
 #include <QThread>
 #include <QtEndian>
 #include "ds18b20.h"
-
+#include "scenarioengine.h"
 static struct MetaTypeRegistrar {
     MetaTypeRegistrar() {
         qRegisterMetaType<PPBState>();
@@ -1041,4 +1041,46 @@ void PPBController::runFullTest(uint16_t address)
     // 2. Отправить PRBS_S2M
     // 3. Запросить BER
     // 4. Выполнить анализ
+}
+
+
+void PPBController::loadScenario(const QString &fileName)
+{
+    m_scenarioFileName = fileName;
+    // Можно сразу создать движок или отложить до run
+    if (!m_scenarioEngine) {
+        m_scenarioEngine = std::make_unique<ScenarioEngine>(this);
+        // Пробрасываем сигналы из движка в сигналы контроллера
+        connect(m_scenarioEngine.get(), &ScenarioEngine::logMessage,
+                this, &PPBController::scenarioLog);
+        connect(m_scenarioEngine.get(), &ScenarioEngine::errorOccurred,
+                this, &PPBController::scenarioError);
+        connect(m_scenarioEngine.get(), &ScenarioEngine::finished,
+                this, &PPBController::scenarioFinished);
+    }
+    // Можно проверить файл здесь, но загрузку скрипта лучше сделать в run
+}
+
+void PPBController::runScenario()
+{
+    if (m_scenarioFileName.isEmpty()) {
+        emit scenarioError("No scenario loaded");
+        return;
+    }
+    if (!m_scenarioEngine) {
+        m_scenarioEngine = std::make_unique<ScenarioEngine>(this);
+        // подключаем сигналы (как выше)
+    }
+    if (!m_scenarioEngine->loadScript(m_scenarioFileName)) {
+        // ошибка уже будет в сигнале errorOccurred
+        return;
+    }
+    m_scenarioEngine->execute();
+}
+
+void PPBController::stopScenario()
+{
+    if (m_scenarioEngine) {
+        // TODO: добавить механизм остановки
+    }
 }

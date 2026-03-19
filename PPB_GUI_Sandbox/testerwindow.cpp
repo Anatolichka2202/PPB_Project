@@ -98,6 +98,20 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
                 }
             });
 
+    connect(m_controller, &PPBController::scenarioLog,
+            this, [this](const QString& msg) {
+                statusBar()->showMessage(msg, 3000);
+                // можно также добавить в лог-виджет
+            });
+    connect(m_controller, &PPBController::scenarioFinished,
+            this, [this](bool success) {
+                statusBar()->showMessage(success ? "Сценарий выполнен" : "Сценарий завершился с ошибкой", 5000);
+            });
+    connect(m_controller, &PPBController::scenarioError,
+            this, [this](const QString& err) {
+                QMessageBox::warning(this, "Ошибка сценария", err);
+            });
+
     // Подключение сигналов от виджетов левой панели
     connect(ui->connectionWidget, &ConnectionWidget::bridgePingRequested,
             this, &TesterWindow::onBridgePingRequested);
@@ -539,3 +553,22 @@ uint16_t TesterWindow::getSelectedMask() const
     return mask;
 }
 
+void TesterWindow::onLoadScenario()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, "Загрузить сценарий",
+                                                    "", "Lua скрипты (*.lua)");
+    if (!fileName.isEmpty()) {
+        m_controller->loadScenario(fileName);
+        ui->scenarioWidget->setScenarioFileName(QFileInfo(fileName).fileName());
+    }
+}
+
+void TesterWindow::onRunScenario()
+{
+    m_controller->runScenario();
+}
+
+void TesterWindow::onStopScenario()
+{
+    m_controller->stopScenario();
+}

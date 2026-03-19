@@ -56,13 +56,18 @@ target_include_directories(${PROJECT_NAME}
         ${CMAKE_SOURCE_DIR}/AKIP-manager_module
 )
 
-target_link_libraries(${PROJECT_NAME}
-    PRIVATE
-        Qt${QT_VERSION_MAJOR}::Core
-        Qt${QT_VERSION_MAJOR}::Gui
-        CommonLib
-        LoggingLib
-        akip_module
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    scenario_lib   # добавляем
+    # остальные библиотеки
+)
+
+# Убедитесь, что target_link_libraries с PRIVATE остаются для остальных
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Gui
+    CommonLib
+    LoggingLib
+    akip_module
 )
 
 # Реальные зависимости из монолита (если включены)

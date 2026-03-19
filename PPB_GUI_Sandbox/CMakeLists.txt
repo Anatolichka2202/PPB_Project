@@ -95,6 +95,7 @@ target_link_libraries(PPB_GUI_Sandbox PRIVATE
     PPBCommunicationLib
     CommonLib
     akip_module
+    scenario_lib
 )
 
 # Для Windows: скрыть консоль

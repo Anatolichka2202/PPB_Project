@@ -1,0 +1,192 @@
+diff --git a/PPBCommunicationLib/src/communicationengine.cpp b/PPBCommunicationLib/src/communicationengine.cpp
+index 445c27f..f8b9e2d 100644
+--- a/PPBCommunicationLib/src/communicationengine.cpp
++++ b/PPBCommunicationLib/src/communicationengine.cpp
+@@ -313,8 +313,8 @@ void communicationengine::executeCommand(TechCommand cmd, uint16_t address, cons
+     }
+ }
+ 
+-void communicationengine::sendFUTransmit(uint16_t address) {
+-    QByteArray packet = m_protocolAdapter->buildFURequest(address,1, 0, nullptr);
++void communicationengine::sendFUTransmit(uint16_t address, uint8_t period, const uint8_t fuData[3]) {
++    QByteArray packet = m_protocolAdapter->buildFURequest(address,1, period, fuData);
+     sendPacketInternal(packet, "ФУ передача");
+ }
+ void communicationengine::sendFUReceiveImpl(uint16_t address, uint8_t period, const QByteArray& fuData)
+diff --git a/PPBCommunicationLib/src/communicationengine.h b/PPBCommunicationLib/src/communicationengine.h
+index c81c022..f233de1 100644
+--- a/PPBCommunicationLib/src/communicationengine.h
++++ b/PPBCommunicationLib/src/communicationengine.h
+@@ -195,7 +195,7 @@ public slots:
+ 
+ 
+     // ФУ команды
+-    void sendFUTransmit(uint16_t address);
++    void sendFUTransmit(uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr);
+     void sendFUReceive(uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr);
+ 
+ 
+diff --git a/PPBCommunicationLib/src/communicationfacade.cpp b/PPBCommunicationLib/src/communicationfacade.cpp
+index 97b80c2..b010567 100644
+--- a/PPBCommunicationLib/src/communicationfacade.cpp
++++ b/PPBCommunicationLib/src/communicationfacade.cpp
+@@ -165,9 +165,12 @@ void CommunicationFacade::onEngineGroupCommandCompleted(quint64 groupId, bool al
+ }
+ 
+ 
+-void CommunicationFacade::sendFUTransmit(uint16_t address)
++void CommunicationFacade::sendFUTransmit(uint16_t address, uint8_t period, const uint8_t fuData[3])
+ {
+-    invokeInThread([this, address]() { m_engine->sendFUTransmit(address); });
++    invokeInThread([this, address, period, fuData]() {
++        m_engine->sendFUTransmit(address, period, fuData);
++    });
++    //invokeInThread([this, address]() { m_engine->(address); });
+ }
+ 
+ void CommunicationFacade::sendFUReceive(uint16_t address, uint8_t period, const uint8_t fuData[3])
+diff --git a/PPBCommunicationLib/src/communicationfacade.h b/PPBCommunicationLib/src/communicationfacade.h
+index 3778a21..4f7ea48 100644
+--- a/PPBCommunicationLib/src/communicationfacade.h
++++ b/PPBCommunicationLib/src/communicationfacade.h
+@@ -27,8 +27,8 @@ public:
+     void disconnect() override;
+     void executeCommand(TechCommand cmd, uint16_t address) override;
+     void executeCommand(TechCommand cmd, uint16_t address, const QByteArray& data) override;
+-    void sendFUTransmit(uint16_t address) override;
+-    void sendFUReceive(uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr) override;
++    void sendFUTransmit(uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr) override;
++    void sendFUReceive (uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr) override;
+     void sendDataPackets(const QVector<DataPacket>& packets) override;
+ 
+     PPBState state() const override;
+diff --git a/PPBControllerLib/include/ppbcontrollerlib.h b/PPBControllerLib/include/ppbcontrollerlib.h
+index f3663e8..db2b861 100644
+--- a/PPBControllerLib/include/ppbcontrollerlib.h
++++ b/PPBControllerLib/include/ppbcontrollerlib.h
+@@ -23,7 +23,7 @@ public:
+ 
+     // === Команды ФУ ===
+     void setFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle) override;
+-    void setFUTransmit(uint16_t address) override;
++    void setFUTransmit(uint16_t address, uint16_t duration, uint16_t dutyCycle) override;
+ 
+     // === Тестовые последовательности ===
+     void startPRBS_M2S(uint16_t address) override;
+diff --git a/PPBControllerLib/src/ppbcontrollerlib.cpp b/PPBControllerLib/src/ppbcontrollerlib.cpp
+index cef6419..4c74766 100644
+--- a/PPBControllerLib/src/ppbcontrollerlib.cpp
++++ b/PPBControllerLib/src/ppbcontrollerlib.cpp
+@@ -88,7 +88,7 @@ PPBController::PPBController(ICommunication* communication, PacketAnalyzerInterf
+ 
+     // Инициализируем таймер автоопроса
+     m_autoPollTimer = new QTimer(this);
+-    m_autoPollTimer->setInterval(5000);
++    m_autoPollTimer->setInterval(500);
+     connect(m_autoPollTimer, &QTimer::timeout, this, &PPBController::onAutoPollTimeout);
+ 
+     // Подключаем сигналы анализатора
+@@ -239,12 +239,20 @@ void PPBController::setFUReceive(uint16_t address, uint16_t duration, uint16_t d
+                           .arg(address).arg(duration).arg(dutyCycle));
+     }
+ }
+-
+-void PPBController::setFUTransmit(uint16_t address)
++void PPBController::setFUTransmit(uint16_t address, uint16_t duration, uint16_t dutyCycle)
+ {
+     if (m_communication && !m_communication->isBusy()) {
+-        m_communication->sendFUTransmit(address);
+-        LOG_UI_RESULT(QString("Режим ФУ передача для ППБ %1").arg(address));
++
++        uint8_t period = (duration >> 8) & 0xFF;
++        uint8_t fuData[3] = {
++            static_cast<uint8_t>(duration & 0xFF),
++            static_cast<uint8_t>((dutyCycle >> 8) & 0xFF),
++            static_cast<uint8_t>(dutyCycle & 0xFF)
++        };
++        m_communication->sendFUTransmit(address, period, fuData);
++        LOG_UI_RESULT(QString("Режим ФУ передача для ППБ %1: длит=%2, скв=%3")
++                          .arg(address).arg(duration).arg(dutyCycle));
++        //LOG_UI_RESULT(QString("Режим ФУ передача для ППБ %1").arg(address));
+     }
+ }
+ 
+diff --git a/PPB_GUI_Sandbox/fuwidget.cpp b/PPB_GUI_Sandbox/fuwidget.cpp
+index 5b6be04..1fb8d03 100644
+--- a/PPB_GUI_Sandbox/fuwidget.cpp
++++ b/PPB_GUI_Sandbox/fuwidget.cpp
+@@ -8,8 +8,8 @@ FuWidget::FuWidget(QWidget *parent) :
+ {
+     ui->setupUi(this);
+     ui->radioButtonFUReceive->setChecked(true);
+-    ui->lineEditPulseDuration->setText("27000");
+-    ui->lineEditPulseDelay->setText("0");
++    ui->lineEditPulseDuration->setText("100");
++    ui->lineEditPulseDelay->setText("200");
+ 
+     connect(ui->radioButtonFUTransmit, &QRadioButton::toggled,
+             this, &FuWidget::onTransmitToggled);
+@@ -59,8 +59,8 @@ void FuWidget::on_fuBtnSent_clicked()
+         return;
+     }
+ 
+-    if (dur < 1 || dur > 30 || duty < 1 || duty > 30) {
+-        LOG_UI_ALERT("Ошибка! Значения должны быть от 1 до 30 мкс");
++    if (dur < 1 || dur >250 || duty < 1 || duty > 250) {
++        LOG_UI_ALERT("Ошибка! Значения должны быть от 1 до 250 мкс");
+         return;
+     }
+ 
+diff --git a/PPB_GUI_Sandbox/testerwindow.cpp b/PPB_GUI_Sandbox/testerwindow.cpp
+index 2d5897d..9af6443 100644
+--- a/PPB_GUI_Sandbox/testerwindow.cpp
++++ b/PPB_GUI_Sandbox/testerwindow.cpp
+@@ -159,7 +159,7 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
+                 auto addrs = getSelectedAddresses();
+                 for (uint16_t addr : addrs) {
+                     if (transmit)
+-                        m_controller->setFUTransmit(addr);
++                        m_controller->setFUTransmit(addr, duration, dutyCycle);
+                     else
+                         m_controller->setFUReceive(addr, duration, dutyCycle);
+                 }
+diff --git a/common/converters/dataconverter.cpp b/common/converters/dataconverter.cpp
+index 75cedd5..7504a26 100644
+--- a/common/converters/dataconverter.cpp
++++ b/common/converters/dataconverter.cpp
+@@ -9,7 +9,6 @@
+ uint32_t DataConverter::powerToCode(float watts)
+ {
+     return ((uint32_t)(*((uint32_t *)& watts)))    ;
+-
+ }
+ 
+ float DataConverter::codeToPower(uint32_t code)
+diff --git a/common/include/icommunication.h b/common/include/icommunication.h
+index 37878b7..0fa221c 100644
+--- a/common/include/icommunication.h
++++ b/common/include/icommunication.h
+@@ -20,7 +20,7 @@ public:
+ 
+     // Отправка команд
+     virtual void executeCommand(TechCommand cmd, uint16_t address) = 0;
+-    virtual void sendFUTransmit(uint16_t address) = 0;
++    virtual void sendFUTransmit(uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr) = 0;
+     virtual void sendFUReceive(uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr) = 0;
+     virtual void sendDataPackets(const QVector<DataPacket>& packets) = 0;
+     virtual void executeCommand(TechCommand cmd, uint16_t address, const QByteArray& data) = 0;
+diff --git a/common/include/icontroller.h b/common/include/icontroller.h
+index 9013f53..acb4ae4 100644
+--- a/common/include/icontroller.h
++++ b/common/include/icontroller.h
+@@ -29,9 +29,7 @@ public:
+ 
+     // === Команды ФУ ===
+     virtual void setFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle) = 0;
+-    virtual void setFUTransmit(uint16_t address) = 0;
+-
+-    // === Тестовые последовательности ===
++    virtual void setFUTransmit(uint16_t address, uint16_t duration, uint16_t dutyCycle) = 0;
+     virtual void startPRBS_M2S(uint16_t address) = 0;
+     virtual void startPRBS_S2M(uint16_t address) = 0;
+ 

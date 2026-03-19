@@ -195,7 +195,7 @@ public slots:
 
 
     // ФУ команды
-    void sendFUTransmit(uint16_t address);
+    void sendFUTransmit(uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr);
     void sendFUReceive(uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr);
 
 

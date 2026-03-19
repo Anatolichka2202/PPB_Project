@@ -23,7 +23,7 @@ public:
 
     // === Команды ФУ ===
     void setFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle) override;
-    void setFUTransmit(uint16_t address) override;
+    void setFUTransmit(uint16_t address, uint16_t duration, uint16_t dutyCycle) override;
 
     // === Тестовые последовательности ===
     void startPRBS_M2S(uint16_t address) override;

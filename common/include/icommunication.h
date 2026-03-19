@@ -20,7 +20,7 @@ public:
 
     // Отправка команд
     virtual void executeCommand(TechCommand cmd, uint16_t address) = 0;
-    virtual void sendFUTransmit(uint16_t address) = 0;
+    virtual void sendFUTransmit(uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr) = 0;
     virtual void sendFUReceive(uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr) = 0;
     virtual void sendDataPackets(const QVector<DataPacket>& packets) = 0;
     virtual void executeCommand(TechCommand cmd, uint16_t address, const QByteArray& data) = 0;

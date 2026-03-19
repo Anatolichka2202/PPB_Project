@@ -29,9 +29,7 @@ public:
 
     // === Команды ФУ ===
     virtual void setFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle) = 0;
-    virtual void setFUTransmit(uint16_t address) = 0;
-
-    // === Тестовые последовательности ===
+    virtual void setFUTransmit(uint16_t address, uint16_t duration, uint16_t dutyCycle) = 0;
     virtual void startPRBS_M2S(uint16_t address) = 0;
     virtual void startPRBS_S2M(uint16_t address) = 0;
 

@@ -8,8 +8,8 @@ FuWidget::FuWidget(QWidget *parent) :
 {
     ui->setupUi(this);
     ui->radioButtonFUReceive->setChecked(true);
-    ui->lineEditPulseDuration->setText("27000");
-    ui->lineEditPulseDelay->setText("0");
+    ui->lineEditPulseDuration->setText("100");
+    ui->lineEditPulseDelay->setText("200");
 
     connect(ui->radioButtonFUTransmit, &QRadioButton::toggled,
             this, &FuWidget::onTransmitToggled);
@@ -59,8 +59,8 @@ void FuWidget::on_fuBtnSent_clicked()
         return;
     }
 
-    if (dur < 1 || dur > 30 || duty < 1 || duty > 30) {
-        LOG_UI_ALERT("Ошибка! Значения должны быть от 1 до 30 мкс");
+    if (dur < 1 || dur >250 || duty < 1 || duty > 250) {
+        LOG_UI_ALERT("Ошибка! Значения должны быть от 1 до 250 мкс");
         return;
     }
 

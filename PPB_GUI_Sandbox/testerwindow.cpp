@@ -159,7 +159,7 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
                 auto addrs = getSelectedAddresses();
                 for (uint16_t addr : addrs) {
                     if (transmit)
-                        m_controller->setFUTransmit(addr);
+                        m_controller->setFUTransmit(addr, duration, dutyCycle);
                     else
                         m_controller->setFUReceive(addr, duration, dutyCycle);
                 }

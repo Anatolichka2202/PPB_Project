@@ -165,9 +165,12 @@ void CommunicationFacade::onEngineGroupCommandCompleted(quint64 groupId, bool al
 }
 
 
-void CommunicationFacade::sendFUTransmit(uint16_t address)
+void CommunicationFacade::sendFUTransmit(uint16_t address, uint8_t period, const uint8_t fuData[3])
 {
-    invokeInThread([this, address]() { m_engine->sendFUTransmit(address); });
+    invokeInThread([this, address, period, fuData]() {
+        m_engine->sendFUTransmit(address, period, fuData);
+    });
+    //invokeInThread([this, address]() { m_engine->(address); });
 }
 
 void CommunicationFacade::sendFUReceive(uint16_t address, uint8_t period, const uint8_t fuData[3])

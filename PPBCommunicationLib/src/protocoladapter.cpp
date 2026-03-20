@@ -10,9 +10,7 @@ bool ProtocolAdapter::parseIncomingPacket(const QByteArray& data, ProtocolEvent&
     if (data.size() == sizeof(BridgeResponse)) {
         BridgeResponse response;
         std::memcpy(&response, data.constData(), sizeof(response));
-        // Можно добавить дополнительную проверку, что response.command в допустимых пределах
-        // Например, если command == 0 или 1, то это скорее всего бридж
-        // Но для простоты пока считаем любой пакет размером 4 байта ответом бриджа
+
         event.address = response.address;
         event.status = response.status; // 1 - OK, 0 - ошибка
         event.type = ProtocolEvent::BridgeResponse;
@@ -98,10 +96,21 @@ bool ProtocolAdapter::parseBridgeResponse(const QByteArray& data, ProtocolEvent&
 
     // Проверка на "ERR" (3 байта)
     if (data.size() == 3 && data == QByteArray("ERR")) {
-        event.address = 0; // адрес не определён
-        event.status = 0;  // ошибка
+        event.address = 0;
+        event.status = 0;
+        event.command = 0;
         event.type = ProtocolEvent::BridgeResponse;
-        // Можно сохранить сырые данные для логирования
+        event.payload = data;
+        return true;
+    }
+
+    // Проверка на 2-байтовый ответ (например, 0xFFFF)
+    if (data.size() == 2) {
+
+        event.address = 0;
+        event.status = 0; // ошибка
+        event.command = 0;
+        event.type = ProtocolEvent::BridgeResponse;
         event.payload = data;
         return true;
     }
@@ -113,12 +122,12 @@ bool ProtocolAdapter::parseBridgeResponse(const QByteArray& data, ProtocolEvent&
     memcpy(&resp, data.constData(), 4);
     resp.address = qFromBigEndian(resp.address);
 
-    // Дополнительная проверка: команда должна быть 0 или 1
     if (resp.command != 0 && resp.command != 1) return false;
 
     event.address = resp.address;
-    event.status = resp.status; // 1 – OK, 0 – ошибка
+    event.status = resp.status;
+    event.command = resp.command;
     event.type = ProtocolEvent::BridgeResponse;
-    event.payload = data; // можно сохранить для отладки
+    event.payload = data;
     return true;
 }

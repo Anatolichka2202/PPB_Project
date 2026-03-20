@@ -18,6 +18,7 @@ struct ProtocolEvent {
 
     uint16_t address = 0;
     uint8_t status = 0;   // Код статуса (для Error – код ошибки, для BridgeResponse – 1/0)
+    uint8_t command = 0;   // для BridgeResponse
     QByteArray payload;   // Сырые данные (для Data и возможно BridgeResponse)
 };
 

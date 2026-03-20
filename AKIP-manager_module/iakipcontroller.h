@@ -63,6 +63,7 @@ signals:
     void amStateChanged(int channel, bool enabled);                      // NEW
 
     // ==================== Методы с замером времени ====================
+    public:
     virtual bool sendCommandTimed(const QString &cmd, qint64 &elapsedMs) = 0;
     virtual bool queryCommandTimed(const QString &cmd, QString &response, qint64 &elapsedMs) = 0;
 };

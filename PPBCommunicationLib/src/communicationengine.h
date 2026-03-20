@@ -235,7 +235,7 @@ signals:
 
     void groupCommandCompleted(quint64 groupId, bool allSuccess, const QString& summary);
 
-    void fuCommandCompleted(uint16_t address, bool success, const QString& message);
+    void fuCommandCompleted(uint16_t address,uint8_t command, bool success, const QString& message);
 
 private slots:
     void onDataReceived(const QByteArray& data, const QHostAddress& sender, quint16 port);

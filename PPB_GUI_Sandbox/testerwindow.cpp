@@ -63,7 +63,23 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
 
     connect(m_controller, &PPBController::commandDataParsed,
             this, [this](uint16_t address, const QVariant& data, TechCommand command) {
-                QString msg;
+        if (command == TechCommand::IS_YOU) {
+            QVariantMap map = data.toMap();
+            uint16_t mask = map.value("mask").toUInt();
+            ui->connectionWidget->setBridgeStatus(true);
+            statusBar()->showMessage("Бридж доступен", 2000);
+            // Обновляем иконки вкладок согласно маске
+            for (int i = 0; i < 16; ++i) {
+                bool available = mask & (1 << i);
+                QPixmap pix(16, 16);
+                pix.fill(available ? Qt::green : Qt::red);
+                QIcon icon(pix);
+                ui->ppbTabBar->setTabIcon(i, icon);
+            }
+            return;
+        }
+        QString msg;
+
                 if (command == TechCommand::VERS) {
                     auto map = data.toMap();
                     msg = QString("Версия ППБ 0x%1: CRC32=0x%2")
@@ -179,18 +195,13 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
                 }
             });
 
-    // ScenarioWidget (заглушки)
+    // ScenarioWidget
     connect(ui->scenarioWidget, &ScenarioWidget::loadScenario,
-            this, [this]() {
-                QString fileName = QFileDialog::getOpenFileName(this, "Загрузить сценарий",
-                                                                "", "Сценарии (*.json *.xml)");
-                if (!fileName.isEmpty())
-                    ui->scenarioWidget->setScenarioFileName(QFileInfo(fileName).fileName());
-            });
+            this, &TesterWindow::onLoadScenario);
     connect(ui->scenarioWidget, &ScenarioWidget::runScenario,
-            this, []() { /* TODO */ });
+            this, &TesterWindow::onRunScenario);
     connect(ui->scenarioWidget, &ScenarioWidget::stopScenario,
-            this, []() { /* TODO */ });
+            this, &TesterWindow::onStopScenario);
 
     // Восстановление геометрии и состояния сплиттера
     QSettings settings;

@@ -119,6 +119,8 @@ signals:
     void scenarioLog(const QString &message);
     void scenarioFinished(bool success);
     void scenarioError(const QString &error);
+
+    void fuCommandCompleted(uint16_t address, uint8_t command, bool success, const QString& message); //проброс
 private:
     void connectCommunicationSignals();
     void processStatusData(uint16_t address, uint32_t mask, const QVector<QByteArray>& data);
@@ -149,6 +151,9 @@ private:
 
     std::unique_ptr<ScenarioEngine> m_scenarioEngine;
     QString m_scenarioFileName;
+
+    QThread* m_scenarioThread = nullptr;
+    bool m_scenarioRunning = false;
 };
 
 #endif // PPBCONTROLLERLIB_H

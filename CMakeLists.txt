@@ -15,8 +15,27 @@ option(BUILD_TESTS "Build tests" OFF)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Widgets Network)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Widgets Network)
 
-# Поиск Lua (системная или через vcpkg)
-find_package(Lua REQUIRED)
+
+# ==== Lua ====
+# Явно задаём пути к локальной Lua
+set(LUA_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lua/include" CACHE PATH "Lua include directory")
+set(LUA_LIBRARY "${CMAKE_SOURCE_DIR}/lua/liblua54.a" CACHE FILEPATH "Lua library")
+set(LUA_LIBRARIES ${LUA_LIBRARY} CACHE STRING "Lua libraries")
+
+# Проверяем, что заголовки действительно существуют
+if(NOT EXISTS "${LUA_INCLUDE_DIR}/lua.h")
+    message(FATAL_ERROR "Lua headers not found in ${LUA_INCLUDE_DIR}")
+endif()
+
+# Создаём импортированную цель для Lua (удобно для линковки в подпроектах)
+add_library(Lua::Lua UNKNOWN IMPORTED)
+set_target_properties(Lua::Lua PROPERTIES
+    IMPORTED_LOCATION "${LUA_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${LUA_INCLUDE_DIR}"
+)
+
+# =================
+
 
 # Пробрасываем опции в дочерние проекты (как cache variables)
 set(USE_REAL_DEPS ${USE_REAL_DEPS} CACHE BOOL "Use real dependencies from monolith" FORCE)

@@ -72,6 +72,8 @@ void PPBController::connectCommunicationSignals()
 
     connect(m_communication, &ICommunication::groupCommandCompleted,
             this, &PPBController::onGroupCommandCompleted);
+    connect(m_communication, &ICommunication::fuCommandCompleted,
+            this, &PPBController::fuCommandCompleted);
 }
 
 PPBController::PPBController(ICommunication* communication, PacketAnalyzerInterface* analyzer, QObject *parent)
@@ -117,6 +119,9 @@ PPBController::PPBController(ICommunication* communication, PacketAnalyzerInterf
         LOG_TECH_STATE("коммуникация не передана, состояние = Idle");
         emit connectionStateChanged(PPBState::Idle);
     }
+
+    //поток сценария
+    m_scenarioThread = new QThread(this);
 }
 
 PPBController::~PPBController()
@@ -125,6 +130,7 @@ PPBController::~PPBController()
         m_autoPollTimer->stop();
         delete m_autoPollTimer;
     }
+    if(m_scenarioThread != nullptr) m_scenarioThread->exit();
 }
 
 void PPBController::onBusyChanged(bool busy)
@@ -1047,10 +1053,14 @@ void PPBController::runFullTest(uint16_t address)
 void PPBController::loadScenario(const QString &fileName)
 {
     m_scenarioFileName = fileName;
-    // Можно сразу создать движок или отложить до run
+    if (!m_scenarioThread->isRunning()) {
+        m_scenarioThread->start();
+    }
     if (!m_scenarioEngine) {
         m_scenarioEngine = std::make_unique<ScenarioEngine>(this);
-        // Пробрасываем сигналы из движка в сигналы контроллера
+        // перемещаем движок в поток сценария
+        m_scenarioEngine->moveToThread(m_scenarioThread);
+        // пробрасываем сигналы (они будут автоматически в главный поток через Qt::AutoConnection)
         connect(m_scenarioEngine.get(), &ScenarioEngine::logMessage,
                 this, &PPBController::scenarioLog);
         connect(m_scenarioEngine.get(), &ScenarioEngine::errorOccurred,
@@ -1058,7 +1068,6 @@ void PPBController::loadScenario(const QString &fileName)
         connect(m_scenarioEngine.get(), &ScenarioEngine::finished,
                 this, &PPBController::scenarioFinished);
     }
-    // Можно проверить файл здесь, но загрузку скрипта лучше сделать в run
 }
 
 void PPBController::runScenario()
@@ -1068,19 +1077,16 @@ void PPBController::runScenario()
         return;
     }
     if (!m_scenarioEngine) {
-        m_scenarioEngine = std::make_unique<ScenarioEngine>(this);
-        // подключаем сигналы (как выше)
+        loadScenario(m_scenarioFileName); // создаст движок и поток
     }
-    if (!m_scenarioEngine->loadScript(m_scenarioFileName)) {
-        // ошибка уже будет в сигнале errorOccurred
-        return;
-    }
-    m_scenarioEngine->execute();
+    // Запускаем выполнение в потоке сценария
+    QMetaObject::invokeMethod(m_scenarioEngine.get(), "execute", Qt::QueuedConnection);
 }
 
 void PPBController::stopScenario()
 {
-    if (m_scenarioEngine) {
-        // TODO: добавить механизм остановки
+    if (m_scenarioEngine && m_scenarioThread->isRunning()) {
+        // Устанавливаем флаг остановки (нужно добавить в ScenarioEngine)
+        QMetaObject::invokeMethod(m_scenarioEngine.get(), "stop", Qt::QueuedConnection);
     }
 }

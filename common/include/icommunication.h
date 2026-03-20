@@ -47,6 +47,7 @@ signals:
     void busyChanged(bool busy);                                              // изменение занятости
 
     void groupCommandCompleted(quint64 groupId, bool allSuccess, const QString& summary);
+    void fuCommandCompleted(uint16_t address, uint8_t command, bool success, const QString& message);
 };
 
 #endif // ICOMMUNICATION_H

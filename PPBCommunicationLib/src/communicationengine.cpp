@@ -522,96 +522,137 @@ void communicationengine::processCommandQueue() {
     }
 }
 
-void communicationengine::onDataReceived(const QByteArray& data, const QHostAddress& sender, quint16 port) {
+void communicationengine::onDataReceived(const QByteArray& data, const QHostAddress& sender, quint16 port)
+{
     Q_UNUSED(sender)
     Q_UNUSED(port)
 
     LOG_TECH_DEBUG(QString("onDataReceived: size=%1").arg(data.size()));
 
-    // Минимальный размер для извлечения адреса (2 байта)
     if (data.size() < 2) {
         LOG_TECH_DEBUG("Packet too short, ignored");
         return;
     }
 
     // Извлекаем адрес из первых двух байт (big-endian)
-    uint16_t address = qFromBigEndian(*reinterpret_cast<const uint16_t*>(data.constData()));
-
-    // Ищем контекст для этого адреса
-    PPBContext* context = findContext(address);
+    uint16_t addressFromPacket = qFromBigEndian(*reinterpret_cast<const uint16_t*>(data.constData()));
+    PPBContext* context = findContext(addressFromPacket);
 
     ProtocolEvent event;
+    bool handled = false;
 
+    // ========== 1. Есть активный контекст для адреса из пакета ==========
     if (context && context->currentCommand && !context->operationCompleted) {
-        // Есть активная TU-команда – парсим как TU-ответ
-        if (!m_protocolAdapter->parseTUResponse(data, event)) {
-            LOG_TECH_DEBUG("Failed to parse TU response, ignoring");
-            return;
+        TechCommand cmd = context->currentCommand->commandId();
+
+        // ----- Специальная обработка для IS_YOU (команда 0x20) -----
+        if (cmd == TechCommand::IS_YOU) {
+            if (m_protocolAdapter->parseBridgeResponse(data, event)) {
+                bool success = true; // IS_YOU всегда считаем успехом при получении данных
+                QString message;
+                QVariant parsedData;
+                if (event.payload.size() == 2) {
+                    uint16_t mask = (static_cast<uint8_t>(event.payload[0]) << 8) | static_cast<uint8_t>(event.payload[1]);
+                    QVariantMap map;
+                    map["mask"] = mask;
+                    parsedData = map;
+                    message = QString("Маска активных ППБ: 0x%1").arg(mask, 4, 16, QChar('0'));
+                } else if (event.payload == "ERR") {
+                    message = "Необъяснимая ошибка от бриджа (ERR)";
+                    success = false;
+                } else {
+                    message = "Неизвестный ответ бриджа";
+                    success = false;
+                }
+                setCommandParseResult(addressFromPacket, success, message);
+                setCommandParseData(addressFromPacket, parsedData);
+                completeOperation(addressFromPacket, success, message);
+                handled = true;
+            }
+            if (handled) return;
         }
-    } else {
-        // Нет активной TU-команды – пробуем как ответ бриджа
-        if (!m_protocolAdapter->parseBridgeResponse(data, event)) {
-            LOG_TECH_DEBUG("Not a BridgeResponse, ignoring");
-            return;
+
+        // ----- Обычные TU-команды (не IS_YOU) -----
+        // Сначала пробуем TU-парсер
+        if (m_protocolAdapter->parseTUResponse(data, event)) {
+            switch (event.type) {
+            case ProtocolEvent::Error:
+                completeOperation(addressFromPacket, false,
+                                  QString("Ошибка ППБ: 0x%1 (%2)")
+                                      .arg(event.status, 2, 16, QChar('0'))
+                                      .arg(errorCodeToString(event.status)));
+                break;
+            case ProtocolEvent::Ok:
+                if (context->currentCommand) {
+                    CommandHost host(this, addressFromPacket);
+                    context->currentCommand->onOkReceived(&host, addressFromPacket);
+                }
+                completeOperation(addressFromPacket, true, "Команда выполнена");
+                break;
+            case ProtocolEvent::Data: {
+                QVector<QByteArray> dataList;
+                dataList.append(event.payload);
+                CommandHost host(this, addressFromPacket);
+                context->currentCommand->onDataReceived(&host, dataList);
+                if (!context->operationCompleted) {
+                    completeOperation(addressFromPacket, context->parsedSuccess, context->parsedMessage);
+                }
+                break;
+            }
+            default:
+                LOG_TECH_DEBUG("Unknown TU event type, ignored");
+            }
+            handled = true;
+        } else {
+            // TU не распознан – пробуем Bridge (может быть ответ на ФУ команду, но для TU контекста это редкость)
+            if (m_protocolAdapter->parseBridgeResponse(data, event)) {
+                // Если это ответ на IS_YOU, мы уже обработали выше; здесь другие команды
+                completeOperation(addressFromPacket, false, "Неожиданный Bridge-ответ");
+                handled = true;
+            }
         }
-        // Для BridgeResponse адрес уже заполнен парсером
-        address = event.address;
+        if (handled) return;
     }
 
-    // Для TU-событий проверяем, что адрес не нулевой
-    if (address == 0 && event.type != ProtocolEvent::BridgeResponse) {
-        LOG_TECH_PROTOCOL("Zero address in TU event, ignored");
-        return;
+    // ========== 2. Нет активного контекста для адреса из пакета ==========
+    // Пробуем парсить как BridgeResponse
+    if (m_protocolAdapter->parseBridgeResponse(data, event)) {
+        // Возможно, ответ пришёл на команду, отправленную с другим адресом (например, 0)
+        uint16_t bridgeAddress = event.address;
+        PPBContext* ctx = findContext(bridgeAddress);
+        if (ctx && ctx->currentCommand && !ctx->operationCompleted) {
+            bool success = (event.status == 1);
+            // Если команда IS_YOU, считаем успехом даже при status=0
+            if (ctx->currentCommand->commandId() == TechCommand::IS_YOU) {
+                success = true;
+            }
+            QString message;
+            QVariant parsedData;
+            if (event.payload.size() == 2) {
+                uint16_t mask = (static_cast<uint8_t>(event.payload[0]) << 8) | static_cast<uint8_t>(event.payload[1]);
+                QVariantMap map;
+                map["mask"] = mask;
+                parsedData = map;
+                message = QString("Маска активных ППБ: 0x%1").arg(mask, 4, 16, QChar('0'));
+            } else if (event.payload == "ERR") {
+                message = "Необъяснимая ошибка от бриджа (ERR)";
+                success = false;
+            } else {
+                message = success ? "Команда выполнена" : "Ошибка команды";
+            }
+            setCommandParseResult(bridgeAddress, success, message);
+            setCommandParseData(bridgeAddress, parsedData);
+            completeOperation(bridgeAddress, success, message);
+        } else {
+            // Нет контекста – это ФУ команда, которая не ожидает ответа, или спонтанный ответ
+            emit fuCommandCompleted(event.address, event.command, event.status == 1,
+                                    event.status == 1 ? "ФУ команда выполнена" : "Ошибка ФУ");
+        }
+        handled = true;
     }
 
-    // Обработка в зависимости от типа события
-    switch (event.type) {
-    case ProtocolEvent::Error:
-        // Расшифровываем код ошибки
-        completeOperation(address, false,
-                          QString("Ошибка ППБ: 0x%1 (%2)")
-                              .arg(event.status, 2, 16, QChar('0'))
-                              .arg(errorCodeToString(event.status)));
-        break;
-
-    case ProtocolEvent::Ok:
-        // Команда выполнена успешно без данных – вызываем onOkReceived
-        if (context && context->currentCommand) {
-            CommandHost host(this, address);
-            context->currentCommand->onOkReceived(&host, address);
-        }
-        completeOperation(address, true, "Команда выполнена");
-        break;
-
-    case ProtocolEvent::Data: {
-        // Есть данные – передаём команде
-        if (!context || !context->currentCommand) {
-            LOG_TECH_DEBUG("Data event without active command, ignored");
-            return;
-        }
-        QVector<QByteArray> dataList;
-        dataList.append(event.payload);
-        CommandHost host(this, address);
-        context->currentCommand->onDataReceived(&host, dataList);
-        // Если команда уже завершила операцию внутри onDataReceived, не завершаем повторно
-        if (!context->operationCompleted) {
-            completeOperation(address, context->parsedSuccess, context->parsedMessage);
-        }
-        break;
-    }
-
-    case ProtocolEvent::BridgeResponse: {
-        QString msg = (event.status == 1) ? "ФУ команда выполнена" : "Ошибка ФУ";
-        if (event.payload.size() == 3 && event.payload == "ERR") {
-            msg = "Необъяснимая ошибка от бриджа (ERR)";
-        }
-        emit fuCommandCompleted(event.address, event.status == 1, msg);
-        break;
-    }
-
-    default:
-        LOG_TECH_DEBUG("Unknown event type, ignored");
-        break;
+    if (!handled) {
+        LOG_TECH_DEBUG("Packet not recognized, ignored");
     }
 }
 

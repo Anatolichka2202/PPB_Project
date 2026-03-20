@@ -3,44 +3,46 @@
 #include <QFile>
 #include <QTextStream>
 #include <QEventLoop>
+#include <QTimer>
+#include <QMetaObject>
+#include <QThread>
 
-// ... остальной код без изменений
 ScenarioEngine::ScenarioEngine(PPBController* controller, QObject *parent)
     : QObject(parent)
     , m_controller(controller)
+    , m_stopRequested(false)
 {
     lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table);
 
-    // Функция логирования
     lua.set_function("log", [this](const std::string &msg) {
         emit logMessage(QString::fromStdString(msg));
     });
 
-    // Синхронный запрос статуса
-    lua.set_function("requestStatusSync", [this](uint16_t address) -> bool {
-        QEventLoop loop;
-        bool success = false;
-        QMetaObject::Connection conn = connect(m_controller, &PPBController::commandCompleted,
-                                               [&](bool s, const QString&, TechCommand cmd) {
-                                                   if (cmd == TechCommand::TS) {
-                                                       success = s;
-                                                       loop.quit();
-                                                   }
-                                               });
-        m_controller->requestStatus(address);
-        loop.exec();
-        disconnect(conn);
-        return success;
-    });
-
-    // Аналогично можно добавить другие команды:
-    // sendTCSync, requestVersionSync и т.д.
+    lua.set_function("requestStatus",  [this](uint16_t a) { return luaRequestStatus(a); });
+    lua.set_function("sendTC",         [this](uint16_t a) { return luaSendTC(a); });
+    lua.set_function("setFUReceive",   [this](uint16_t a, uint16_t d, uint16_t c) { return luaSetFUReceive(a, d, c); });
+    lua.set_function("setFUTransmit",  [this](uint16_t a, uint16_t d, uint16_t c) { return luaSetFUTransmit(a, d, c); });
+    lua.set_function("requestVersion", [this](uint16_t a) { return luaRequestVersion(a); });
+    lua.set_function("requestChecksum",[this](uint16_t a) { return luaRequestChecksum(a); });
+    lua.set_function("requestDropped", [this](uint16_t a) { return luaRequestDroppedPackets(a); });
+    lua.set_function("requestBER_T",   [this](uint16_t a) { return luaRequestBER_T(a); });
+    lua.set_function("requestBER_F",   [this](uint16_t a) { return luaRequestBER_F(a); });
+    lua.set_function("requestFabricNumber", [this](uint16_t a) { return luaRequestFabricNumber(a); });
+    lua.set_function("startPRBS_M2S",  [this](uint16_t a) { return luaStartPRBS_M2S(a); });
+    lua.set_function("startPRBS_S2M",  [this](uint16_t a) { return luaStartPRBS_S2M(a); });
+    lua.set_function("sleep",          [this](int ms) { luaSleep(ms); });
 
     lua["engine"] = this;
 }
 
 ScenarioEngine::~ScenarioEngine()
 {
+    stop();
+}
+
+void ScenarioEngine::stop()
+{
+    m_stopRequested = true;
 }
 
 bool ScenarioEngine::loadScript(const QString &fileName)
@@ -65,6 +67,7 @@ bool ScenarioEngine::loadScript(const QString &fileName)
 
 bool ScenarioEngine::execute()
 {
+    m_stopRequested = false;
     try {
         sol::function main = lua["main"];
         if (!main.valid()) {
@@ -79,4 +82,131 @@ bool ScenarioEngine::execute()
         return false;
     }
     return true;
+}
+
+bool ScenarioEngine::waitForFUCommand(uint16_t address, uint8_t fuCmd,
+                                      std::function<void()> commandLauncher,
+                                      int timeoutMs)
+{
+    if (m_stopRequested) return false;
+
+    QEventLoop loop;
+    bool success = false;
+    bool timeout = false;
+
+    QMetaObject::Connection conn;
+    QTimer timer;
+    timer.setSingleShot(true);
+    timer.callOnTimeout([&] { timeout = true; loop.quit(); });
+
+    QMetaObject::invokeMethod(m_controller, [&] {
+        conn = connect(m_controller, &PPBController::fuCommandCompleted,
+                       [&](uint16_t addr, uint8_t cmd, bool s, const QString&) {
+                           if (addr == address && cmd == fuCmd) {
+                               success = s;
+                               loop.quit();
+                           }
+                       });
+        commandLauncher();
+    }, Qt::BlockingQueuedConnection);
+
+    timer.start(timeoutMs);
+    loop.exec();
+
+    QMetaObject::invokeMethod(m_controller, [&] { disconnect(conn); },
+                              Qt::BlockingQueuedConnection);
+
+    return success && !timeout && !m_stopRequested;
+}
+
+bool ScenarioEngine::luaRequestStatus(uint16_t address)
+{
+    return waitForCommand(address,
+                          [this, address] { m_controller->requestStatus(address); },
+                          TechCommand::TS, 10000);
+}
+
+bool ScenarioEngine::luaSendTC(uint16_t address)
+{
+    return waitForCommand(address,
+                          [this, address] { m_controller->sendTC(address); },
+                          TechCommand::TC, 5000);
+}
+
+bool ScenarioEngine::luaSetFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle)
+{
+    return waitForFUCommand(address, 0,
+                            [this, address, duration, dutyCycle] {
+                                m_controller->setFUReceive(address, duration, dutyCycle);
+                            }, 2000);
+}
+
+bool ScenarioEngine::luaSetFUTransmit(uint16_t address, uint16_t duration, uint16_t dutyCycle)
+{
+    return waitForFUCommand(address, 1,
+                            [this, address, duration, dutyCycle] {
+                                m_controller->setFUTransmit(address, duration, dutyCycle);
+                            }, 2000);
+}
+
+bool ScenarioEngine::luaRequestVersion(uint16_t address)
+{
+    return waitForCommand(address,
+                          [this, address] { m_controller->requestVersion(address); },
+                          TechCommand::VERS, 5000);
+}
+
+bool ScenarioEngine::luaRequestChecksum(uint16_t address)
+{
+    return waitForCommand(address,
+                          [this, address] { m_controller->requestChecksum(address); },
+                          TechCommand::CHECKSUM, 5000);
+}
+
+bool ScenarioEngine::luaRequestDroppedPackets(uint16_t address)
+{
+    return waitForCommand(address,
+                          [this, address] { m_controller->requestDroppedPackets(address); },
+                          TechCommand::DROP, 5000);
+}
+
+bool ScenarioEngine::luaRequestBER_T(uint16_t address)
+{
+    return waitForCommand(address,
+                          [this, address] { m_controller->requestBER_T(address); },
+                          TechCommand::BER_T, 5000);
+}
+
+bool ScenarioEngine::luaRequestBER_F(uint16_t address)
+{
+    return waitForCommand(address,
+                          [this, address] { m_controller->requestBER_F(address); },
+                          TechCommand::BER_F, 5000);
+}
+
+bool ScenarioEngine::luaRequestFabricNumber(uint16_t address)
+{
+    return waitForCommand(address,
+                          [this, address] { m_controller->requestFabricNumber(address); },
+                          TechCommand::Factory_Number, 5000);
+}
+
+bool ScenarioEngine::luaStartPRBS_M2S(uint16_t address)
+{
+    return waitForCommand(address,
+                          [this, address] { m_controller->startPRBS_M2S(address); },
+                          TechCommand::PRBS_M2S, 30000);
+}
+
+bool ScenarioEngine::luaStartPRBS_S2M(uint16_t address)
+{
+    return waitForCommand(address,
+                          [this, address] { m_controller->startPRBS_S2M(address); },
+                          TechCommand::PRBS_S2M, 30000);
+}
+
+void ScenarioEngine::luaSleep(int ms)
+{
+    if (m_stopRequested) return;
+    QThread::msleep(ms);
 }

@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
 project(PPB_Project LANGUAGES CXX)
 
+#определяем выходные директории
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -8,7 +13,7 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 # Опции сборки (можно переопределить при вызове cmake)
-option(USE_REAL_DEPS "Use real dependencies from monolith" OFF)
+
 option(BUILD_TESTS "Build tests" OFF)
 
 # Поиск Qt (предпочтительно Qt6)
@@ -38,7 +43,7 @@ set_target_properties(Lua::Lua PROPERTIES
 
 
 # Пробрасываем опции в дочерние проекты (как cache variables)
-set(USE_REAL_DEPS ${USE_REAL_DEPS} CACHE BOOL "Use real dependencies from monolith" FORCE)
+
 set(BUILD_TESTS ${BUILD_TESTS} CACHE BOOL "Build tests" FORCE)
 
 # Подключаем подпроекты (порядок важен: сначала коммуникация, потом контроллер)

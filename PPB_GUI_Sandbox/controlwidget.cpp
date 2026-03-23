@@ -1,7 +1,7 @@
 #include "controlwidget.h"
 #include "ui_controlwidget.h"
 #include "dataconverter.h"
-
+#include <QValidator>
 ControlWidget::ControlWidget(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::ControlWidget),
@@ -26,10 +26,19 @@ ControlWidget::ControlWidget(QWidget *parent) :
             this, &ControlWidget::onComboBoxIndexChanged);
 
     // Поля ввода
-    connect(ui->power_set_up_ch1, &QLineEdit::textChanged,
+
+    connect(ui->power_set_up_ch1, &QLineEdit::editingFinished,
             this, &ControlWidget::onPower1Changed);
-    connect(ui->power_set_up_ch2, &QLineEdit::textChanged,
+    connect(ui->power_set_up_ch2, &QLineEdit::editingFinished,
             this, &ControlWidget::onPower2Changed);
+
+    QDoubleValidator *validator = new QDoubleValidator(this);
+    validator ->setLocale(QLocale::Russian);
+    validator->setBottom(0.0);
+    validator->setTop(10000.0);
+    ui->power_set_up_ch1->setValidator(validator);
+    ui->power_set_up_ch2->setValidator(validator);
+
     connect(ui->disactiveFu, &QCheckBox::toggled,
             this, &ControlWidget::onFuBlockedToggled);
     connect(ui->isReboot, &QCheckBox::toggled,
@@ -117,27 +126,34 @@ void ControlWidget::refreshSettings()
 // ==================== СЛОТЫ UI ====================
 
 void ControlWidget::onPollClicked()      { emit pollStatusClicked(); }
-void ControlWidget::onResetClicked()     { emit resetClicked(); }
+void ControlWidget::onResetClicked()
+{
+    //onPower1Changed();
+    //onPower2Changed();
+    emit resetClicked();
+}
 void ControlWidget::onTestClicked()      { emit testSequenceClicked(); }
 void ControlWidget::onAutoPollToggled(bool checked) { emit autoPollToggled(checked); }
 void ControlWidget::onComboBoxIndexChanged(int index) { emit ppbSelected(index); }
 
 // Редактирование полей – вызываем методы установки настроек
-void ControlWidget::onPower1Changed(const QString& text)
+void ControlWidget::onPower1Changed()
 {
+   QString text = ui->power_set_up_ch1->text();
     bool ok;
-    QString normalized = QString(text).replace(',', '.');
-    float watts = normalized.toFloat(&ok);
+    QLocale locale(QLocale::Russian);
+    float watts = locale.toFloat(text, &ok);
     if (ok && m_controller) {
         m_controller->setPowerSetting(currentPPBIndex(), 1, watts);
     }
 }
 
-void ControlWidget::onPower2Changed(const QString& text)
+void ControlWidget::onPower2Changed()
 {
+      QString text = ui->power_set_up_ch2->text();
     bool ok;
-    QString normalized = QString(text).replace(',', '.');
-    float watts = normalized.toFloat(&ok);
+    QLocale locale(QLocale::Russian);
+    float watts = locale.toFloat(text, &ok);
     if (ok && m_controller) {
         m_controller->setPowerSetting(currentPPBIndex(), 2, watts);
     }

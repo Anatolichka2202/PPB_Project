@@ -4,6 +4,8 @@ project(AKIP-module LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+
+
 option(BUILD_AKIP_TESTS "Build AKIP test application" OFF)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Network)

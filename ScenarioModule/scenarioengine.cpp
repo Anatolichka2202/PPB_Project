@@ -45,38 +45,77 @@ void ScenarioEngine::stop()
     m_stopRequested = true;
 }
 
+bool ScenarioEngine::loadEmbeddedScript(const QString& name) {
+    QString path = QString(":/scenario/scripts/%1.lua").arg(name);
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        emit errorOccurred("Cannot open embedded script: " + path);
+        return false;
+    }
+    QString content = QString::fromUtf8(file.readAll());
+    return loadScript(content);
+}
+
 bool ScenarioEngine::loadScript(const QString &fileName)
 {
+    qDebug() << "Loading script from:" << fileName;
     QFile file(fileName);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qDebug() << "Cannot open file:" << fileName;
         emit errorOccurred("Cannot open file: " + fileName);
         return false;
     }
     QTextStream in(&file);
     QString content = in.readAll();
     file.close();
-
+    qDebug() << "Script content length:" << content.length();
+    // Удалить BOM, если есть
+    if (content.startsWith(QChar(0xFEFF))) {
+        content = content.mid(1);
+        qDebug() << "Removed BOM";
+    }
     try {
         lua.script(content.toStdString());
+        qDebug() << "Script loaded successfully";
+        // Проверяем наличие main
+        sol::function main = lua["main"];
+        if (main.valid()) {
+            qDebug() << "main function found in Lua state";
+        } else {
+            qDebug() << "main function NOT found in Lua state";
+            // Выводим содержимое глобальной таблицы для диагностики (осторожно, может быть много)
+            sol::table globals = lua["_G"];
+            for (const auto& kv : globals) {
+                sol::object key = kv.first;
+                if (key.is<std::string>()) {
+                    qDebug() << "Global:" << key.as<std::string>().c_str();
+                }
+            }
+        }
     } catch (const sol::error &e) {
+        qDebug() << "Lua error:" << e.what();
         emit errorOccurred(QString("Lua error: %1").arg(e.what()));
         return false;
     }
     return true;
 }
-
 bool ScenarioEngine::execute()
 {
+    qDebug() << "ScenarioEngine::execute() started";
     m_stopRequested = false;
     try {
         sol::function main = lua["main"];
+        qDebug() << "main valid?" << main.valid();
         if (!main.valid()) {
             emit errorOccurred("Script does not contain 'main' function");
             return false;
         }
+        qDebug() << "Calling main()...";
         main();
+        qDebug() << "main() finished";
         emit finished(true);
     } catch (const sol::error &e) {
+        qDebug() << "Execution error:" << e.what();
         emit errorOccurred(QString("Execution error: %1").arg(e.what()));
         emit finished(false);
         return false;

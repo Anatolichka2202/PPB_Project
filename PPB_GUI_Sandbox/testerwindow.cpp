@@ -210,6 +210,9 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
 
     // Инициализация UI генератора
     updateGeneratorUi();
+    ui->controlWidget->setController(m_controller);
+    ui->controlWidget->setController(m_controller);
+
 }
 
 TesterWindow::~TesterWindow()

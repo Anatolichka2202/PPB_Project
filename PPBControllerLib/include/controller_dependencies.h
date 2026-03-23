@@ -7,10 +7,7 @@
 #include "icontroller.h"
 #include "packetanalyzer_interface.h"
 #include "../../AKIP-manager_module/iakipcontroller.h"
-// Выбор логирования: реальное или заглушка
-#ifdef USE_REAL_DEPS
-#include "logging_unified.h"   // из монолита
-#else
+
 
 #include "logmacros.h"
 #include "logconfig.h"
@@ -19,6 +16,6 @@
 #include "logwrapper.h"
 #include "dataconverter.h"
 #include "ppbstate.h"
-#endif
+
 
 #endif // CONTROLLER_DEPENDENCIES_H

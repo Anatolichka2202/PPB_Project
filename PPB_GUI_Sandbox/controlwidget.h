@@ -41,8 +41,8 @@ private slots:
     void onTestClicked();
     void onAutoPollToggled(bool checked);
     void onComboBoxIndexChanged(int index);
-    void onPower1Changed(const QString& text);
-    void onPower2Changed(const QString& text);
+    void onPower1Changed();
+    void onPower2Changed();
     void onFuBlockedToggled(bool checked);
     void onRebootToggled(bool checked);
     void onResetErrorsToggled(bool checked);

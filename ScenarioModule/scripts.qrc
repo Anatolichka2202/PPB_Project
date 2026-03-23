@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/scenario/scripts">
+        <file>scripts/autotest.lua</file>
+        <file>scripts/stress.lua</file>
+        <file>scripts/loadtest.lua</file>
+    </qresource>
+</RCC>

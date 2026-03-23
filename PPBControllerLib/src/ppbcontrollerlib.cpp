@@ -873,7 +873,7 @@ void PPBController::processStatusData(uint16_t address, uint32_t mask, const QVe
         case 14: // КСВН канала 1, младшая часть
             if (have_vswr1_high) {
                 uint32_t fullCode = (vswr1_high << 16) | word;
-                state.ch1.vswrCode = static_cast<uint16_t>(fullCode); // но по факту 32 бита? нужно уточнить
+                state.ch1.vswrCode = static_cast<uint32_t>(fullCode);
                 state.ch1.vswr = DataConverter::codeToVSWR(fullCode);
                 have_vswr1_high = false;
             } else {
@@ -888,7 +888,7 @@ void PPBController::processStatusData(uint16_t address, uint32_t mask, const QVe
         case 16: // КСВН канала 2, младшая часть
             if (have_vswr2_high) {
                 uint32_t fullCode = (vswr2_high << 16) | word;
-                state.ch2.vswrCode = static_cast<uint16_t>(fullCode);
+                state.ch2.vswrCode = static_cast<uint32_t>(fullCode);
                 state.ch2.vswr = DataConverter::codeToVSWR(fullCode);
                 have_vswr2_high = false;
             } else {
@@ -1072,14 +1072,15 @@ void PPBController::loadScenario(const QString &fileName)
 
 void PPBController::runScenario()
 {
+    qDebug() << "runScenario called, fileName:" << m_scenarioFileName;
     if (m_scenarioFileName.isEmpty()) {
         emit scenarioError("No scenario loaded");
         return;
     }
     if (!m_scenarioEngine) {
-        loadScenario(m_scenarioFileName); // создаст движок и поток
+        loadScenario(m_scenarioFileName);
     }
-    // Запускаем выполнение в потоке сценария
+    qDebug() << "Invoking execute in scenario thread, engine:" << m_scenarioEngine.get();
     QMetaObject::invokeMethod(m_scenarioEngine.get(), "execute", Qt::QueuedConnection);
 }
 

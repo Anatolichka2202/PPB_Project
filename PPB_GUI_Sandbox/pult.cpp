@@ -3,7 +3,7 @@
 #include <QString>
 #include "dependencies.h"
 #include <QTimer>
-
+#include <QValidator>
 pult::pult(uint16_t address, PPBController* controller, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::pult)
@@ -43,10 +43,18 @@ pult::pult(uint16_t address, PPBController* controller, QWidget *parent)
             this, &pult::onUserSettingsChanged);
 
     // Подключаем сигналы от полей ввода
-    connect(ui->power_set_up_ch1, &QLineEdit::textChanged,
+    connect(ui->power_set_up_ch1, &QLineEdit::editingFinished,
             this, &pult::onPower1Changed);
-    connect(ui->power_set_up_ch2, &QLineEdit::textChanged,
+    connect(ui->power_set_up_ch2, &QLineEdit::editingFinished,
             this, &pult::onPower2Changed);
+
+    QDoubleValidator *validator = new QDoubleValidator(this);
+    validator ->setLocale(QLocale::Russian);
+    validator->setBottom(0.0);
+    validator->setTop(10000.0);
+    ui->power_set_up_ch1->setValidator(validator);
+    ui->power_set_up_ch2->setValidator(validator);
+
     connect(ui->disactiveFu, &QCheckBox::toggled,
             this, &pult::onFuBlockedToggled);
     connect(ui->isReboot, &QCheckBox::toggled,
@@ -171,11 +179,13 @@ void pult::on_FabricNumber_clicked()
 
 // ==================== РЕДАКТИРОВАНИЕ ПОЛЕЙ ====================
 
-void pult::onPower1Changed(const QString& text)
+void pult::onPower1Changed()
 {
+    QString text = ui->power_set_up_ch1->text();   // получаем текст из поля
+    QLocale locale(QLocale::Russian);
     bool ok;
-    QString normalized = QString(text).replace(',', '.');
-    float watts = normalized.toFloat(&ok);
+    //QString normalized = QString(text).replace(',', '.');
+    float watts =locale.toFloat(text, &ok);
     if (ok && m_controller) {
         int index = getPpbIndex();
         if (index >= 0)
@@ -183,11 +193,13 @@ void pult::onPower1Changed(const QString& text)
     }
 }
 
-void pult::onPower2Changed(const QString& text)
+void pult::onPower2Changed()
 {
+    QString text = ui->power_set_up_ch1->text();   // получаем текст из поля
+    QLocale locale(QLocale::Russian);
     bool ok;
-    QString normalized = QString(text).replace(',', '.');
-    float watts = normalized.toFloat(&ok);
+    //QString normalized = QString(text).replace(',', '.');
+    float watts = locale.toFloat(text, &ok);
     if (ok && m_controller) {
         int index = getPpbIndex();
         if (index >= 0)

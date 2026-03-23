@@ -20,6 +20,8 @@ public:
    Q_INVOKABLE  bool loadScript(const QString &fileName);
    Q_INVOKABLE  bool execute();
 
+   bool  loadEmbeddedScript(const QString& name);
+
 public slots:
     void stop();
 
@@ -31,6 +33,7 @@ signals:
 private:
     // Lua-обёртки
     bool luaRequestStatus(uint16_t address);
+
     bool luaSendTC(uint16_t address);
     bool luaSetFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle);
     bool luaSetFUTransmit(uint16_t address, uint16_t duration, uint16_t dutyCycle);

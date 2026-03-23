@@ -230,7 +230,7 @@ signals:
     void receivedPacketsSaved(const QVector<DataPacket>& packets);
     void clearPacketDataRequested();
 
-    void statusReceived(uint16_t address, uint16_t mask, const QVector<QByteArray>& data);
+    void statusReceived(uint16_t address, uint32_t mask, const QVector<QByteArray>& data);
     void busyChanged(bool busy);
 
     void groupCommandCompleted(quint64 groupId, bool allSuccess, const QString& summary);

@@ -63,10 +63,11 @@ bool StatusCommand::parseResponseData(const QVector<QByteArray>& data,
         return false;
     }
 
-    uint32_t mask = (static_cast<uint32_t>(static_cast<uint8_t>(payload[0])) << 16) |
-                    (static_cast<uint32_t>(static_cast<uint8_t>(payload[1])) << 8) |
-                    static_cast<uint32_t>(static_cast<uint8_t>(payload[2]));
-    int offset = 3; // после маски
+    uint32_t mask = (static_cast<uint32_t>(static_cast<uint8_t>(payload[0])) << 24) |
+                    (static_cast<uint32_t>(static_cast<uint8_t>(payload[1])) << 16) |
+                    (static_cast<uint32_t>(static_cast<uint8_t>(payload[2])) << 8) |
+                    static_cast<uint32_t>(static_cast<uint8_t>(payload[3]));
+    int offset = 4;
 
     QVector<QByteArray> blocks;
     // Максимальное количество двухбайтовых блоков – 24 (по числу битов в маске)

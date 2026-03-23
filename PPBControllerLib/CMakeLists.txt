@@ -6,9 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
 # Опции (могут быть переданы из корневого CMake)
-if(NOT DEFINED USE_REAL_DEPS)
-    option(USE_REAL_DEPS "Use real dependencies from monolith" OFF)
-endif()
+
 if(NOT DEFINED BUILD_TESTS)
     option(BUILD_TESTS "Build tests" Off)
 endif()
@@ -70,16 +68,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     akip_module
 )
 
-# Реальные зависимости из монолита (если включены)
-if(USE_REAL_DEPS)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_REAL_DEPS)
-    if(DEFINED MONOLITH_INCLUDE_DIR)
-        target_include_directories(${PROJECT_NAME} PRIVATE ${MONOLITH_INCLUDE_DIR})
-    endif()
-	target_link_libraries(${PROJECT_NAME} PUBLIC PPBCommunicationLib)
-    # При необходимости добавить линковку с библиотеками монолита
-    # target_link_libraries(${PROJECT_NAME} PRIVATE MonolithLib)
-endif()
+
 
 # ===== Тесты =====
 if(BUILD_TESTS)
@@ -107,10 +96,6 @@ if(BUILD_TESTS)
             Qt${QT_VERSION_MAJOR}::Test
             Qt${QT_VERSION_MAJOR}::Widgets
     )
-
-    if(USE_REAL_DEPS)
-        target_compile_definitions(test_ppbcontroller PRIVATE USE_REAL_DEPS)
-    endif()
 
     add_test(NAME ControllerTest COMMAND test_ppbcontroller)
 endif()

@@ -75,6 +75,10 @@ set(RESOURCES
     # dataconverter.h dataconverter.cpp
 )
 
+set_target_properties(PPB_GUI_Sandbox PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+
 # Подключаем директории с заголовками
 target_include_directories(PPB_GUI_Sandbox PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}

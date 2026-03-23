@@ -23,10 +23,6 @@ public:
     static uint16_t vswrToCode(float vswr);
     static float codeToVSWR(uint16_t code);
 
-    // === ПРЕОБРАЗОВАНИЕ ДЛИТЕЛЬНОСТИ ИМПУЛЬСА ===
-    // Диапазон: 0-100000 мкс
-    static uint32_t durationToCode(float microseconds);
-    static float codeToDuration(uint32_t code);
 
     // === ПРЕОБРАЗОВАНИЕ СКВАЖНОСТИ ===
     // Диапазон: 1-255

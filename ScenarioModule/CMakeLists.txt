@@ -15,7 +15,9 @@ set(SOL2_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/sol2/include")
 set(SOURCES scenarioengine.cpp)
 set(HEADERS scenarioengine.h)
 
-add_library(scenario_lib STATIC ${SOURCES} ${HEADERS})
+add_library(scenario_lib STATIC ${SOURCES} ${HEADERS}
+    scripts.qrc
+    scripts/autotest.lua)
 
 target_include_directories(scenario_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

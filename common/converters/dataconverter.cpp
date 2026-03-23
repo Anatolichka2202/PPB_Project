@@ -4,7 +4,6 @@
 #include <cstring>
 #include <cstring>
 
-// === ЗАГЛУШКИ - ПОКА ВОЗВРАЩАЕМ ТО ЖЕ САМОЕ ===
 
 uint32_t DataConverter::powerToCode(float watts)
 {
@@ -14,56 +13,31 @@ uint32_t DataConverter::powerToCode(float watts)
 float DataConverter::codeToPower(uint32_t code)
 {
 
-    return ((uint32_t)(*((uint32_t *)& code))) ;
+    return ((float)(*((float *)& code)))    ;
 }
 
 int16_t DataConverter::temperatureToCode(float celsius)
 {
-    // Заглушка: 1 °C = 1 код
-    return static_cast<int16_t>(celsius);
+    return ((uint32_t)(*((uint32_t *)& celsius)))    ;
 }
 
 float DataConverter::codeToTemperature(int16_t code)
 {
-    // Заглушка: 1 код = 1 °C
-    return static_cast<float>(code);
+    return ((uint32_t)(*((uint32_t *)& code)))    ;
 }
 
 uint16_t DataConverter::vswrToCode(float vswr)
 {
-    // Заглушка: 1.0 = 100
-    return static_cast<uint16_t>(vswr * 100.0f);
+    return ((uint32_t)(*((uint32_t *)& vswr)))    ;
 }
 
 float DataConverter::codeToVSWR(uint16_t code)
 {
-    // Заглушка: 100 = 1.0
-    return static_cast<float>(code) / 100.0f;
+    return ((uint32_t)(*((uint32_t *)& code)))    ;
 }
 
-uint32_t DataConverter::durationToCode(float microseconds)
-{
-    // Заглушка: 1 мкс = 1 код
-    return static_cast<uint32_t>(microseconds);
-}
 
-float DataConverter::codeToDuration(uint32_t code)
-{
-    // Заглушка: 1 код = 1 мкс
-    return static_cast<float>(code);
-}
 
-uint8_t DataConverter::dutyCycleToCode(float duty)
-{
-    // Заглушка
-    return static_cast<uint8_t>(duty);
-}
-
-float DataConverter::codeToDutyCycle(uint8_t code)
-{
-    // Заглушка
-    return static_cast<float>(code);
-}
 
 QString DataConverter::formatPower(float watts, bool withUnit)
 {

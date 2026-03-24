@@ -76,7 +76,7 @@ set(RESOURCES
 )
 
 set_target_properties(PPB_GUI_Sandbox PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 # Подключаем директории с заголовками

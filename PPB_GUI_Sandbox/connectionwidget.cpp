@@ -67,7 +67,8 @@ void ConnectionWidget::setConnectionState(PPBState state, bool busy)
 void ConnectionWidget::setBridgeStatus(bool available)
 {
     QString color = available ? "#00ff00" : "#ff0000";
-    QString style = QString("border-radius: 10px; border: 2px solid #666; background-color: %1;").arg(color);
+    //QString style = QString("border-radius: 10px; border: 2px solid #666; background-color: %1;").arg(color);
+    QString style = QString("border-radius: 10px; border: 2px solid #666; min-height: 25px; min-width: 25px; background-color: %1;").arg(color);
     ui->labelConnectionStatus->setStyleSheet(style);
 }
 

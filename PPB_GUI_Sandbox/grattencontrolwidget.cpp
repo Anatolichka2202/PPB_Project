@@ -19,8 +19,8 @@ GrattenControlWidget::GrattenControlWidget(IAkipController *controller, QWidget 
     connect(ui->btnQueryFreq, &QPushButton::clicked, this, &GrattenControlWidget::onQueryFreqClicked);
     connect(ui->btnSetAmpl, &QPushButton::clicked, this, &GrattenControlWidget::onSetAmplClicked);
     connect(ui->btnQueryAmpl, &QPushButton::clicked, this, &GrattenControlWidget::onQueryAmplClicked);
-    connect(ui->btnSetOutput, &QPushButton::clicked, this, &GrattenControlWidget::onSetOutputClicked);
     connect(ui->btnQueryOutput, &QPushButton::clicked, this, &GrattenControlWidget::onQueryOutputClicked);
+    connect (ui->botton_onof, &QPushButton::clicked, this, &GrattenControlWidget::on_botton_onof_clicked);
     connect(ui->btnSend, &QPushButton::clicked, this, &GrattenControlWidget::onSendCommandClicked);
     connect(ui->cmdLineEdit, &QLineEdit::returnPressed, this, &GrattenControlWidget::onSendCommandClicked);
 
@@ -37,6 +37,8 @@ GrattenControlWidget::GrattenControlWidget(IAkipController *controller, QWidget 
     ui->terminalEdit->setFont(font);
     ui->cmdLineEdit->setFont(font);
 
+    m_controller->queryOutput(1);
+    ui->out_label->setStyleSheet("background-color: red; border-radius: 10px;");
     appendToTerminal("Терминал готов. Введите SCPI команду.");
 }
 
@@ -158,26 +160,14 @@ void GrattenControlWidget::onQueryAmplClicked()
     }
 }
 
-void GrattenControlWidget::onSetOutputClicked()
-{
-    bool enable = ui->chkOutput->isChecked();
-    m_timer.start();
-    bool result = m_controller->setOutput(1, enable);
-    qint64 elapsed = m_timer.elapsed();
-    if (result) {
-        updateLastOpTime(elapsed);
-        appendToTerminal(QString("Выход %1 за %2 мс").arg(enable ? "включён" : "выключен").arg(elapsed));
-    } else {
-        appendToTerminal("Ошибка установки выхода", false, true);
-    }
-}
+
 
 void GrattenControlWidget::onQueryOutputClicked()
 {
     m_timer.start();
     bool on = m_controller->queryOutput(1);
     qint64 elapsed = m_timer.elapsed();
-    ui->chkOutput->setChecked(on);
+    updateOutputUI(on);
     updateLastOpTime(elapsed);
     appendToTerminal(QString("Выход = %1 (время %2 мс)").arg(on ? "вкл" : "выкл").arg(elapsed));
 }
@@ -201,8 +191,9 @@ void GrattenControlWidget::onAmplitudeChanged(int channel, double amplitude)
 void GrattenControlWidget::onOutputChanged(int channel, bool enabled)
 {
     if (channel == 1) {
-        ui->chkOutput->setChecked(enabled);
-        appendToTerminal(QString("Событие: выход канала %1 %2").arg(channel).arg(enabled ? "включён" : "выключен"));
+        updateOutputUI(enabled);
+        appendToTerminal(QString("Событие: выход канала %1 %2")
+                             .arg(channel).arg(enabled ? "включён" : "выключен"));
     }
 }
 
@@ -214,4 +205,42 @@ void GrattenControlWidget::onError(const QString &error)
 void GrattenControlWidget::updateLastOpTime(qint64 elapsedMs)
 {
     ui->lblLastOpTime->setText(QString("Время последней операции: %1 мс").arg(elapsedMs));
+}
+
+
+void GrattenControlWidget::on_botton_onof_clicked()
+{
+
+    bool newState = ui->botton_onof->isChecked();
+
+    m_timer.start();
+    bool result = m_controller->setOutput(1, newState);
+    qint64 elapsed = m_timer.elapsed();
+    if (result) {
+        updateLastOpTime(elapsed);
+        appendToTerminal(QString("Команда на %1 выхода отправлена (%2 мс)")
+                             .arg(newState ? "включение" : "выключение").arg(elapsed));
+        // Ждём сигнала outputChanged, который обновит UI
+    } else {
+        appendToTerminal("Ошибка отправки команды на выход", false, true);
+        // Возвращаем кнопку в исходное состояние (противоположное новому)
+        ui->botton_onof->blockSignals(true);
+        ui->botton_onof->setChecked(!newState);
+        ui->botton_onof->blockSignals(false);
+    }
+}
+
+void GrattenControlWidget::updateOutputUI(bool isOn)
+{
+    // Обновляем кнопку (блокируем сигналы, чтобы не вызвать рекурсию)
+    ui->botton_onof->blockSignals(true);
+    ui->botton_onof->setChecked(isOn);
+    ui->botton_onof->blockSignals(false);
+
+    // Обновляем текст кнопки (опционально)
+    ui->botton_onof->setText(isOn ? "Выключить" : "Включить");
+
+    // Обновляем лампочку
+    QString color = isOn ? "green" : "red";
+    ui->out_label->setStyleSheet(QString("background-color: %1; border-radius: 10px;").arg(color));
 }

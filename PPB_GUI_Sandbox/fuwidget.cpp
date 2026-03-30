@@ -1,7 +1,7 @@
 #include "fuwidget.h"
 #include "ui_fuwidget.h"
 #include <logmacros.h>
-
+#include <QMessageBox>
 FuWidget::FuWidget(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::FuWidget)
@@ -59,12 +59,15 @@ void FuWidget::on_fuBtnSent_clicked()
         return;
     }
 
-    if (dur < 1 || dur >250 || duty < 1 || duty > 250) {
-        LOG_UI_ALERT("Ошибка! Значения должны быть от 1 до 250 мкс");
+    if (dur < 1 || dur > 27000 || duty < 1 || duty > 99) {
+        QMessageBox::warning(this, "Ошибка", "Значения периода должны быть от 1 до 27000 мкс, значение скважности от 1 до 99");
+        LOG_UI_ALERT("Значения периода должны быть от 1 до 27000 мкс, значение скважности от 1 до 99");
         return;
     }
 
     bool transmit = ui->radioButtonFUTransmit->isChecked();
-    emit sendFuCommand(transmit, static_cast<uint16_t>(dur), static_cast<uint16_t>(duty));
+    //dur - период, duty - скважность
+    float delay = (dur/static_cast<float> (duty)) * 100; // считаем длительность
+    emit sendFuCommand(transmit, static_cast<uint16_t>(dur), static_cast<uint16_t>(delay - dur));
 }
 

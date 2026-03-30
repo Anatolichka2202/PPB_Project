@@ -245,7 +245,7 @@ void PPBController::setFUReceive(uint16_t address, uint16_t duration, uint16_t d
             static_cast<uint8_t>(dutyCycle & 0xFF)
         };
         m_communication->sendFUReceive(address, period, fuData);
-        LOG_UI_RESULT(QString("Режим ФУ прием для ППБ %1: длит=%2, скв=%3")
+        LOG_UI_RESULT(QString("Режим ФУ прием для ППБ %1: длительность единицы=%2, длительность нуля=%3")
                           .arg(address).arg(duration).arg(dutyCycle));
     }
 }
@@ -260,7 +260,7 @@ void PPBController::setFUTransmit(uint16_t address, uint16_t duration, uint16_t 
             static_cast<uint8_t>(dutyCycle & 0xFF)
         };
         m_communication->sendFUTransmit(address, period, fuData);
-        LOG_UI_RESULT(QString("Режим ФУ передача для ППБ %1: длит=%2, скв=%3")
+        LOG_UI_RESULT(QString("Режим ФУ передача для ППБ %1: длительность единицы=%2, длительность нуля=%3")
                           .arg(address).arg(duration).arg(dutyCycle));
         //LOG_UI_RESULT(QString("Режим ФУ передача для ППБ %1").arg(address));
     }

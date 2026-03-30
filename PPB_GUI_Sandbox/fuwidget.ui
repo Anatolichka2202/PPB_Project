@@ -67,7 +67,7 @@
      <item row="0" column="0">
       <widget class="QLabel" name="label_impulse">
        <property name="text">
-        <string>Длит. (мкс):</string>
+        <string>период</string>
        </property>
       </widget>
      </item>
@@ -87,7 +87,7 @@
      <item row="1" column="0">
       <widget class="QLabel" name="label_PulseDelay">
        <property name="text">
-        <string>Скважн. (мкс):</string>
+        <string>скважность</string>
        </property>
       </widget>
      </item>

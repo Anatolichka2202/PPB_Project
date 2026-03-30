@@ -25,16 +25,23 @@ private slots:
     void onQueryFreqClicked();
     void onSetAmplClicked();
     void onQueryAmplClicked();
-    void onSetOutputClicked();
+
+
+
     void onQueryOutputClicked();
-    void onSendCommandClicked(); // новая кнопка
+    void onSendCommandClicked();
 
     void onFrequencyChanged(int channel, double freq);
     void onAmplitudeChanged(int channel, double amplitude);
     void onOutputChanged(int channel, bool enabled);
     void onError(const QString &error);
 
+
+    void on_botton_onof_clicked();
+
 private:
+    void updateOutputUI(bool isOn); // обновление кнопки и лампочки
+
     Ui::GrattenControlWidget *ui;
     IAkipController *m_controller;
     QElapsedTimer m_timer;

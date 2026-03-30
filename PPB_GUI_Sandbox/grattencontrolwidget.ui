@@ -88,23 +88,30 @@
    <item>
     <layout class="QHBoxLayout" name="layoutOutput">
      <item>
-      <widget class="QCheckBox" name="chkOutput">
+      <widget class="QLabel" name="out_label">
+       <property name="styleSheet">
+        <string notr="true">QLabel{  
+background-color: #ffff00;
+border-radius: 10px;
+  min-height: 25px;
+  min-width: 25px;
+}</string>
+       </property>
        <property name="text">
-        <string>Выход</string>
+        <string/>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="btnSetOutput">
+      <widget class="QPushButton" name="botton_onof">
        <property name="text">
-        <string>Установить</string>
+        <string>вкл</string>
        </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="btnQueryOutput">
-       <property name="text">
-        <string>Запросить</string>
+       <property name="checkable">
+        <bool>true</bool>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -120,6 +127,13 @@
         </size>
        </property>
       </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnQueryOutput">
+       <property name="text">
+        <string>запросить</string>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>

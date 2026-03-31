@@ -646,6 +646,62 @@ void PPBController::setAkipDutyCycle(int channel, double percent)
     if (m_akip) m_akip->setDutyCycle(channel, percent);
 }
 
+bool PPBController::isGeneratorAvailable() const {
+    return m_akip && m_akip->isAvailable();
+}
+
+void PPBController::setGeneratorFrequency(int channel, double freqHz) {
+    if (!isGeneratorAvailable()) {
+        LOG_UI_ALERT("Генератор не доступен, частота не установлена");
+        return;
+    }
+    m_akip->setFrequency(channel, freqHz);
+    LOG_TECH_DEBUG(QString("Генератор: частота канала %1 = %2 Гц").arg(channel).arg(freqHz));
+}
+
+void PPBController::setGeneratorAmplitude(int channel, double value, const QString& unit) {
+    if (!isGeneratorAvailable()) {
+        LOG_UI_ALERT("Генератор не доступен, амплитуда не установлена");
+        return;
+    }
+    m_akip->setAmplitude(channel, value, unit);
+    LOG_TECH_DEBUG(QString("Генератор: амплитуда канала %1 = %2 %3").arg(channel).arg(value).arg(unit));
+}
+
+void PPBController::setGeneratorOutput(int channel, bool enable) {
+    if (!isGeneratorAvailable()) {
+        LOG_UI_ALERT("Генератор не доступен, выход не изменён");
+        return;
+    }
+    m_akip->setOutput(channel, enable);
+    LOG_TECH_DEBUG(QString("Генератор: выход канала %1 %2").arg(channel).arg(enable ? "включён" : "выключен"));
+}
+
+void PPBController::setGeneratorWaveform(int channel, const QString& wave) {
+    if (!isGeneratorAvailable()) {
+        LOG_UI_ALERT("Генератор не доступен, форма сигнала не установлена");
+        return;
+    }
+    m_akip->setWaveform(channel, wave);
+    LOG_TECH_DEBUG(QString("Генератор: форма сигнала канала %1 = %2").arg(channel).arg(wave));
+}
+
+void PPBController::setGeneratorDutyCycle(int channel, double percent) {
+    if (!isGeneratorAvailable()) {
+        LOG_UI_ALERT("Генератор не доступен, скважность не установлена");
+        return;
+    }
+    m_akip->setDutyCycle(channel, percent);
+    LOG_TECH_DEBUG(QString("Генератор: скважность канала %1 = %2%%").arg(channel).arg(percent));
+}
+
+QString PPBController::getGeneratorIdentity() const {
+    if (!isGeneratorAvailable()) {
+        return QString();
+    }
+    return m_akip->getIdentity();
+}
+
 // ==================== СЛОТЫ ====================
 
 void PPBController::onStatusReceived(uint16_t address, uint32_t mask, const QVector<QByteArray>& data)
@@ -1128,3 +1184,5 @@ void PPBController::stopScenario()
         QMetaObject::invokeMethod(m_scenarioEngine.get(), "stop", Qt::QueuedConnection);
     }
 }
+
+

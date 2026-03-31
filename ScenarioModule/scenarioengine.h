@@ -47,6 +47,17 @@ private:
     bool luaStartPRBS_S2M(uint16_t address);
     void luaSleep(int ms);
 
+    bool luaSetFUTransmit(uint16_t address, uint16_t duration, uint8_t dutyCycle[3]);
+    bool luaSetFUReceive(uint16_t address, uint16_t duration, uint8_t dutyCycle[3]);
+
+    bool luaGeneratorAvailable();
+    bool luaSetGeneratorFrequency(int channel, double freqHz);
+    bool luaSetGeneratorAmplitude(int channel, double value, const std::string& unit);
+    bool luaSetGeneratorOutput(int channel, bool enable);
+    bool luaSetGeneratorWaveform(int channel, const std::string& wave);
+    bool luaSetGeneratorDutyCycle(int channel, double percent);
+    std::string luaGetGeneratorIdentity();
+
     // Вспомогательные методы для ожидания команд
     template<typename Func>
     bool waitForCommand(uint16_t address, Func&& commandLauncher, TechCommand expectedCmd, int timeoutMs = 10000);

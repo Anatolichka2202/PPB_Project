@@ -44,6 +44,14 @@ ScenarioEngine::ScenarioEngine(PPBController* controller, QObject *parent)
         return t;
     });
 
+    lua.set_function("generatorAvailable", [this]() { return luaGeneratorAvailable(); });
+    lua.set_function("setGeneratorFrequency", [this](int ch, double f) { return luaSetGeneratorFrequency(ch, f); });
+    lua.set_function("setGeneratorAmplitude", [this](int ch, double val, const std::string& unit) { return luaSetGeneratorAmplitude(ch, val, unit); });
+    lua.set_function("setGeneratorOutput", [this](int ch, bool en) { return luaSetGeneratorOutput(ch, en); });
+    lua.set_function("setGeneratorWaveform", [this](int ch, const std::string& wave) { return luaSetGeneratorWaveform(ch, wave); });
+    lua.set_function("setGeneratorDutyCycle", [this](int ch, double percent) { return luaSetGeneratorDutyCycle(ch, percent); });
+    lua.set_function("getGeneratorIdentity", [this]() { return luaGetGeneratorIdentity(); });
+
     lua["engine"] = this;
 }
 
@@ -260,4 +268,46 @@ void ScenarioEngine::luaSleep(int ms)
 {
     if (m_stopRequested) return;
     QThread::msleep(ms);
+}
+
+bool ScenarioEngine::luaGeneratorAvailable() {
+    return m_controller->isGeneratorAvailable();
+}
+
+bool ScenarioEngine::luaSetGeneratorFrequency(int channel, double freqHz) {
+    if (!m_controller->isGeneratorAvailable()) {
+        emit logMessage("Generator not available");
+        return false;
+    }
+    m_controller->setGeneratorFrequency(channel, freqHz);
+    return true;
+}
+
+bool ScenarioEngine::luaSetGeneratorAmplitude(int channel, double value, const std::string& unit) {
+    if (!m_controller->isGeneratorAvailable()) return false;
+    m_controller->setGeneratorAmplitude(channel, value, QString::fromStdString(unit));
+    return true;
+}
+
+bool ScenarioEngine::luaSetGeneratorOutput(int channel, bool enable) {
+    if (!m_controller->isGeneratorAvailable()) return false;
+    m_controller->setGeneratorOutput(channel, enable);
+    return true;
+}
+
+bool ScenarioEngine::luaSetGeneratorWaveform(int channel, const std::string& wave) {
+    if (!m_controller->isGeneratorAvailable()) return false;
+    m_controller->setGeneratorWaveform(channel, QString::fromStdString(wave));
+    return true;
+}
+
+bool ScenarioEngine::luaSetGeneratorDutyCycle(int channel, double percent) {
+    if (!m_controller->isGeneratorAvailable()) return false;
+    m_controller->setGeneratorDutyCycle(channel, percent);
+    return true;
+}
+
+std::string ScenarioEngine::luaGetGeneratorIdentity() {
+    if (!m_controller->isGeneratorAvailable()) return "";
+    return m_controller->getGeneratorIdentity().toStdString();
 }

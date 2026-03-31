@@ -72,14 +72,21 @@ public:
     void setCommunication(ICommunication* communication) override;
     void exucuteCommand(TechCommand tech, uint16_t address) override;
 
-    // === AKIP (генератор) ===
+    // ===  генератор ===
     void setAkipInterface(IAkipController* akip);
     void setAkipFrequency(int channel, double freqHz);
     void setAkipAmplitude(int channel, double value, const QString &unit);
     void setAkipOutput(int channel, bool enable);
     void setAkipWaveform(int channel, const QString &wave);
     void setAkipDutyCycle(int channel, double percent);
-
+    // +++++дополнительные методы для генератора++++
+    bool isGeneratorAvailable() const;
+    void setGeneratorFrequency(int channel, double freqHz);
+    void setGeneratorAmplitude(int channel, double value, const QString& unit);
+    void setGeneratorOutput(int channel, bool enable);
+    void setGeneratorWaveform(int channel, const QString& wave);
+    void setGeneratorDutyCycle(int channel, double percent);
+    QString getGeneratorIdentity() const;
 
     void runFullTest(uint16_t address) override;
 

@@ -6,6 +6,7 @@
 #include <QtEndian>
 #include "ds18b20.h"
 #include "scenarioengine.h"
+#include "../Analize_Module/packetanalyzer.h"
 static struct MetaTypeRegistrar {
     MetaTypeRegistrar() {
         qRegisterMetaType<PPBState>();
@@ -413,6 +414,25 @@ void PPBController::analize()
     }
 
     m_packetAnalyzer->analyze();
+}
+
+QVariantMap PPBController::analyzeLastPackets() const {
+    QVariantMap result;
+    if (!m_packetAnalyzer) return result;
+
+    // Временный анализатор для синхронного вызова
+    PacketAnalyzer tempAnalyzer;
+    tempAnalyzer.addSentPackets(m_lastSentPackets);
+    tempAnalyzer.addReceivedPackets(m_lastReceivedPackets);
+    auto res = tempAnalyzer.analyze();
+
+    result["ber"] = res.ber;
+    result["lostPackets"] = res.lostPackets;
+    result["bitErrors"] = res.bitErrors;
+    result["totalSent"] = res.totalSent;
+    result["totalReceived"] = res.totalReceived;
+    result["validPackets"] = res.validPackets;
+    return result;
 }
 
 // ==================== Автоопрос ====================

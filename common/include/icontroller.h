@@ -48,7 +48,7 @@ public:
     virtual void analize() = 0;
     virtual void saveReceivedPackets(const QVector<DataPacket>& packets) = 0;
     virtual void saveSentPackets(const QVector<DataPacket>& packets) = 0;
-
+    virtual QVariantMap analyzeLastPackets() const = 0;
     // === Автоопрос ===
     virtual void startAutoPoll(int intervalMs = 5000) = 0;
     virtual void stopAutoPoll() = 0;

@@ -100,6 +100,7 @@ target_link_libraries(PPB_GUI_Sandbox PRIVATE
     CommonLib
     akip_module
     scenario_lib
+    PacketAnalyzerLib
 )
 
 # Для Windows: скрыть консоль

@@ -32,6 +32,18 @@ ScenarioEngine::ScenarioEngine(PPBController* controller, QObject *parent)
     lua.set_function("startPRBS_S2M",  [this](uint16_t a) { return luaStartPRBS_S2M(a); });
     lua.set_function("sleep",          [this](int ms) { luaSleep(ms); });
 
+    lua.set_function("analyzePackets", [this]() -> sol::table {
+        auto res = m_controller->analyzeLastPackets();
+        sol::table t = lua.create_table();
+        t["ber"] = res["ber"].toDouble();
+        t["lost"] = res["lostPackets"].toInt();
+        t["bitErrors"] = res["bitErrors"].toInt();
+        t["totalSent"] = res["totalSent"].toInt();
+        t["totalReceived"] = res["totalReceived"].toInt();
+        t["validPackets"] = res["validPackets"].toInt();
+        return t;
+    });
+
     lua["engine"] = this;
 }
 

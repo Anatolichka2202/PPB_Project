@@ -11,6 +11,7 @@
 #include "grattenga1483controller.h"
 #include <QAbstractButton>
 #include <QPushButton>
+#include <../Analize_Module/analyzer_factory.h>
 ApplicationManager* ApplicationManager::m_instance = nullptr;
 
 ApplicationManager& ApplicationManager::instance()
@@ -152,7 +153,9 @@ void ApplicationManager::initializeAnalyzer()
         int sentCount() const override { return 0; }
         int receivedCount() const override { return 0; }
     };
-    m_analyzer = std::make_unique<StubAnalyzer>();
+    m_analyzer = std::unique_ptr<PacketAnalyzerInterface>(
+        AnalyzerFactory::createAnalyzer(this)
+        );
 }
 
 void ApplicationManager::initializeController()

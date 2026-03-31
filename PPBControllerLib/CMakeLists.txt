@@ -66,6 +66,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     CommonLib
     LoggingLib
     akip_module
+    PacketAnalyzerLib
 )
 
 

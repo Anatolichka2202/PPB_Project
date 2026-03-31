@@ -45,7 +45,7 @@ public:
     void analize() override;
     void saveReceivedPackets(const QVector<DataPacket>& packets) override;
     void saveSentPackets(const QVector<DataPacket>& packets) override;
-
+    QVariantMap analyzeLastPackets() const override;
     // === Автоопрос ===
     void startAutoPoll(int intervalMs = 5000) override;
     void stopAutoPoll() override;

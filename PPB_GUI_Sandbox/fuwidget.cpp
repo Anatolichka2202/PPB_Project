@@ -9,7 +9,7 @@ FuWidget::FuWidget(QWidget *parent) :
     ui->setupUi(this);
     ui->radioButtonFUReceive->setChecked(true);
     ui->lineEditPulseDuration->setText("100");
-    ui->lineEditPulseDelay->setText("200");
+    ui->lineEditPulseDelay->setText("30");
 
     connect(ui->radioButtonFUTransmit, &QRadioButton::toggled,
             this, &FuWidget::onTransmitToggled);

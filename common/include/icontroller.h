@@ -28,8 +28,8 @@ public:
     virtual void resetPPB(uint16_t address, const TCDataPayload& payload) = 0; // устаревший? можно удалить
 
     // === Команды ФУ ===
-    virtual void setFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle) = 0;
-    virtual void setFUTransmit(uint16_t address, uint16_t duration, uint16_t dutyCycle) = 0;
+    virtual void setFUReceive(uint16_t address, uint16_t duration, uint8_t dutyCycle[3]) = 0;
+    virtual void setFUTransmit(uint16_t address, uint16_t duration, uint8_t dutyCycle[3]) = 0;
     virtual void startPRBS_M2S(uint16_t address) = 0;
     virtual void startPRBS_S2M(uint16_t address) = 0;
 

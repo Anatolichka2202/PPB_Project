@@ -23,8 +23,8 @@ public:
     void resetPPB(uint16_t address, const TCDataPayload& payload) override; // deprecated
 
     // === Команды ФУ ===
-    void setFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle) override;
-    void setFUTransmit(uint16_t address, uint16_t duration, uint16_t dutyCycle) override;
+    void setFUReceive(uint16_t address, uint16_t duration, uint8_t dutyCycle[3]) override;
+    void setFUTransmit(uint16_t address, uint16_t duration, uint8_t dutyCycle[3]) override;
 
     // === Тестовые последовательности ===
     void startPRBS_M2S(uint16_t address) override;

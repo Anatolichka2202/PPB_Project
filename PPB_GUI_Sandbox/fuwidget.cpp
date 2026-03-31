@@ -67,7 +67,15 @@ void FuWidget::on_fuBtnSent_clicked()
 
     bool transmit = ui->radioButtonFUTransmit->isChecked();
     //dur - период, duty - скважность
-    float delay = (dur/static_cast<float> (duty)) * 100; // считаем длительность
-    emit sendFuCommand(transmit, static_cast<uint16_t>(dur), static_cast<uint16_t>(delay - dur));
+    float delay = (dur/static_cast<float> (duty)) * 100; // считаем общую длинну в единце и нуло (вместе с дробью)
+    int delay_int = static_cast<int>(delay);  // целая часть общей длинны
+    delay -= delay_int; // дробная часть общей длинны
+
+    delay *= 100; // представление дробной части как инт
+    uint8_t arr[3]; // массив нуля (целая + дробная части) [][] -  целая, []-дробь
+    arr[0] = (static_cast<uint16_t>(delay_int - dur)) >> 8; // старшая часть
+    arr[1] = (static_cast<uint8_t>(delay_int - dur)); // младшая часть
+    arr[2] = static_cast<uint8_t> (delay); // дробная часть
+    emit sendFuCommand(transmit, static_cast<uint16_t>(dur), arr );
 }
 

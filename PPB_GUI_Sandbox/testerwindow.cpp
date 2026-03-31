@@ -185,7 +185,7 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
 
     // FuWidget
     connect(ui->fuWidget, &FuWidget::sendFuCommand,
-            this, [this](bool transmit, uint16_t duration, uint16_t dutyCycle) {
+            this, [this](bool transmit, uint16_t duration, uint8_t dutyCycle[3]) {
                 auto addrs = getSelectedAddresses();
                 for (uint16_t addr : addrs) {
                     if (transmit)

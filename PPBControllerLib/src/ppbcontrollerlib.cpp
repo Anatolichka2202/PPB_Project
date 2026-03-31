@@ -235,33 +235,33 @@ void PPBController::resetPPB(uint16_t address, const TCDataPayload& payload)
 
 // ==================== Команды ФУ ====================
 
-void PPBController::setFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle)
+void PPBController::setFUReceive(uint16_t address, uint16_t duration, uint8_t dutyCycle[3])
 {
     if (m_communication && !m_communication->isBusy()) {
         uint8_t period = (duration >> 8) & 0xFF;
         uint8_t fuData[3] = {
-            static_cast<uint8_t>(duration & 0xFF),
-            static_cast<uint8_t>((dutyCycle >> 8) & 0xFF),
-            static_cast<uint8_t>(dutyCycle & 0xFF)
+           // static_cast<uint8_t>(duration & 0xFF),
+            //static_cast<uint8_t>((dutyCycle >> 8) & 0xFF),
+            //static_cast<uint8_t>(dutyCycle & 0xFF)
         };
-        m_communication->sendFUReceive(address, period, fuData);
+         float duty_temp = ((static_cast<uint16_t>(dutyCycle[0]) << 8) | (dutyCycle[1])) + (dutyCycle[2])/100.0;
+        m_communication->sendFUReceive(address, period, dutyCycle);
         LOG_UI_RESULT(QString("Режим ФУ прием для ППБ %1: длительность единицы=%2, длительность нуля=%3")
-                          .arg(address).arg(duration).arg(dutyCycle));
+                          .arg(address).arg(duration).arg(duty_temp));
     }
 }
-void PPBController::setFUTransmit(uint16_t address, uint16_t duration, uint16_t dutyCycle)
+void PPBController::setFUTransmit(uint16_t address, uint16_t duration, uint8_t dutyCycle[3])
 {
     if (m_communication && !m_communication->isBusy()) {
 
         uint8_t period = (duration >> 8) & 0xFF;
-        uint8_t fuData[3] = {
-            static_cast<uint8_t>(duration & 0xFF),
-            static_cast<uint8_t>((dutyCycle >> 8) & 0xFF),
-            static_cast<uint8_t>(dutyCycle & 0xFF)
-        };
-        m_communication->sendFUTransmit(address, period, fuData);
+
+        m_communication->sendFUTransmit(address, period, dutyCycle);
+
+        float duty_temp = ((static_cast<uint16_t>(dutyCycle[0]) << 8) | (dutyCycle[1])) + (dutyCycle[2])/100.0;
+
         LOG_UI_RESULT(QString("Режим ФУ передача для ППБ %1: длительность единицы=%2, длительность нуля=%3")
-                          .arg(address).arg(duration).arg(dutyCycle));
+                          .arg(address).arg(duration).arg(duty_temp));
         //LOG_UI_RESULT(QString("Режим ФУ передача для ППБ %1").arg(address));
     }
 }

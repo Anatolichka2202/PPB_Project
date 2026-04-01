@@ -11,6 +11,7 @@
 #include "grattenga1483controller.h"
 #include <QAbstractButton>
 #include <QPushButton>
+#include "moc_objects/mockgeneratorcontroller.h"
 #include <../Analize_Module/analyzer_factory.h>
 ApplicationManager* ApplicationManager::m_instance = nullptr;
 
@@ -239,6 +240,19 @@ void ApplicationManager::cleanup()
 
 void ApplicationManager::detectAndSelectGenerator()
 {
+    if (m_testMode) {
+        LOG_UI_STATUS("Тестовый режим: используется MockGeneratorController");
+        auto mock = new MockGeneratorController();
+        if (mock->openDevice()) {
+            m_signalGenerator = std::unique_ptr<IAkipController, DeleteLaterDeleter>(mock);
+            configureGenerator();
+            logGeneratorState();
+        } else {
+            LOG_UI_ALERT("Ошибка открытия мок-генератора");
+        }
+        return;
+    }
+
     bool akipOk = false;
     bool grattenOk = false;
     QString akipIdn, grattenIdn;
@@ -337,6 +351,10 @@ void ApplicationManager::configureGenerator()
         akip->sendCommand("AM:SOUR INT");
         // Выходы не включаем
     }
+     if (dynamic_cast<GrattenGa1483Controller*>(m_signalGenerator.get())) {
+    auto gratten = dynamic_cast<GrattenGa1483Controller*>(m_signalGenerator.get());
+         gratten->setFrequency(1,158000000);
+     }
     // Для Gratten можно добавить аналогичную настройку, если требуется
 }
 

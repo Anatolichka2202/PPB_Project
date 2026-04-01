@@ -14,6 +14,7 @@
 #include "applicationmanager.h"
 #include "testerwindow.h"
 
+#include <QCommandLineParser>
 
 #ifdef Q_OS_LINUX
 #include <signal.h>
@@ -130,9 +131,24 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
 
     QCoreApplication::setApplicationName("PPB Tester");
-    QCoreApplication::setOrganizationName("YourCompany");
+    QCoreApplication::setOrganizationName("MILTECH");
+
+    // ======== Парсинг аргументов ========
+    QCommandLineParser parser;
+    parser.setApplicationDescription("PPB Tester");
+    parser.addHelpOption();
+    parser.addVersionOption();
+    QCommandLineOption testOption("test", "Run in test mode (use mock generator)");
+    parser.addOption(testOption);
+    parser.process(app);
 
     auto& manager = ApplicationManager::instance();
+    if (parser.isSet(testOption)) {
+        manager.enableTestMode(true);
+    }
+    // ====================================
+
+
 
     QObject::connect(&app, &QCoreApplication::aboutToQuit, [&]() {
         manager.shutdown();

@@ -24,6 +24,7 @@
 #include <QSettings>
 #include <QApplication>
 #include <QDebug>
+#include "moc_objects/mockgeneratorcontroller.h"
 
 TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
     : QMainWindow(parent)
@@ -499,7 +500,8 @@ void TesterWindow::updateGeneratorUi()
     if (dynamic_cast<AkipFacade*>(m_signalGenerator)) {
         ui->generatorStack->setCurrentWidget(ui->akipWidget);
     }
-    else if (dynamic_cast<GrattenGa1483Controller*>(m_signalGenerator)) {
+    else if (dynamic_cast<GrattenGa1483Controller*>(m_signalGenerator) ||
+                                                    dynamic_cast<MockGeneratorController*>(m_signalGenerator)) {
         // Если страница для Gratten ещё не содержит виджет, создаём его
         QLayout* layout = ui->grattenPage->layout();
         if (layout->count() == 0) {

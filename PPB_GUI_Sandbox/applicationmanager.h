@@ -31,6 +31,8 @@ public:
     CommunicationFacade* communication() const { return m_communication.get(); }
 
     void reconnectGenerator();
+
+    void enableTestMode(bool enable) { m_testMode = enable; }
 signals:
     void initializationComplete();
     void initializationFailed(const QString& error);
@@ -60,6 +62,8 @@ private:
     std::unique_ptr<PacketAnalyzerInterface> m_analyzer;
     std::unique_ptr<PPBController> m_controller;
     std::unique_ptr<TesterWindow> m_mainWindow;
+
+    bool m_testMode = false;
 
     // Унифицированный указатель на контроллер генератора
     std::unique_ptr<IAkipController, DeleteLaterDeleter> m_signalGenerator;

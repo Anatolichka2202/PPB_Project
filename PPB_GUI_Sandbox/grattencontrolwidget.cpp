@@ -10,6 +10,29 @@ GrattenControlWidget::GrattenControlWidget(IAkipController *controller, QWidget 
 {
     ui->setupUi(this);
 
+    ui->botton_onof->setStyleSheet(
+        "QPushButton {"
+        "  background-color: #3498db;"
+        "  border: none;"
+        "  border-radius: 15px;"
+        "  padding: 8px 16px;"
+        "  color: white;"
+        "  font-weight: bold;"
+        "}"
+        "QPushButton:hover {"
+        "  background-color: #2980b9;"
+        "}"
+        "QPushButton:pressed {"
+        "  background-color: #1c638e;"
+        "}"
+        "QPushButton:checked {"
+        "  background-color: #e67e22;"
+        "}"
+        "QPushButton:checked:hover {"
+        "  background-color: #d35400;"
+        "}"
+        );
+
     // Настройка комбобокса единиц амплитуды (только dBm)
     ui->cmbAmplUnit->clear();
     ui->cmbAmplUnit->addItem("dBm");
@@ -232,15 +255,26 @@ void GrattenControlWidget::on_botton_onof_clicked()
 
 void GrattenControlWidget::updateOutputUI(bool isOn)
 {
-    // Обновляем кнопку (блокируем сигналы, чтобы не вызвать рекурсию)
+    // Обновление кнопки
     ui->botton_onof->blockSignals(true);
     ui->botton_onof->setChecked(isOn);
+    ui->botton_onof->setText(isOn ? "Выключить" : "Включить");
     ui->botton_onof->blockSignals(false);
 
-    // Обновляем текст кнопки (опционально)
-    ui->botton_onof->setText(isOn ? "Выключить" : "Включить");
-
-    // Обновляем лампочку
+    // Обновление лампочки – меняем только цвет, не трогая остальное
     QString color = isOn ? "green" : "red";
-    ui->out_label->setStyleSheet(QString("background-color: %1; border-radius: 10px;").arg(color));
+    // Сохраняем существующий стиль, но заменяем цвет
+    QString currentStyle = ui->out_label->styleSheet();
+    // Простая замена: если нужно сохранить border-radius и размеры
+    // Можно задать явно:
+    ui->out_label->setStyleSheet(QString(
+                                     "QLabel {"
+                                     "  background-color: %1;"
+                                     "  border-radius: 10px;"
+                                     "  min-width: 20px;"
+                                     "  min-height: 20px;"
+                                     "  max-width: 20px;"
+                                     "  max-height: 20px;"
+                                     "}"
+                                     ).arg(color));
 }

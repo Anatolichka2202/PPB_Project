@@ -72,6 +72,8 @@ set(RESOURCES
     ${RESOURCES}
     applicationmanager.h applicationmanager.cpp
     performancewindow.h performancewindow.cpp performancewindow.ui
+    moc_objects/mockgeneratorcontroller.h moc_objects/mockgeneratorcontroller.cpp
+
     # dataconverter.h dataconverter.cpp
 )
 

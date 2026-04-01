@@ -20,8 +20,8 @@ ScenarioEngine::ScenarioEngine(PPBController* controller, QObject *parent)
 
     lua.set_function("requestStatus",  [this](uint16_t a) { return luaRequestStatus(a); });
     lua.set_function("sendTC",         [this](uint16_t a) { return luaSendTC(a); });
-    //lua.set_function("setFUReceive",   [this](uint16_t a, uint16_t d, uint16_t c) { return luaSetFUReceive(a, d, c); });
-    //lua.set_function("setFUTransmit",  [this](uint16_t a, uint16_t d, uint16_t c) { return luaSetFUTransmit(a, d, c); });
+    lua.set_function("setFUReceive",   [this](uint16_t a, uint16_t d, uint8_t c[]) { return luaSetFUReceive(a, d, c); });
+    lua.set_function("setFUTransmit",  [this](uint16_t a, uint16_t d, uint8_t c[]) { return luaSetFUTransmit(a, d, c); });
     lua.set_function("requestVersion", [this](uint16_t a) { return luaRequestVersion(a); });
     lua.set_function("requestChecksum",[this](uint16_t a) { return luaRequestChecksum(a); });
     lua.set_function("requestDropped", [this](uint16_t a) { return luaRequestDroppedPackets(a); });
@@ -191,7 +191,7 @@ bool ScenarioEngine::luaSendTC(uint16_t address)
                           [this, address] { m_controller->sendTC(address); },
                           TechCommand::TC, 5000);
 }
-/*
+
 bool ScenarioEngine::luaSetFUReceive(uint16_t address, uint16_t duration, uint8_t dutyCycle[3])
 {
     return waitForFUCommand(address, 0,
@@ -207,7 +207,7 @@ bool ScenarioEngine::luaSetFUTransmit(uint16_t address, uint16_t duration, uint8
                                 m_controller->setFUTransmit(address, duration, dutyCycle);
                             }, 2000);
 }
-*/
+
 bool ScenarioEngine::luaRequestVersion(uint16_t address)
 {
     return waitForCommand(address,

@@ -95,6 +95,9 @@ public:
 
     void setShowTech(bool show);
 
+    void addPendingEntry(const LogEntry& entry);
+    void flushPending(); // если нужно принудительно сбросить буфер
+
 signals:
     /**
  * @fn void categoriesChanged(const QStringList &categories)
@@ -102,6 +105,9 @@ signals:
  * @param categories Новый список (включая "Все").
  */
     void categoriesChanged(const QStringList &categories); // для обновления комбобокса
+
+private slots:
+     void onBatchTimeout();
 
 private:
     void applyFilter(); ///< Применяет текущие фильтры к модели.
@@ -112,7 +118,9 @@ private:
     QVector<int>      m_filteredIndices;     // индексы записей, проходящих фильтр
     QSet<QString>     m_uniqueCategories;    // уникальные категории для комбобокса
 
-
+    QTimer* m_batchTimer;
+    QVector<LogEntry> m_pendingEntries;
+    QVector<QString> m_cachedHtml;   // HTML для каждой записи в m_allEntries
 
     QString m_levelFilter;
     QString m_categoryFilter;

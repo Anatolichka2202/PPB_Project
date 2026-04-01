@@ -18,23 +18,26 @@ LogListModel::LogListModel(QObject *parent)
     : QAbstractListModel(parent)
     , m_levelFilter("Все")
     , m_categoryFilter("Все")
+    , m_showTech(false)
 {
     qDebug() << "Constructor of LogListModel";
+    m_batchTimer = new QTimer(this);
+    m_batchTimer->setInterval(50); // 50 мс буферизации
+    connect(m_batchTimer, &QTimer::timeout, this, &LogListModel::onBatchTimeout);
 }
 
 void LogListModel::addEntry(const LogEntry &entry)
 {
     beginInsertRows(QModelIndex(), m_allEntries.size(), m_allEntries.size());
     m_allEntries.append(entry);
+    m_cachedHtml.append(entry.toHtml()); // кэшируем HTML
     endInsertRows();
 
-    // Обновляем уникальные категории
     if (!entry.category.isEmpty()) {
         m_uniqueCategories.insert(entry.category);
         emit categoriesChanged(m_uniqueCategories.values());
     }
 
-    // Если запись проходит текущий фильтр, добавляем её индекс в filtered
     if (entryMatchesFilter(entry)) {
         int newRow = m_filteredIndices.size();
         beginInsertRows(QModelIndex(), newRow, newRow);
@@ -42,13 +45,13 @@ void LogListModel::addEntry(const LogEntry &entry)
         endInsertRows();
     }
 }
-
 void LogListModel::clear()
 {
     beginResetModel();
     m_allEntries.clear();
     m_filteredIndices.clear();
     m_uniqueCategories.clear();
+    m_cachedHtml.clear(); // очищаем кэш
     endResetModel();
     emit categoriesChanged(QStringList());
 }
@@ -116,7 +119,8 @@ QVariant LogListModel::data(const QModelIndex &index, int role) const
     if (!index.isValid() || index.row() >= m_filteredIndices.size())
         return QVariant();
 
-    const LogEntry &entry = m_allEntries[m_filteredIndices[index.row()]];
+    int originalIndex = m_filteredIndices[index.row()];
+    const LogEntry &entry = m_allEntries[originalIndex];
 
     switch (role) {
     case TimeRole:
@@ -128,10 +132,58 @@ QVariant LogListModel::data(const QModelIndex &index, int role) const
     case MessageRole:
         return entry.message;
     case FullHtmlRole:
-        return entry.toHtml();   // используем существующий метод
+        if (originalIndex < m_cachedHtml.size())
+            return m_cachedHtml[originalIndex];
+        else
+            return entry.toHtml(); // fallback
     default:
         return QVariant();
     }
+}
+
+void LogListModel::addPendingEntry(const LogEntry &entry)
+{
+    m_pendingEntries.append(entry);
+    if (!m_batchTimer->isActive()) {
+        m_batchTimer->start();
+    }
+}
+
+void LogListModel::onBatchTimeout()
+{
+    flushPending();
+}
+
+void LogListModel::flushPending()
+{
+    if (m_pendingEntries.isEmpty())
+        return;
+
+    m_batchTimer->stop();
+
+    // Добавляем все накопленные записи одним блоком
+    int first = m_allEntries.size();
+    int last = first + m_pendingEntries.size() - 1;
+    beginInsertRows(QModelIndex(), first, last);
+
+    for (const LogEntry& entry : m_pendingEntries) {
+        m_allEntries.append(entry);
+        // Кэшируем HTML
+        m_cachedHtml.append(entry.toHtml());
+        // Уникальные категории
+        if (!entry.category.isEmpty()) {
+            m_uniqueCategories.insert(entry.category);
+        }
+    }
+    endInsertRows();
+
+    m_pendingEntries.clear();
+
+    // Пересчитываем фильтр (включая новые записи)
+    applyFilter();
+
+    // Обновляем комбобокс категорий один раз
+    emit categoriesChanged(m_uniqueCategories.values());
 }
 
 // ==================== LogDelegate ====================
@@ -317,22 +369,18 @@ void LogWidget::updateCategoryComboBox(const QStringList &categories)
 
 void LogWidget::onLogEntryReceived(const LogEntry &entry)
 {
-
-        // Ограничим общее количество записей, например, 10000
-        if (m_model->rowCount() > 10000) {
-            // Можно очищать половину, но проще просто не добавлять новые
-            // или реализовать кольцевой буфер. Пока предложу простой лимит:
-            static bool warned = false;
-            if (!warned) {
-                qWarning() << "Достигнут лимит лога (10000), новые записи игнорируются";
-                warned = true;
-            }
-            return;
+    // ограничение на количество записей
+    if (m_model->rowCount() > 10000) {
+        static bool warned = false;
+        if (!warned) {
+            qWarning() << "Достигнут лимит лога (10000), новые записи игнорируются";
+            warned = true;
         }
+        return;
+    }
 
-    m_model->addEntry(entry);
+    m_model->addPendingEntry(entry); // теперь пакетное добавление
 
-    // Автопрокрутка вниз, если пользователь не скроллил вверх
     if (ui->listView->verticalScrollBar()->value() ==
         ui->listView->verticalScrollBar()->maximum()) {
         ui->listView->scrollToBottom();

@@ -1,6 +1,7 @@
 #include "logwidget.h"
 #include "ui_logwidget.h"
 
+#include <QClipboard>
 #include <QFile>
 #include <QFileDialog>
 #include <QTextStream>
@@ -10,6 +11,7 @@
 #include <QDebug>
 #include <QScrollBar>
 #include "loguimanager.h"
+#include <QCheckBox>
 // ==================== LogListModel ====================
 LogListModel::LogListModel(QObject *parent)
 
@@ -90,7 +92,13 @@ bool LogListModel::entryMatchesFilter(const LogEntry &entry) const
     if (m_categoryFilter != "Все" && entry.category != m_categoryFilter)
         return false;
 
-    // Текстовый поиск (регистронезависимый)
+    // Скрыть технические логи, если флаг выключен
+    if (!m_showTech) {
+        if (entry.category.startsWith("TECH_") || entry.category == "UI_DATA")
+            return false;
+    }
+
+    // Текстовый поиск
     if (!m_textFilter.isEmpty() &&
         !entry.message.contains(m_textFilter, Qt::CaseInsensitive))
         return false;
@@ -209,8 +217,43 @@ LogWidget::LogWidget(QWidget *parent)
     ui->listView->setWordWrap(true);
     ui->listView->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
+    // Для поддержки Ctrl+C
+    QAction* copyAction = new QAction("Копировать", this);
+    copyAction->setShortcut(QKeySequence::Copy);
+    connect(copyAction, &QAction::triggered, this, [this]() {
+        QModelIndexList selected = ui->listView->selectionModel()->selectedIndexes();
+        if (selected.isEmpty()) return;
+
+        // Собираем текст выбранных строк
+        QStringList lines;
+        for (const QModelIndex& idx : selected) {
+            QString time = idx.data(LogListModel::TimeRole).toString();
+            QString level = idx.data(LogListModel::LevelRole).toString();
+            QString cat = idx.data(LogListModel::CategoryRole).toString();
+            QString msg = idx.data(LogListModel::MessageRole).toString();
+            lines << QString("[%1] [%2] [%3] %4").arg(time, level, cat, msg);
+        }
+        QGuiApplication::clipboard()->setText(lines.join("\n"));
+    });
+    addAction(copyAction);
+
     // Настройка комбобокса уровней
     setupLevelComboBox();
+
+    //===============================================================================================//
+    // Добавление чекбокса для технических логов
+    QCheckBox* chkShowTech = new QCheckBox("Показывать технические логи", this);
+    chkShowTech->setChecked(false); // по умолчанию скрыты
+    connect(chkShowTech, &QCheckBox::toggled, m_model, &LogListModel::setShowTech);
+
+    QHBoxLayout* filterLayout = qobject_cast<QHBoxLayout*>(ui->comboLevel->parentWidget()->layout());
+    if (filterLayout) {
+        filterLayout->insertWidget(2, chkShowTech); // вставить между comboCategory и editSearch
+    } else {
+        // fallback: добавить в верхний layout (например, verticalLayout)
+        ui->verticalLayout->insertWidget(1, chkShowTech);
+    }
+    //=================================================================================================//
 
     // Подключение фильтров
     connect(ui->comboLevel, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -369,4 +412,11 @@ void LogWidget::onExportClicked()
 
     file.close();
    // LOG_UI_RESULT(QString("Log exported: %1 (%2 entries)").arg(fileName).arg(rowCount));
+}
+
+void LogListModel::setShowTech(bool show)
+{
+    if (m_showTech == show) return;
+    m_showTech = show;
+    applyFilter();
 }

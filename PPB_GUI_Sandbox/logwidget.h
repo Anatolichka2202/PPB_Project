@@ -93,6 +93,8 @@ public:
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role) const override;
 
+    void setShowTech(bool show);
+
 signals:
     /**
  * @fn void categoriesChanged(const QStringList &categories)
@@ -104,6 +106,7 @@ signals:
 private:
     void applyFilter(); ///< Применяет текущие фильтры к модели.
     bool entryMatchesFilter(const LogEntry &entry) const; ///< Проверяет, проходит ли запись фильтры.
+     bool m_showTech = false;
 
     QVector<LogEntry> m_allEntries;          // все записи
     QVector<int>      m_filteredIndices;     // индексы записей, проходящих фильтр

@@ -107,7 +107,7 @@
 // ==================== УДОБНЫЕ АЛИАСЫ ПО КАТЕГОРИЯМ ====================
 // Для часто используемых категорий, чтобы не писать длинные строки.
 
-// UI (для оператора)
+// UI
 #define LOG_UI_STATUS(msg)     LOG_INFO(LogCategory::UI_STATUS, msg)
 #define LOG_UI_CONNECTION(msg)  LOG_INFO(LogCategory::UI_CONNECTION, msg)
 #define LOG_UI_OPERATION(msg)  LOG_INFO(LogCategory::UI_OPERATION, msg)

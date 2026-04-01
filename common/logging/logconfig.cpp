@@ -25,9 +25,7 @@ LogConfig::~LogConfig()
 
 void LogConfig::createDefaultChannels()
 {
-    QMutexLocker locker(&m_mutex);
-
-    // 1. UI канал
+    // 1. UI канал – только операционная информация
     LogChannelConfig uiConfig;
     uiConfig.name = "UI Channel";
     uiConfig.description = "Вывод в пользовательский интерфейс";
@@ -38,15 +36,18 @@ void LogConfig::createDefaultChannels()
         LogCategory::UI_OPERATION,
         LogCategory::UI_RESULT,
         LogCategory::UI_ALERT,
-        LogCategory::UI_DATA,
         LogCategory::UI_PPB_RESULT,
-        LogCategory::TECH_STATE,
+        LogCategory::UI_CONNECTION,
+        LogCategory::OP_SESSION,
+        LogCategory::OP_OPERATION,
+        LogCategory::OP_MEASUREMENT,
+        LogCategory::OP_SUMMARY,
         LogCategory::SYSTEM,
         LogCategory::GENERAL
     };
     m_channels["ui"] = uiConfig;
 
-    // 2. Технический файл
+    // 2. Технический файл – детали работы отладчика
     LogChannelConfig techFileConfig;
     techFileConfig.name = "Technical File";
     techFileConfig.description = "Полный технический лог для отладки";
@@ -59,14 +60,14 @@ void LogConfig::createDefaultChannels()
         LogCategory::TECH_STATE,
         LogCategory::TECH_THREAD,
         LogCategory::TECH_PERFORMANCE,
-        LogCategory::SYSTEM,
-        LogCategory::GENERAL
+        LogCategory::CONFIG,
+        LogCategory::UI_DATA
     };
     techFileConfig.maxFileSize = 50 * 1024 * 1024;
     techFileConfig.maxBackupFiles = 10;
     m_channels["tech_file"] = techFileConfig;
 
-    // 3. Операционный файл
+    // 3. Операционный файл – для отчётности
     LogChannelConfig operFileConfig;
     operFileConfig.name = "Operational File";
     operFileConfig.description = "Операционный лог для отчётности";
@@ -88,24 +89,22 @@ void LogConfig::createDefaultChannels()
     operFileConfig.maxBackupFiles = 5;
     m_channels["oper_file"] = operFileConfig;
 
-    // 4. Общий файл (все сообщения)
+    // 4. Общий файл – все сообщения
     LogChannelConfig allFileConfig;
     allFileConfig.name = "All Messages File";
     allFileConfig.description = "Все сообщения всех категорий";
     allFileConfig.minLevel = LOG_DEBUG;
     allFileConfig.enabled = true;
-    // includeCategories пусто = все разрешены
     allFileConfig.maxFileSize = 100 * 1024 * 1024;
     allFileConfig.maxBackupFiles = 20;
     m_channels["all_file"] = allFileConfig;
 
-    // 5. Консоль
+    // 5. Консоль (опционально)
     LogChannelConfig consoleConfig;
     consoleConfig.name = "Console";
     consoleConfig.description = "Вывод в консоль";
     consoleConfig.minLevel = LOG_DEBUG;
     consoleConfig.enabled = true;
-    // все категории
     m_channels["console"] = consoleConfig;
 }
 

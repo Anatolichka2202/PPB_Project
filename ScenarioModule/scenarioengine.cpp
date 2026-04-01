@@ -6,7 +6,7 @@
 #include <QTimer>
 #include <QMetaObject>
 #include <QThread>
-
+#include <QFileInfo>
 ScenarioEngine::ScenarioEngine(PPBController* controller, QObject *parent)
     : QObject(parent)
     , m_controller(controller)
@@ -66,6 +66,7 @@ void ScenarioEngine::stop()
 }
 
 bool ScenarioEngine::loadEmbeddedScript(const QString& name) {
+    m_scriptName = name + ".lua";
     QString path = QString(":/scenario/scripts/%1.lua").arg(name);
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
@@ -78,6 +79,7 @@ bool ScenarioEngine::loadEmbeddedScript(const QString& name) {
 
 bool ScenarioEngine::loadScript(const QString &fileName)
 {
+     m_scriptName = QFileInfo(fileName).fileName();
     qDebug() << "Loading script from:" << fileName;
     QFile file(fileName);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -121,21 +123,20 @@ bool ScenarioEngine::loadScript(const QString &fileName)
 }
 bool ScenarioEngine::execute()
 {
-    qDebug() << "ScenarioEngine::execute() started";
+    LOG_OP_OPERATION(QString("========== Запуск скрипта: %1 ==========").arg(m_scriptName));
     m_stopRequested = false;
     try {
         sol::function main = lua["main"];
-        qDebug() << "main valid?" << main.valid();
         if (!main.valid()) {
+            LOG_OP_OPERATION("Скрипт не содержит функцию main()");
             emit errorOccurred("Script does not contain 'main' function");
             return false;
         }
-        qDebug() << "Calling main()...";
         main();
-        qDebug() << "main() finished";
+        LOG_OP_OPERATION(QString("========== Скрипт %1 завершён успешно ==========").arg(m_scriptName));
         emit finished(true);
     } catch (const sol::error &e) {
-        qDebug() << "Execution error:" << e.what();
+        LOG_OP_OPERATION(QString("========== Скрипт %1 завершён с ошибкой: %2 ==========").arg(m_scriptName, e.what()));
         emit errorOccurred(QString("Execution error: %1").arg(e.what()));
         emit finished(false);
         return false;

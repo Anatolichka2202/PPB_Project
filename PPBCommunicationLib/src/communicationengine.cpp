@@ -527,7 +527,7 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
     Q_UNUSED(sender)
     Q_UNUSED(port)
 
-    LOG_TECH_DEBUG(QString("onDataReceived: size=%1").arg(data.size()));
+   // LOG_TECH_DEBUG(QString("onDataReceived: size=%1").arg(data.size()));
 
     if (data.size() < 2) {
         LOG_TECH_DEBUG("Packet too short, ignored");
@@ -704,7 +704,7 @@ void communicationengine::sendPacketInternal(const QByteArray& packet, const QSt
         m_udpClient->sendTo(packet, m_currentIP, m_currentPort);
     }
 
-    LOG_TECH_DEBUG(QString("Packet sent: %1 (%2 bytes)").arg(description).arg(packet.size()));
+    //LOG_TECH_DEBUG(QString("Packet sent: %1 (%2 bytes)").arg(description).arg(packet.size()));
 }
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++ МАШИНА СОСТОЯНИЯ +++++++++++++++++++++++++++++++++++++
@@ -779,8 +779,8 @@ void communicationengine::completeOperation(uint16_t address, bool success, cons
     }
     LOG_TECH_STATE(QString("Operation completed for 0x%1: %2 - %3").arg(address,4,16,QChar('0')).arg(success?"success":"fail").arg(finalMessage));
 
-    if(success) LOG_UI_RESULT(message);
-    else LOG_UI_ALERT(message);
+    //if(success) LOG_UI_RESULT(message);
+    //else LOG_UI_ALERT(message);
 
     emit commandCompleted(success, finalMessage, context->currentCommand->commandId());
 

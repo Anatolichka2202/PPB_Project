@@ -144,8 +144,8 @@ bool UDPClient::isBound() const
 
 qint64 UDPClient::sendTo(const QByteArray& data, const QString& address, quint16 port)
 {
-    LOG_TECH_DEBUG(QString("sendTo: %1:%2, size=%3 bytes")
-                       .arg(address).arg(port).arg(data.size()));
+   // LOG_TECH_DEBUG(QString("sendTo: %1:%2, size=%3 bytes")
+    //                   .arg(address).arg(port).arg(data.size()));
 
     if (!m_socket) {
         LOG_UI_ALERT("sendTo - socket not initialized");
@@ -187,8 +187,8 @@ qint64 UDPClient::sendTo(const QByteArray& data, const QString& address, quint16
 
 qint64 UDPClient::sendBroadcast(const QByteArray& data, quint16 port)
 {
-    LOG_TECH_DEBUG(QString("sendBroadcast: port=%1, size=%2 bytes")
-                       .arg(port).arg(data.size()));
+   // LOG_TECH_DEBUG(QString("sendBroadcast: port=%1, size=%2 bytes")
+       //                .arg(port).arg(data.size()));
 
     if (!m_socket) {
         LOG_UI_ALERT("sendBroadcast - socket not initialized");

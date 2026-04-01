@@ -1,4 +1,3 @@
-// logdistributor.cpp
 #include "logdistributor.h"
 #include "logconfig.h"
 #include "logcategories.h"
@@ -6,6 +5,10 @@
 #include <QDateTime>
 #include <QTextStream>
 #include <QDebug>
+#include <QTimer>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
 static LogLevel levelFromString(const QString& level) {
     if (level == "DEBUG") return LOG_DEBUG;
@@ -65,7 +68,61 @@ void LogDistributor::distribute(const LogEntry& entry)
 
 // ========== FileHandler ==========
 FileHandler::FileHandler(const QString& fileName, qint64 maxSize, int maxBackups)
-    : m_baseName(fileName), m_maxSize(maxSize), m_maxBackups(maxBackups)
+    : QObject(nullptr)
+    , m_baseName(fileName), m_maxSize(maxSize), m_maxBackups(maxBackups)
+{
+    openNewFile();
+    m_flushTimer = new QTimer(this);
+    m_flushTimer->setInterval(100); // сброс каждые 100 мс
+    connect(m_flushTimer, &QTimer::timeout, this, &FileHandler::flush);
+    m_flushTimer->start();
+}
+
+FileHandler::~FileHandler()
+{
+    flush();
+    m_file.close();
+}
+
+void FileHandler::handle(const LogEntry& entry)
+{
+    if (!m_file.isOpen()) return;
+
+    QString line;
+    // Для tech_file – JSON с отступами, для oper_file – текстовый
+    if (m_baseName.contains("tech_")) {
+        // Преобразуем компактный JSON в отформатированный
+        QByteArray jsonData = entry.toJson().toUtf8();
+        QJsonDocument doc = QJsonDocument::fromJson(jsonData);
+        if (!doc.isNull()) {
+            line = QString::fromUtf8(doc.toJson(QJsonDocument::Indented));
+        } else {
+            // fallback: если не распарсилось, выводим как есть
+            line = QString::fromUtf8(jsonData);
+        }
+    } else {
+        line = entry.toLegacyFormat();
+    }
+    m_buffer.append(line.toUtf8());
+    m_lineCount++;
+
+    // Если буфер превысил 1 МБ, сбрасываем
+    if (m_buffer.size() > 1024 * 1024) {
+        flush();
+    }
+}
+
+void FileHandler::flush()
+{
+    if (m_buffer.isEmpty()) return;
+    m_file.write(m_buffer);
+    m_buffer.clear();
+    m_file.flush();
+    rotateIfNeeded();
+    m_lineCount = 0;
+}
+
+void FileHandler::openNewFile()
 {
     m_file.setFileName(m_baseName);
     if (!m_file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append)) {
@@ -73,33 +130,19 @@ FileHandler::FileHandler(const QString& fileName, qint64 maxSize, int maxBackups
     }
 }
 
-FileHandler::~FileHandler()
-{
-    if (m_file.isOpen()) m_file.close();
-}
-
-void FileHandler::handle(const LogEntry& entry)
-{
-    if (!m_file.isOpen()) return;
-    QTextStream stream(&m_file);
-    // Для tech_file и all_file используем JSON, для oper_file - toString()
-    if (m_baseName.contains("tech_") || m_baseName.contains("all_")) {
-        stream << entry.toJson() << "\n";
-    } else {
-        stream << entry.toString() << "\n";
-    }
-    stream.flush();
-    // TODO: реализовать ротацию по размеру
-}
-
-void FileHandler::openNewFile()
-{
-    // TODO: реализация ротации
-}
-
 void FileHandler::rotateIfNeeded()
 {
-    // TODO: проверка размера и ротация
+    if (m_file.size() < m_maxSize) return;
+    m_file.close();
+
+    // Переименовываем существующие бэкапы
+    for (int i = m_maxBackups; i > 0; --i) {
+        QString oldName = QString("%1.%2").arg(m_baseName).arg(i);
+        QString newName = QString("%1.%2").arg(m_baseName).arg(i+1);
+        QFile::rename(oldName, newName);
+    }
+    QFile::rename(m_baseName, m_baseName + ".1");
+    openNewFile();
 }
 
 // ========== ConsoleHandler ==========

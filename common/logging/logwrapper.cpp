@@ -73,14 +73,14 @@ void LogWrapper::log(const LogEntry& entry)
 
 void LogWrapper::logTable(const TableData& table)
 {
-    LogEntry entry = LogEntry::createTable(LogCategory::UI_DATA, table);
+    LogEntry entry = LogEntry::createTable(LogCategory::UI_PPB_RESULT, table);
     log(entry);
 }
 
 void LogWrapper::logCard(const CardData& card)
 {
+    // карточки оставляем в UI_STATUS
     LogEntry entry = LogEntry::createCard(LogCategory::UI_STATUS, card);
-    log(entry);
 }
 
 void LogWrapper::logProgress(const ProgressData& progress)

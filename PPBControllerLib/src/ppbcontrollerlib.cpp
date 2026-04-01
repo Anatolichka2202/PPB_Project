@@ -190,7 +190,9 @@ void PPBController::requestStatus(uint16_t address)
             Q_UNUSED(groupId)
         }
     }
-    LOG_UI_OPERATION(QString("Запрос статуса ППБ %1").arg(address));
+    LOG_TECH_STATE(QString("PPBController: изменение текущего адреса: 0x%1 -> 0x%2")
+                       .arg(m_currentAddress, 4, 16, QChar('0'))
+                       .arg(address, 4, 16, QChar('0')));
 }
 
 void PPBController::sendTC(uint16_t address)
@@ -1040,7 +1042,7 @@ void PPBController::showAnalysisResults(const QString& summary, const QVariantMa
         summaryCard.addField("BER", QString::number(ber, 'e', 6));
     }
 
-    LOG_UI_CARD(summaryCard);
+    LOG_CARD(summaryCard);
 
     if (details.contains("errorDetails")) {
         QVariantList errorDetails = details["errorDetails"].toList();
@@ -1074,7 +1076,7 @@ void PPBController::showAnalysisResults(const QString& summary, const QVariantMa
                 });
             }
 
-            LOG_UI_TABLE(detailsTable);
+            LOG_TABLE(detailsTable);
         }
     }
 
@@ -1105,7 +1107,7 @@ void PPBController::showPacketsTable(const QString& title, const QVector<DataPac
         });
     }
 
-    LOG_UI_TABLE(table);
+    LOG_TABLE(table);
     LOG_UI_STATUS(QString("Показано %1 пакетов").arg(packets.size()));
 }
 

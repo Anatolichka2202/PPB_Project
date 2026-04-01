@@ -8,18 +8,16 @@ LogUIManager::LogUIManager(QObject* parent)
 void LogUIManager::setupLevelComboBox(QComboBox* levelCombo)
 {
     m_levelCombo = levelCombo;
-
     levelCombo->clear();
-    levelCombo->addItem("Все", -1);          // специальное значение для "Все"
+    levelCombo->addItem("Все", -1);
     levelCombo->addItem("DEBUG", LOG_DEBUG);
     levelCombo->addItem("INFO", LOG_INFO);
     levelCombo->addItem("WARNING", LOG_WARNING);
     levelCombo->addItem("ERROR", LOG_ERROR);
-    levelCombo->setCurrentIndex(1);           // DEBUG по умолчанию (можно 0 для "Все")
+    levelCombo->setCurrentIndex(0);
 
     connect(levelCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &LogUIManager::onLevelChanged);
-
     updateUIConfig();
 }
 

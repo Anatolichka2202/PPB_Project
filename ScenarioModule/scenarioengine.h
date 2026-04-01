@@ -66,6 +66,7 @@ private:
     sol::state lua;
     PPBController* m_controller;
     bool m_stopRequested;
+    QString m_scriptName;
 };
 
 // Определение шаблона (должно быть в заголовке)

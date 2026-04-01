@@ -239,7 +239,7 @@ void pult::onResetErrorsToggled(bool checked)
 void pult::onControllerErrorOccurred(const QString& error)
 {
     QMessageBox::warning(this, "Ошибка", error);
-    LOG_UI_ALERT("Pult error: " + error);
+   // LOG_UI_ALERT("Pult error: " + error);
     ui->statusbar->setText("Ошибка: " + error);
     ui->statusbar->setStyleSheet("color: red; font-weight: bold;");
     if (m_statusTimer)
@@ -251,11 +251,11 @@ void pult::onControllerOperationCompleted(bool success, const QString& message)
     if (success) {
         ui->statusbar->setText("✓ " + message);
         ui->statusbar->setStyleSheet("color: green; font-weight: bold;");
-        LOG_UI_RESULT("Pult operation: " + message);
+       // LOG_UI_RESULT("Pult operation: " + message);
     } else {
         ui->statusbar->setText("✗ " + message);
         ui->statusbar->setStyleSheet("color: orange; font-weight: bold;");
-        LOG_UI_ALERT("Pult operation failed: " + message);
+        //LOG_UI_ALERT("Pult operation failed: " + message);
     }
     if (m_statusTimer)
         m_statusTimer->start(3000);

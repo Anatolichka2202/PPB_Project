@@ -13,6 +13,7 @@
 #include <QPushButton>
 #include "moc_objects/mockgeneratorcontroller.h"
 #include <../Analize_Module/analyzer_factory.h>
+#include "logconfig.h"
 ApplicationManager* ApplicationManager::m_instance = nullptr;
 
 ApplicationManager& ApplicationManager::instance()
@@ -43,7 +44,10 @@ bool ApplicationManager::initialize()
         //0. инициализируем логирование
         LogWrapper::instance();
        // LOG_TECH_DEBUG("LogWrapper initialized");
-
+        #ifndef QT_DEBUG
+        auto& config = LogConfig::instance();
+        config.enableChannel("tech_file", false);
+        #endif
         // 1. Создаём коммуникационный поток
         m_commThread = new QThread(this);
         m_commThread->setObjectName("CommunicationThread");

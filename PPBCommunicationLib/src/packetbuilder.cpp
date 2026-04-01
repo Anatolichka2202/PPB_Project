@@ -67,7 +67,7 @@ bool PacketBuilder::parseTUResponse(const QByteArray& data,
                                     QByteArray& payload)
 {
     if (data.size() < static_cast<int>(sizeof(TUResponseHeader))) {
-        qDebug() << "parseTUResponse: недостаточно данных, размер" << data.size();
+        LOG_TECH_PROTOCOL("parseTUResponse: недостаточно данных, размер " + QString::number(data.size()));
         return false;
     }
 
@@ -81,9 +81,10 @@ bool PacketBuilder::parseTUResponse(const QByteArray& data,
         payload.clear();
     }
 
-    qDebug() << "TU ответ: адрес=0x" << QString::number(header.address, 16).right(4).toUpper()
-             << ", статус=" << (int)header.status
-             << ", размер данных=" << payload.size();
+    LOG_TECH_PROTOCOL(QString("TU ответ: адрес=0x%1, статус=%2, размер данных=%3")
+                          .arg(QString::number(header.address, 16).right(4).toUpper())
+                          .arg((int)header.status)
+                          .arg(payload.size()));
 
     return true;
 }
@@ -91,15 +92,16 @@ bool PacketBuilder::parseTUResponse(const QByteArray& data,
 bool PacketBuilder::parseBridgeResponse(const QByteArray& data, BridgeResponse& response)
 {
     if (data.size() != static_cast<int>(sizeof(BridgeResponse))) {
-        qDebug() << "parseBridgeResponse: неверный размер, ожидалось"
-                 << sizeof(BridgeResponse) << ", получено" << data.size();
+        LOG_TECH_PROTOCOL(QString("parseBridgeResponse: неверный размер, ожидалось %1, получено %2")
+                              .arg(sizeof(BridgeResponse)).arg(data.size()));
         return false;
     }
 
     memcpy(&response, data.constData(), sizeof(BridgeResponse));
-    qDebug() << "Bridge ответ: адрес=" << response.address
-             << ", команда=0x" << QString::number(response.command, 16)
-             << ", статус=" << (int)response.status;
+    LOG_TECH_PROTOCOL(QString("Bridge ответ: адрес=%1, команда=0x%2, статус=%3")
+                          .arg(response.address)
+                          .arg(QString::number(response.command, 16))
+                          .arg((int)response.status));
     return true;
 }
 
@@ -109,7 +111,7 @@ QVector<DataPacket> PacketBuilder::extractDataPackets(const QByteArray& payload)
     const size_t packetSize = sizeof(DataPacket); // теперь 2 байта
 
     if (payload.size() % static_cast<int>(packetSize) != 0) {
-        qDebug() << "extractDataPackets: размер payload не кратен" << packetSize;
+        LOG_TECH_DEBUG("extractDataPackets: размер payload не кратен " + QString::number(packetSize));
     }
 
     int count = payload.size() / static_cast<int>(packetSize);

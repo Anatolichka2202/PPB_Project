@@ -63,6 +63,8 @@ private:
     bool waitForCommand(uint16_t address, Func&& commandLauncher, TechCommand expectedCmd, int timeoutMs = 10000);
     bool waitForFUCommand(uint16_t address, uint8_t fuCmd, std::function<void()> commandLauncher, int timeoutMs = 2000);
 
+    void luaLog(const std::string &msg); //логирование скриптов
+
     sol::state lua;
     PPBController* m_controller;
     bool m_stopRequested;

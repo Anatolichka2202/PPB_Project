@@ -61,11 +61,9 @@ set(UIS
 )
 
 # Ресурсы
-set(RESOURCES
-    assets.qrc
-)
+set(RESOURCES themes.qrc)
 
-    add_executable(PPB_GUI_Sandbox
+add_executable(PPB_GUI_Sandbox
     ${SOURCES}
     ${HEADERS}
     ${UIS}
@@ -73,8 +71,7 @@ set(RESOURCES
     applicationmanager.h applicationmanager.cpp
     performancewindow.h performancewindow.cpp performancewindow.ui
     moc_objects/mockgeneratorcontroller.h moc_objects/mockgeneratorcontroller.cpp
-
-    # dataconverter.h dataconverter.cpp
+    thememanager.h thememanager.cpp
 )
 
 set_target_properties(PPB_GUI_Sandbox PROPERTIES

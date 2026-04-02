@@ -45,15 +45,7 @@
           <property name="visible">
            <bool>false</bool>
           </property>
-          <property name="styleSheet">
-           <string notr="true">background-color: #e6f0ff; border: 1px solid #99ccff; border-radius: 4px; padding: 4px; font-weight: bold;</string>
-          </property>
-          <property name="text">
-           <string>Выбрано: 2 ППБ</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignmentFlag::AlignCenter</set>
-          </property>
+
          </widget>
         </item>
         <item>

@@ -12,6 +12,7 @@
 #include <QScrollBar>
 #include "loguimanager.h"
 #include <QCheckBox>
+#include <thememanager.h>
 // ==================== LogListModel ====================
 LogListModel::LogListModel(QObject *parent)
 
@@ -191,19 +192,20 @@ LogDelegate::LogDelegate(QObject *parent)
     : QStyledItemDelegate(parent)
     , m_doc(new QTextDocument)
 {
-    // Загружаем стили из ресурсов
-    QFile cssFile(":/assets/logstyles.css");
-    if (cssFile.open(QIODevice::ReadOnly)) {
-        QString css = QString::fromUtf8(cssFile.readAll());
-        m_doc->setDefaultStyleSheet(css);
-        cssFile.close();
-    }
+
+    updateStyleSheet(); // загрузим начальный CSS
     qDebug() << "Constructor of LogDelegate";
 }
 
 LogDelegate::~LogDelegate()
 {
     delete m_doc;
+}
+
+void LogDelegate::updateStyleSheet()
+{
+    m_css = ThemeManager::instance().getHtmlLogStyle();
+    m_doc->setDefaultStyleSheet(m_css);
 }
 
 void LogDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
@@ -334,7 +336,9 @@ LogWidget::LogWidget(QWidget *parent)
     // Обновление комбобокса категорий при изменении уникальных категорий
     connect(m_model, &LogListModel::categoriesChanged,
             this, &LogWidget::updateCategoryComboBox);
-
+    //Подключение к тем менеджеру
+    connect(&ThemeManager::instance(), &ThemeManager::themeChanged,
+            this, &LogWidget::onThemeChanged);
 
     qDebug() << "connecting ui manager...";
     //подклбчение ui менеджера
@@ -467,4 +471,11 @@ void LogListModel::setShowTech(bool show)
     if (m_showTech == show) return;
     m_showTech = show;
     applyFilter();
+}
+
+void LogWidget::onThemeChanged()
+{
+    m_delegate->updateStyleSheet();
+    // перерисовать все элементы
+    ui->listView->viewport()->update();
 }

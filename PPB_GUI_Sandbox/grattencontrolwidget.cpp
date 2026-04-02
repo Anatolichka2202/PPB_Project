@@ -10,28 +10,6 @@ GrattenControlWidget::GrattenControlWidget(IAkipController *controller, QWidget 
 {
     ui->setupUi(this);
 
-    ui->botton_onof->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #3498db;"
-        "  border: none;"
-        "  border-radius: 15px;"
-        "  padding: 8px 16px;"
-        "  color: white;"
-        "  font-weight: bold;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: #2980b9;"
-        "}"
-        "QPushButton:pressed {"
-        "  background-color: #1c638e;"
-        "}"
-        "QPushButton:checked {"
-        "  background-color: #e67e22;"
-        "}"
-        "QPushButton:checked:hover {"
-        "  background-color: #d35400;"
-        "}"
-        );
 
     // Настройка комбобокса единиц амплитуды (только dBm)
     ui->cmbAmplUnit->clear();
@@ -59,7 +37,6 @@ GrattenControlWidget::GrattenControlWidget(IAkipController *controller, QWidget 
     QFont font("Courier New", 9);
     ui->terminalEdit->setFont(font);
     ui->cmdLineEdit->setFont(font);
-
     m_controller->queryOutput(1);
     ui->out_label->setStyleSheet("background-color: red; border-radius: 10px;");
     appendToTerminal("Терминал готов. Введите SCPI команду.");

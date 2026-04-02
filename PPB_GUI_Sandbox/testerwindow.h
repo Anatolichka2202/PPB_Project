@@ -69,9 +69,13 @@ private slots:
     //пульты
     void onPultDestroyed(QObject* obj); // новый слот для очистки карты
 
+    //сценарии
     void onLoadScenario();
     void onRunScenario();
     void onStopScenario();
+
+    //тем-менеджер
+    void onThemeChanged(int index);
 
 private:
     void setupPpbTabs(int count = 16);
@@ -97,7 +101,8 @@ private:
 
     QMap<uint16_t, pult*> m_pultWindows; // карта открытых пультов
 
-
+    uint16_t m_lastPpbMask = 0;
+    void updateTabIconsFromMask(uint16_t mask);
 };
 
 #endif // TESTERWINDOW_H

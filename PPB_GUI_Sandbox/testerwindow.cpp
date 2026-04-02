@@ -25,7 +25,9 @@
 #include <QApplication>
 #include <QDebug>
 #include "moc_objects/mockgeneratorcontroller.h"
-
+#include <QToolBar>
+#include <QComboBox>
+#include "thememanager.h"
 TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::TesterWindow)
@@ -41,6 +43,18 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
 
     // Создаём вкладки ППБ
     setupPpbTabs(16);
+
+    //====================тулбар=======================
+    QToolBar* themeToolBar = addToolBar("Выбор темы");
+    themeToolBar->setObjectName("themeToolBar");
+    QComboBox* themeCombo = new QComboBox(themeToolBar);
+    themeCombo->addItem("Системная", static_cast<int>(ThemeManager::System));
+    themeCombo->addItem("Тёмная", static_cast<int>(ThemeManager::Dark));
+    themeCombo->addItem("Светлая", static_cast<int>(ThemeManager::Light));
+    connect(themeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &TesterWindow::onThemeChanged);
+    themeToolBar->addWidget(themeCombo);
+    //==========================================================
 
     // Подключение сигналов контроллера
     connect(m_controller, &PPBController::fullStateUpdated,
@@ -204,6 +218,8 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
     connect(ui->scenarioWidget, &ScenarioWidget::stopScenario,
             this, &TesterWindow::onStopScenario);
 
+
+
     // Восстановление геометрии и состояния сплиттера
     QSettings settings;
     restoreGeometry(settings.value("geometry").toByteArray());
@@ -213,6 +229,7 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
     updateGeneratorUi();
     ui->controlWidget->setController(m_controller);
     ui->controlWidget->setController(m_controller);
+
 
 }
 
@@ -390,7 +407,6 @@ void TesterWindow::onBridgePingRequested(const QString &ip, quint16 port)
     m_controller->setBridgeAddress(ip, port);
     statusBar()->showMessage("Проверка бриджа...", 1000);
     // Отправляем команду IS_YOU на адрес 0 (бридж)
-    // Исправлено: exucuteCommand -> executeCommand
     m_controller->exucuteCommand(TechCommand::IS_YOU, 0);
 }
 
@@ -588,3 +604,14 @@ void TesterWindow::onStopScenario()
 {
     m_controller->stopScenario();
 }
+
+void TesterWindow::onThemeChanged(int /*index*/)
+{
+    QComboBox* combo = qobject_cast<QComboBox*>(sender());
+    if (!combo) return;
+    int themeValue = combo->currentData().toInt();
+    ThemeManager::Theme theme = static_cast<ThemeManager::Theme>(themeValue);
+    ThemeManager::instance().setTheme(theme);
+}
+
+

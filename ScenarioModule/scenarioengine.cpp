@@ -65,6 +65,12 @@ void ScenarioEngine::stop()
     m_stopRequested = true;
 }
 
+void ScenarioEngine::luaLog(const std::string &msg) {
+    QString qmsg = QString::fromStdString(msg);
+    LOG_INFO(LogCategory::GENERAL, "[SCENARIO] " + qmsg);
+    emit logMessage(qmsg); // для GUI
+}
+
 bool ScenarioEngine::loadEmbeddedScript(const QString& name) {
     m_scriptName = name + ".lua";
     QString path = QString(":/scenario/scripts/%1.lua").arg(name);

@@ -1,0 +1,103 @@
+/* Тёмная тема – полная */
+QWidget {
+    background-color: #2b2b2b;
+    color: #e0e0e0;
+}
+
+/* Кнопки */
+QPushButton {
+    background-color: #3c3c3c;
+    border: 1px solid #5a5a5a;
+    border-radius: 6px;
+    padding: 6px 12px;
+    color: #ffffff;
+}
+QPushButton:hover {
+    background-color: #4a4a4a;
+}
+QPushButton:pressed {
+    background-color: #2a2a2a;
+}
+QPushButton:checked {
+    background-color: #5a5a5a;
+}
+
+/* Поля ввода */
+QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QSpinBox, QDoubleSpinBox {
+    background-color: #3c3c3c;
+    border: 1px solid #5a5a5a;
+    color: #ffffff;
+}
+QComboBox::drop-down {
+    border: none;
+}
+
+/* Метки (QLabel) */
+QLabel {
+    color: #e0e0e0;
+    background-color: transparent;
+}
+
+/* GroupBox */
+QGroupBox {
+    border: 1px solid #5a5a5a;
+    margin-top: 10px;
+    color: #e0e0e0;
+}
+QGroupBox::title {
+    background-color: #2b2b2b;
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 5px;
+}
+
+/* Вкладки (QTabBar) */
+QTabBar::tab {
+    background-color: #3c3c3c;
+    color: #ffffff;
+    padding: 6px 12px;
+    margin: 2px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+}
+QTabBar::tab:selected {
+    background-color: #5a5a5a;
+}
+QTabBar::tab:hover:!selected {
+    background-color: #4a4a4a;
+}
+QTabWidget::pane {
+    border: 1px solid #5a5a5a;
+    background-color: #2b2b2b;
+}
+
+/* Чекбоксы и радиокнопки */
+QCheckBox, QRadioButton {
+    color: #e0e0e0;
+}
+QCheckBox::indicator, QRadioButton::indicator {
+    border: 1px solid #5a5a5a;
+    background-color: #3c3c3c;
+}
+QCheckBox::indicator:checked, QRadioButton::indicator:checked {
+    background-color: #5a5a5a;
+}
+
+/* Полосы прокрутки */
+QScrollBar:vertical {
+    background: #3c3c3c;
+    width: 12px;
+}
+QScrollBar::handle:vertical {
+    background: #5a5a5a;
+    border-radius: 6px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #6a6a6a;
+}
+
+/* Строка состояния */
+QStatusBar {
+    background-color: #2b2b2b;
+    color: #e0e0e0;
+}

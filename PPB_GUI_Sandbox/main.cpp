@@ -16,6 +16,8 @@
 
 #include <QCommandLineParser>
 
+#include "thememanager.h"
+
 #ifdef Q_OS_LINUX
 #include <signal.h>
 #include <execinfo.h>
@@ -129,6 +131,8 @@ int main(int argc, char *argv[])
 #endif
 
     QApplication app(argc, argv);
+
+     auto& themeManager = ThemeManager::instance(); //инициализация менеджера темы
 
     QCoreApplication::setApplicationName("PPB Tester");
     QCoreApplication::setOrganizationName("MILTECH");

@@ -145,9 +145,11 @@ public:
                const QModelIndex &index) const override;///< Рисует HTML-содержимое.
     QSize sizeHint(const QStyleOptionViewItem &option,
                    const QModelIndex &index) const override;///< Вычисляет размер элемента.
-
+    void updateStyleSheet();
 private:
     QTextDocument *m_doc;
+    QString m_css;
+
 };
 
 // ==================== ВИДЖЕТ ====================
@@ -195,11 +197,13 @@ private slots:
  */
     void onClearClicked();
 
+
     /**
  * @brief Экспортирует текущее (отфильтрованное) представление в файл.
  * Поддерживает форматы .txt и .html.
  */
     void onExportClicked();
+    void onThemeChanged();
 
 private:
     void setupLevelComboBox();

@@ -14,14 +14,14 @@
     padding: 4px 8px;
     margin: 2px 0;
     border-radius: 3px;
-    background-color: #1e1e1e;
+    background-color: #1e1e1e; /* тень */
     color: #d4d4d4;
     border-left: 4px solid transparent;
     transition: background-color 0.1s ease;
 }
 
 .log-entry:hover {
-    background-color: #2a2a2a;
+    background-color:       #2a2a2a;
 }
 
 /* Уровни */
@@ -149,7 +149,7 @@
 .log-table {
     width: 100%;
     border-collapse: collapse;
-    background-color: #1e1e1e;
+    background-color: #737373;
     color: #d4d4d4;
     font-size: 9pt;
     font-family: 'Consolas', monospace;

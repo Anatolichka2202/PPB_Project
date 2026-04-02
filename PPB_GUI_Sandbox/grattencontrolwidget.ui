@@ -89,14 +89,6 @@
     <layout class="QHBoxLayout" name="layoutOutput">
      <item>
       <widget class="QLabel" name="out_label">
-       <property name="styleSheet">
-        <string notr="true">QLabel{  
-background-color: #ffff00;
-border-radius: 10px;
-  min-height: 25px;
-  min-width: 25px;
-}</string>
-       </property>
        <property name="text">
         <string/>
        </property>

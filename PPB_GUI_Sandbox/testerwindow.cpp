@@ -28,6 +28,7 @@
 #include <QToolBar>
 #include <QComboBox>
 #include "thememanager.h"
+#include <QPainter>
 TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::TesterWindow)
@@ -83,14 +84,7 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
             uint16_t mask = map.value("mask").toUInt();
             ui->connectionWidget->setBridgeStatus(true);
             statusBar()->showMessage("Бридж доступен", 2000);
-            // Обновляем иконки вкладок согласно маске
-            for (int i = 0; i < 16; ++i) {
-                bool available = mask & (1 << i);
-                QPixmap pix(16, 16);
-                pix.fill(available ? Qt::green : Qt::red);
-                QIcon icon(pix);
-                ui->ppbTabBar->setTabIcon(i, icon);
-            }
+            updateTabIconsFromMask(mask);
             return;
         }
         QString msg;
@@ -249,6 +243,19 @@ void TesterWindow::setupPpbTabs(int count)
         ui->ppbStack->addWidget(sw);
         m_statusWidgets.append(sw);
     }
+
+    QPixmap defaultPix(16, 16);
+    defaultPix.fill(Qt::transparent);
+    QPainter painter(&defaultPix);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setBrush(QColor(127, 127, 127));
+    painter.setPen(Qt::NoPen);
+    painter.drawEllipse(2, 2, 12, 12);
+    QIcon defaultIcon(defaultPix);
+    for (int i = 0; i < count; ++i) {
+        ui->ppbTabBar->setTabIcon(i, defaultIcon);
+    }
+
     m_selectedTabs.insert(0);
     ui->ppbTabBar->setCurrentIndex(0);
     ui->ppbStack->setCurrentIndex(0);
@@ -342,11 +349,15 @@ void TesterWindow::onFullStateUpdated(uint8_t ppbIndex)
     if (ppbIndex < m_statusWidgets.size()) {
         auto state = m_controller->getFullState(ppbIndex);
         m_statusWidgets[ppbIndex]->updateState(state, m_displayAsCodes);
-        // ППБ жив – ставим зелёную иконку
+        // Обновляем иконку вкладки – зелёная, так как ППБ ответил
         QPixmap pix(16, 16);
-        pix.fill(Qt::green);
-        QIcon icon(pix);
-        ui->ppbTabBar->setTabIcon(ppbIndex, icon);
+        pix.fill(Qt::transparent);
+        QPainter painter(&pix);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setBrush(QColor(46, 204, 113));
+        painter.setPen(Qt::NoPen);
+        painter.drawEllipse(2, 2, 12, 12);
+        ui->ppbTabBar->setTabIcon(ppbIndex, QIcon(pix));
     }
 }
 
@@ -460,7 +471,7 @@ void TesterWindow::onPultClicked()
     QRect pultGeo = p->geometry();
     if (pultGeo.width() < 100) pultGeo.setWidth(600);
     if (pultGeo.height() < 100) pultGeo.setHeight(800);
-    pultGeo.moveTopLeft(mainGeo.topRight() + QPoint(10, 0));
+    pultGeo.moveCenter(mainGeo.topRight() + QPoint(10, 0));
     p->setGeometry(pultGeo);
 
     m_pultWindows[addr] = p;
@@ -472,8 +483,7 @@ void TesterWindow::onMetricsClicked()
     if (!perfWindow) {
         perfWindow = new PerformanceWindow(nullptr);
         perfWindow->setAttribute(Qt::WA_DeleteOnClose);
-        perfWindow->setWindowFlags(Qt::Window); // можно и так, но без родителя уже окно
-
+        perfWindow->setWindowFlags(Qt::Window);
     }
     perfWindow->show();
     perfWindow->raise();
@@ -614,4 +624,18 @@ void TesterWindow::onThemeChanged(int /*index*/)
     ThemeManager::instance().setTheme(theme);
 }
 
-
+void TesterWindow::updateTabIconsFromMask(uint16_t mask)
+{
+    for (int i = 0; i < ui->ppbTabBar->count(); ++i) {
+        bool available = mask & (1 << i);
+        QPixmap pix(16, 16);
+        pix.fill(Qt::transparent);
+        QPainter painter(&pix);
+        painter.setRenderHint(QPainter::Antialiasing);
+        QColor color = available ? QColor(46, 204, 113) : QColor(231, 76, 60); // зелёный / красный
+        painter.setBrush(color);
+        painter.setPen(Qt::NoPen);
+        painter.drawEllipse(2, 2, 12, 12);
+        ui->ppbTabBar->setTabIcon(i, QIcon(pix));
+    }
+}

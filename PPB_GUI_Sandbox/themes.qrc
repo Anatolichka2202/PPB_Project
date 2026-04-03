@@ -1,8 +1,19 @@
 <RCC>
-    <qresource prefix="/themes">
-        <file>resources/base.qss</file>
-        <file>resources/dark.qss</file>
-        <file>resources/light.qss</file>
-        <file>resources/logstyles.css</file>
+    <qresource prefix="/">
+        <file>base.qss</file>
+        <file>logstyle_dark.css</file>
+        <file>logstyle_light.css</file>
+        <file>dark/theme.qss</file>
+        <file>dark/connection.qss</file>
+        <file>dark/controll.qss</file>
+        <file>dark/gratten.qss</file>
+        <file>dark/status.qss</file>
+        <file>dark/enoth.qss</file>
+        <file>light/theme.qss</file>
+        <file>light/connection.qss</file>
+        <file>light/controll.qss</file>
+        <file>light/gratten.qss</file>
+        <file>light/status.qss</file>
+        <file>light/enoth.qss</file>
     </qresource>
 </RCC>

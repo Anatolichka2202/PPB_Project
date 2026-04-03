@@ -1,0 +1,43 @@
+/* dark/enoth.qss */
+
+/* Стили для кнопок "Применить", "Отправить", "Загрузить сценарий" и т.п. */
+AkipWidget QPushButton,
+FuWidget QPushButton,
+ScenarioWidget QPushButton,
+GeneratorPult QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #2d2d2d, stop:1 #1e1e1e);
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+}
+AkipWidget QPushButton:hover,
+FuWidget QPushButton:hover,
+ScenarioWidget QPushButton:hover,
+GeneratorPult QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #3a3a3a, stop:1 #2d2d2d);
+}
+
+/* Чекбоксы в этих виджетах */
+AkipWidget QCheckBox::indicator:checked,
+FuWidget QCheckBox::indicator:checked,
+GeneratorPult QCheckBox::indicator:checked {
+    background-color: #f39c12;
+    border-color: #f39c12;
+}
+
+/* Поля ввода */
+AkipWidget QLineEdit, AkipWidget QComboBox,
+FuWidget QLineEdit, FuWidget QComboBox,
+ScenarioWidget QLineEdit,
+GeneratorPult QLineEdit, GeneratorPult QComboBox {
+    background-color: #2d2d2d;
+    border: 1px solid #3a3a3a;
+    color: #e0e0e0;
+}
+
+/* Группы */
+AkipWidget QGroupBox, FuWidget QGroupBox, ScenarioWidget QGroupBox, GeneratorPult QGroupBox {
+    border: 1px solid #3a3a3a;
+    margin-top: 10px;
+}

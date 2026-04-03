@@ -1,0 +1,23 @@
+/* logstyle_dark.css – для отображения логов в тёмной теме */
+
+.log-entry {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border-left: 4px solid;
+    margin: 2px 0;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'Consolas', monospace;
+    font-size: 9pt;
+}
+.log-level-debug { border-left-color: #6a9955; }
+.log-level-info { border-left-color: #9cdcfe; }
+.log-level-warning { border-left-color: #dcdcaa; }
+.log-level-error { border-left-color: #f48771; }
+.log-time {
+    color: #888888;
+    margin-right: 12px;
+}
+.log-message {
+    color: #e0e0e0;
+}

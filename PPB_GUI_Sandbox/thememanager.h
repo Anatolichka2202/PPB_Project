@@ -46,6 +46,7 @@ private:
 private:
     Theme m_theme;
     mutable QString m_cachedHtmlStyle; // кэш стиля для логов
+    QStringList getThemeStyleSheets(const QString &themeSubdir) const;
 };
 
 #endif // THEMEMANAGER_H

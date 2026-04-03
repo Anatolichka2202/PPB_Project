@@ -1,0 +1,50 @@
+/* dark/status.qss – стили для StatusWidget в тёмной теме */
+
+/* Все текстовые метки – светлые на тёмном фоне */
+StatusWidget QLabel {
+    color: #e0e0e0;
+    background-color: transparent;
+}
+
+/* Текстовые значения (цифры, единицы) – полужирные */
+StatusWidget QLabel[type="value"] {
+    font-weight: bold;
+    color: #e0e0e0;
+}
+
+/* Лампочки-индикаторы – круглые, фиксированного размера */
+StatusWidget QLabel[type="indicator"] {
+    border-radius: 10px;
+    min-width: 20px;
+    min-height: 20px;
+    max-width: 20px;
+    max-height: 20px;
+}
+
+/* Состояния индикаторов */
+StatusWidget QLabel[type="indicator"][state="ok"] {
+    background-color: #2ecc71; /* зелёный – норма */
+}
+StatusWidget QLabel[type="indicator"][state="warning"] {
+    background-color: #f39c12; /* оранжевый – предупреждение */
+}
+StatusWidget QLabel[type="indicator"][state="alarm"] {
+    background-color: #e74c3c; /* красный – авария */
+}
+StatusWidget QLabel[type="indicator"][state="unknown"] {
+    background-color: #7f8c8d; /* серый – нет данных */
+}
+
+/* Дополнительно: стили для groupBox, чтобы заголовки были видны */
+StatusWidget QGroupBox {
+    border: 1px solid #3a3a3a;
+    margin-top: 12px;
+    padding-top: 10px;
+}
+StatusWidget QGroupBox::title {
+    background-color: #1e1e1e;
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 5px;
+    color: #e0e0e0;
+}

@@ -136,6 +136,8 @@ private:
     void showPacketsTable(const QString& title, const QVector<DataPacket>& packets);
     int addressToIndex(uint16_t address) const;
 
+    void updateFirmware(uint16_t mask, const QString &hexFilePath, float newVersion);
+
     ICommunication* m_communication;
     PacketAnalyzerInterface* m_packetAnalyzer;
     QTimer* m_autoPollTimer;
@@ -161,6 +163,10 @@ private:
 
     QThread* m_scenarioThread = nullptr;
     bool m_scenarioRunning = false;
+
+    QVector<QByteArray> m_firmwarePayloads; // подготовленные VOLUME блоки
+    int m_firmwareTotalSize;                // общий размер в байтах
+    float m_firmwareVersion;                // версия новой прошивки
 };
 
 #endif // PPBCONTROLLERLIB_H

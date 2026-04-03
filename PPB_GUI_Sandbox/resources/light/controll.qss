@@ -1,0 +1,24 @@
+/* light/controll.qss */
+
+/* Чекбоксы внутри контроллера – синие */
+ControlWidget QCheckBox::indicator:checked {
+    background-color: #2980b9;
+    border-color: #2980b9;
+}
+
+/* Поля ввода мощности */
+ControlWidget QLineEdit {
+    background-color: #ffffff;
+    border: 1px solid #bdc3c7;
+    color: #2c3e50;
+}
+
+/* Кнопки */
+ControlWidget QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #ffffff, stop:1 #e0e0e0);
+}
+ControlWidget QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #f0f0f0, stop:1 #d0d0d0);
+}

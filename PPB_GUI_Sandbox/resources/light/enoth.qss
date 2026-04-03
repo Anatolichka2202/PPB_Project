@@ -1,0 +1,43 @@
+/* light/enoth.qss */
+
+/* Кнопки */
+AkipWidget QPushButton,
+FuWidget QPushButton,
+ScenarioWidget QPushButton,
+GeneratorPult QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #ffffff, stop:1 #e0e0e0);
+    border: 1px solid #bdc3c7;
+    border-radius: 6px;
+}
+AkipWidget QPushButton:hover,
+FuWidget QPushButton:hover,
+ScenarioWidget QPushButton:hover,
+GeneratorPult QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #f0f0f0, stop:1 #d0d0d0);
+}
+
+/* Чекбоксы – синий акцент */
+AkipWidget QCheckBox::indicator:checked,
+FuWidget QCheckBox::indicator:checked,
+GeneratorPult QCheckBox::indicator:checked {
+    background-color: #2980b9;
+    border-color: #2980b9;
+}
+
+/* Поля ввода */
+AkipWidget QLineEdit, AkipWidget QComboBox,
+FuWidget QLineEdit, FuWidget QComboBox,
+ScenarioWidget QLineEdit,
+GeneratorPult QLineEdit, GeneratorPult QComboBox {
+    background-color: #ffffff;
+    border: 1px solid #bdc3c7;
+    color: #2c3e50;
+}
+
+/* GroupBox */
+AkipWidget QGroupBox, FuWidget QGroupBox, ScenarioWidget QGroupBox, GeneratorPult QGroupBox {
+    border: 1px solid #bdc3c7;
+    margin-top: 10px;
+}

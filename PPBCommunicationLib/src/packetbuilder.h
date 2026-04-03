@@ -52,6 +52,11 @@ public:
     // Запрос отброшенных пакетов ФУ (DROP)
     static QByteArray createDroppedPacketsRequest(uint16_t address);
 
+    //перегрузка TURequest для VOLUME
+    static QByteArray createTURequestWithData(uint16_t address, TechCommand command,
+                                              const QByteArray& payload,
+                                              uint8_t period,
+                                              const uint8_t fuData[3]);
     // === ФУ КОМАНДЫ ===
 
     // ФУ передача (команда 0, период 0)

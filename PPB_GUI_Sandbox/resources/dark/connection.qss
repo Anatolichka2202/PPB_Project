@@ -1,0 +1,44 @@
+/* dark/connection.qss */
+
+/* Кнопка подключения – разные состояния */
+ConnectionWidget #pushButtonConnect[state="idle"] {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #27ae60, stop:1 #2ecc71);
+    border-color: #2ecc71;
+}
+ConnectionWidget #pushButtonConnect[state="ready"] {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #2c3e50, stop:1 #34495e);
+    border-color: #34495e;
+}
+ConnectionWidget #pushButtonConnect[state="busy"] {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #7f8c8d, stop:1 #95a5a6);
+    border-color: #95a5a6;
+}
+
+/* Кнопка выхода */
+ConnectionWidget #pushButtonExit {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #c0392b, stop:1 #e74c3c);
+    border-color: #e74c3c;
+}
+ConnectionWidget #pushButtonExit:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #e74c3c, stop:1 #c0392b);
+}
+
+/* Лампочка состояния бриджа – круглая, меняет цвет через свойство state */
+ConnectionWidget #labelConnectionStatus {
+    border-radius: 10px;
+    min-width: 20px;
+    min-height: 20px;
+    max-width: 20px;
+    max-height: 20px;
+}
+ConnectionWidget #labelConnectionStatus[state="on"] {
+    background-color: #2ecc71;
+}
+ConnectionWidget #labelConnectionStatus[state="off"] {
+    background-color: #e74c3c;
+}

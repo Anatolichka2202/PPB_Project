@@ -1,0 +1,44 @@
+/* light/gratten.qss */
+
+/* Кнопка включения/выключения выхода – зелёный/красный */
+GrattenControlWidget #botton_onof:!checked {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #c0392b, stop:1 #e74c3c);
+    border-color: #e74c3c;
+    color: white;
+}
+GrattenControlWidget #botton_onof:checked {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #27ae60, stop:1 #2ecc71);
+    border-color: #2ecc71;
+    color: white;
+}
+
+/* Лампочка состояния выхода */
+GrattenControlWidget #out_label {
+    border-radius: 10px;
+    min-width: 20px;
+    min-height: 20px;
+    max-width: 20px;
+    max-height: 20px;
+}
+GrattenControlWidget #out_label[state="on"] {
+    background-color: #2ecc71;
+}
+GrattenControlWidget #out_label[state="off"] {
+    background-color: #e74c3c;
+}
+
+/* Терминал */
+GrattenControlWidget #terminalEdit, GrattenControlWidget #cmdLineEdit {
+    background-color: #ffffff;
+    border: 1px solid #bdc3c7;
+    color: #2c3e50;
+    font-family: "Courier New", monospace;
+}
+
+/* Остальные кнопки */
+GrattenControlWidget QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #ffffff, stop:1 #e0e0e0);
+}

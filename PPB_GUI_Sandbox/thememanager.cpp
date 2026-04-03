@@ -13,7 +13,7 @@ ThemeManager& ThemeManager::instance()
 
 ThemeManager::ThemeManager(QObject *parent)
     : QObject(parent)
-    , m_theme(System)
+    , m_theme(Dark)
 {
     // Определяем системную тему и применяем её
     m_theme = detectSystemTheme();
@@ -34,35 +34,40 @@ void ThemeManager::setTheme(Theme theme)
     emit themeChanged(); // сигнал для обновления логов и других виджетов
 }
 
+QStringList ThemeManager::getThemeStyleSheets(const QString &themeSubdir) const
+{
+    QStringList sheets;
+    // Порядок важен: сначала общий base.qss, потом theme.qss, потом специфичные
+    sheets << loadStyleSheet(":/base.qss");
+    sheets << loadStyleSheet(QString(":/%1/theme.qss").arg(themeSubdir));
+    sheets << loadStyleSheet(QString(":/%1/connection.qss").arg(themeSubdir));
+    sheets << loadStyleSheet(QString(":/%1/controll.qss").arg(themeSubdir));
+    sheets << loadStyleSheet(QString(":/%1/gratten.qss").arg(themeSubdir));
+    sheets << loadStyleSheet(QString(":/%1/status.qss").arg(themeSubdir));
+    sheets << loadStyleSheet(QString(":/%1/enoth.qss").arg(themeSubdir));
+    return sheets;
+}
+
 void ThemeManager::applyQss()
 {
+    QString baseStyle = loadStyleSheet(":/base.qss");
+    QString themeSubdir = (m_theme == Dark) ? "dark" : "light";
+    QString themeStyle = loadStyleSheet(QString(":/%1/theme.qss").arg(themeSubdir));
+    QString connectionStyle = loadStyleSheet(QString(":/%1/connection.qss").arg(themeSubdir));
+    QString controllStyle = loadStyleSheet(QString(":/%1/controll.qss").arg(themeSubdir));
+    QString grattenStyle = loadStyleSheet(QString(":/%1/gratten.qss").arg(themeSubdir));
+    QString statusStyle = loadStyleSheet(QString(":/%1/status.qss").arg(themeSubdir));
+    QString enothStyle = loadStyleSheet(QString(":/%1/enoth.qss").arg(themeSubdir));
 
-    QString baseStyle = loadStyleSheet(":/themes/resources/base.qss");
-    qDebug() << "baseStyle loaded, size:" << baseStyle.size();
-
-    QString themeStyle;
-    switch (m_theme) {
-    case Dark:
-        themeStyle = loadStyleSheet(":/themes/resources/dark.qss");
-        break;
-    case Light:
-        themeStyle = loadStyleSheet(":/themes/resources/light.qss");
-        break;
-    case System:
-    default:
-        if (detectSystemTheme() == Dark)
-            themeStyle = loadStyleSheet(":/themes/resources/dark.qss");
-        else
-            themeStyle = loadStyleSheet(":/themes/resources/light.qss");
-        break;
-    }
-
-    QString fullStyle = baseStyle + "\n" + themeStyle;
-    qDebug() << "fullStyle size:" << fullStyle.size();
+    QString fullStyle = baseStyle + "\n" + themeStyle + "\n" +
+                        connectionStyle + "\n" + controllStyle + "\n" +
+                        grattenStyle + "\n" + statusStyle + "\n" + enothStyle;
     qApp->setStyleSheet(fullStyle);
 
-    // Для логов тоже с префиксом
-    m_cachedHtmlStyle = loadStyleSheet(":/themes/resources/logstyles.css");
+    // Для логов
+    QString logStylePath = (m_theme == Dark) ? ":/logstyle_dark.css" : ":/logstyle_light.css";
+    m_cachedHtmlStyle = loadStyleSheet(logStylePath);
+    emit themeChanged();
 }
 
 QString ThemeManager::getHtmlLogStyle() const

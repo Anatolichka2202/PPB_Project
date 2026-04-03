@@ -7,6 +7,9 @@
 #include "ds18b20.h"
 #include "scenarioengine.h"
 #include "../Analize_Module/packetanalyzer.h"
+
+#define CRC24_POLY  0x864CFB
+#define CRC24_INIT  0xB704CE
 static struct MetaTypeRegistrar {
     MetaTypeRegistrar() {
         qRegisterMetaType<PPBState>();
@@ -1187,4 +1190,105 @@ void PPBController::stopScenario()
     }
 }
 
+uint32_t Crc24(const uint8_t *data, uint32_t len)
+{
+    uint32_t crc= CRC24_INT;
+    for(uint32_t i = 0; i<len; i++)
+    {
+        crc ^= ((uint32_t)data[i],,16);
+        for(int bit = 0; bit<8; bit++){
+            crc <<=1;
+            if(crc & 0x01000000)
+            { crc^= CRC24_POLY}
+        }
+    }
+    return crc & 0x00FFFFFF;
+}
 
+void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFilePath, float newVersion)
+{
+    // 1. Подготовка данных
+    auto dataBlocks = FirmwareUpdater::parseHexToDataBlocks(hexFilePath);
+    if (dataBlocks.isEmpty()) {
+        emit errorOccurred("No data blocks extracted from HEX file");
+        return;
+    }
+    m_firmwarePayloads = FirmwareUpdater::buildVolumePayloads(dataBlocks);
+    m_firmwareTotalSize = dataBlocks.size() * 16;
+    m_firmwareVersion = newVersion;
+
+    // 2. Получение маски активных ППБ через IS_YOU (синхронно, таймаут 200 мс)
+    uint16_t activeMask = 0;
+    QEventLoop loop;
+    QTimer timeout;
+    timeout.setSingleShot(true);
+    timeout.start(PPBConstants::DATA_TIMEOUT_MS); // 200 мс
+
+    auto conn = connect(m_communication, &ICommunication::commandDataParsed,
+                        [&](uint16_t addr, const QVariant& data, TechCommand cmd) {
+                            if (cmd == TechCommand::IS_YOU && addr == 0) {
+                                activeMask = data.toMap()["mask"].toUInt();
+                                loop.quit();
+                            }
+                        });
+    connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+
+    m_communication->executeCommand(TechCommand::IS_YOU, 0);
+    loop.exec();
+
+    disconnect(conn);
+    timeout.stop();
+
+    if (activeMask == 0) {
+        emit errorOccurred("No active PPB found (IS_YOU timeout or empty mask)");
+        return;
+    }
+
+    // 3. Вычисляем маску для отправки (активные И выбранные)
+    uint16_t targetMask = activeMask & selectedMask;
+    if (targetMask == 0) {
+        emit errorOccurred("No selected PPB are active");
+        return;
+    }
+
+    LOG_UI_OPERATION(QString("Active mask: 0x%1, selected: 0x%2, target: 0x%3")
+                         .arg(activeMask, 4, 16, QChar('0'))
+                         .arg(selectedMask, 4, 16, QChar('0'))
+                         .arg(targetMask, 4, 16, QChar('0')));
+
+    // 4. Отправка VERS и PROGRAMM на целевую маску
+    m_communication->executeGroupCommand(TechCommand::VERS, targetMask);
+    m_communication->executeGroupCommand(TechCommand::PROGRAMM, targetMask);
+
+    // 5. VOLUME блоки (на адрес 0)
+    // Вычисляем CRC24 для всего файла (только для последнего блока)
+    uint32_t crc24 = 0;
+    // Собираем все данные в один массив для CRC
+    QByteArray allData;
+    for (const auto& block : dataBlocks) {
+        allData.append(block);
+    }
+    crc24 = Crc24(reinterpret_cast<const uint8_t*>(allData.constData()), allData.size());
+
+    for (int i = 0; i < m_firmwarePayloads.size(); ++i) {
+        uint8_t marker = (i == 0) ? 0x01 : (i == m_firmwarePayloads.size()-1 ? 0x03 : 0x02);
+        uint16_t sizeForHeader = (i == 0) ? static_cast<uint16_t>(m_firmwareTotalSize) : 0;
+        uint16_t crcForHeader = (i == m_firmwarePayloads.size()-1) ? static_cast<uint16_t>(crc24 & 0xFFFF) : 0;
+        // CRC24 у нас 24 бита, в заголовке только 16 бит (fu_data[0..1]), поэтому берём младшие 16 бит.
+        // Если нужно полное 24 бита, придётся использовать ещё и fu_period? Пока так.
+
+        VolumeCommand::setCurrentVolumeData(m_firmwarePayloads[i], marker, sizeForHeader, crcForHeader);
+        m_communication->executeCommand(TechCommand::VOLUME, 0);
+        // Данные сбросятся в onOkReceived
+    }
+
+    // 6. CLEAN с версией
+    uint32_t versionCode = static_cast<uint32_t>(m_firmwareVersion * 100);
+    QByteArray versionBytes;
+    versionBytes.append(static_cast<char>((versionCode >> 24) & 0xFF));
+    versionBytes.append(static_cast<char>((versionCode >> 16) & 0xFF));
+    versionBytes.append(static_cast<char>((versionCode >> 8) & 0xFF));
+    versionBytes.append(static_cast<char>(versionCode & 0xFF));
+    CleanCommand::setCurrentVersion(versionBytes);
+    m_communication->executeGroupCommand(TechCommand::CLEAN, targetMask);
+}

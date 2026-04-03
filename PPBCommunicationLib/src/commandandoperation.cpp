@@ -431,23 +431,87 @@ void PRBS_S2MCommand::onDataReceived(CommandInterface* comm, const QVector<QByte
 }
 
 // VOLUME
-QByteArray VolumeCommand::buildRequest(uint16_t address) const
-{
-    QVector<DataPacket> programPackets;
-    for (int i = 0; i < 256; ++i) {
-        DataPacket packet;
-        packet.data[0] = i & 0xFF;
-        packet.data[1] = (i >> 8) & 0xFF;
-        programPackets.append(packet);
-    }
-    QByteArray payload = PacketBuilder::buildPayloadFromPackets(programPackets);
-    return PacketBuilder::createTURequestWithData(address, TechCommand::VOLUME, payload);
+QByteArray VolumeCommand::s_currentPayload;
+uint8_t VolumeCommand::s_currentMarker = 0;
+uint16_t VolumeCommand::s_currentTotalSize = 0;
+uint16_t VolumeCommand::s_currentCrc = 0;
+bool VolumeCommand::s_useCustomData = false;
+
+void VolumeCommand::setCurrentVolumeData(const QByteArray& payload, uint8_t marker, uint16_t totalSize, uint16_t crc) {
+    s_currentPayload = payload;
+    s_currentMarker = marker;
+    s_currentTotalSize = totalSize;
+    s_currentCrc = crc;
+    s_useCustomData = true;
 }
 
-void VolumeCommand::onOkReceived(CommandInterface* comm, uint16_t address) const
-{
-    Q_UNUSED(address)
-    comm->completeCurrentOperation(true, "Том ПО отправлен");
+void VolumeCommand::clearCurrentVolumeData() {
+    s_currentPayload.clear();
+    s_currentMarker = 0;
+    s_currentTotalSize = 0;
+    s_currentCrc = 0;
+    s_useCustomData = false;
+}
+
+QByteArray VolumeCommand::buildRequest(uint16_t address) const {
+    if (!s_useCustomData) {
+
+        // Лучше вернуть пустой запрос или залогировать.
+        LOG_ERROR(LogCategory::GENERAL, "VolumeCommand called without  data");
+        return QByteArray();
+    }
+    uint8_t fuData[3] = {0};
+    if (s_currentTotalSize != 0) {
+        // totalSize – 1 байт (0-255)
+        fuData[0] = static_cast<uint8_t>(s_currentTotalSize & 0xFF);
+        // fuData[1] и fuData[2] = 0
+    } else if (s_currentCrc != 0) {
+        fuData[0] = (s_currentCrc >> 8) & 0xFF;
+        fuData[1] = s_currentCrc & 0xFF;
+        // fuData[2] = 0 (можно использовать для младшего байта CRC, если CRC 16 бит – тогда задействовать fuData[2])
+    }
+    return PacketBuilder::createTURequestWithData(address, TechCommand::VOLUME, s_currentPayload, s_currentMarker, fuData);
+}
+
+void VolumeCommand::onOkReceived(CommandInterface* comm, uint16_t address) const {
+    // После отправки сбрасываем данные, чтобы не повлиять на следующие вызовы
+    clearCurrentVolumeData();
+    comm->completeCurrentOperation(true, "VOLUME block sent");
+}
+
+//====================CLEAN=======================
+QByteArray CleanCommand::s_currentVersion;
+bool CleanCommand::s_useCustomVersion = false;
+
+void CleanCommand::setCurrentVersion(const QByteArray& version) {
+    s_currentVersion = version;
+    s_useCustomVersion = true;
+}
+
+void CleanCommand::clearCurrentVersion() {
+    s_currentVersion.clear();
+    s_useCustomVersion = false;
+}
+
+QByteArray CleanCommand::buildRequest(uint16_t address) const {
+    if (s_useCustomVersion && s_currentVersion.size() >= 4) {
+        // version – 4 байта: распределяем в fu_period (1 байт) + fu_data (3 байта)
+        uint8_t period = static_cast<uint8_t>(s_currentVersion[0]);
+        uint8_t fuData[3] = {
+            static_cast<uint8_t>(s_currentVersion[1]),
+            static_cast<uint8_t>(s_currentVersion[2]),
+            static_cast<uint8_t>(s_currentVersion[3])
+        };
+        return PacketBuilder::createTURequestWithData(address, TechCommand::CLEAN, QByteArray(), period, fuData);
+    } else {
+        // Без версии – нулевой заголовок
+        return PacketBuilder::createTURequest(address, TechCommand::CLEAN);
+    }
+}
+
+void CleanCommand::onOkReceived(CommandInterface* comm, uint16_t address) const {
+    clearCurrentVersion();
+    comm->completeCurrentOperation(true, "CLEAN sent");
 }
 
 // ++++++++Factory_Number+++++++++++
@@ -461,9 +525,7 @@ bool Factory_Number::parseResponseData(const QVector<QByteArray>& data,
     }
 
     const QByteArray& packet = data.first();
-    // Предположим, что данные – это просто строка или число.
-    // Здесь нужно распарсить согласно протоколу.
-    // Например, если это 2 байта:
+
     if (packet.size() < 2) {
         outMessage = "Недостаточно данных";
         return false;

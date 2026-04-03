@@ -157,3 +157,15 @@ QByteArray PacketBuilder::createBaseRequest(uint16_t address, uint8_t command,
 
     return QByteArray(reinterpret_cast<const char*>(&req), sizeof(req));
 }
+
+//реализация перегрузки
+QByteArray PacketBuilder::createTURequestWithData(uint16_t address, TechCommand command,
+                                                  const QByteArray& payload,
+                                                  uint8_t period,
+                                                  const uint8_t fuData[3])
+{
+    QByteArray request = createBaseRequest(address, static_cast<uint8_t>(command),
+                                           Sign::TU, period, fuData);
+    request.append(payload);
+    return request;
+}

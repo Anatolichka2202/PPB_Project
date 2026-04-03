@@ -10,10 +10,10 @@
 #include <QTimer>
 
 namespace PPBConstants {
-constexpr int OPERATION_TIMEOUT_MS = 800;    // Таймаут операции 5 сек
-constexpr int PACKET_TIMEOUT_MS = 1000;       // Таймаут между пакетами 1 сек
+constexpr int OPERATION_TIMEOUT_MS = 200;    // Таймаут операции 5 сек
+constexpr int PACKET_TIMEOUT_MS = 10;       // Таймаут между пакетами 1 сек
 constexpr int TEST_PACKET_COUNT = 512;        // 512 тестовых пакетов
-constexpr int PACKET_INTERVAL_MS = 100;       // Интервал 10 Гц = 100 мс
+constexpr int PACKET_INTERVAL_MS = 100;       // Интервал 10 Гц = 100 мс - очередь
 constexpr int BER_RESPONSE = 1;               // 1 пакета ответа на БЕР_Т/Ф
 constexpr int STATUS_RESPONSE =1;             // 1 пакетов статуса
 constexpr int VERS_RESPONSE = 1;               //1 пакеты версии
@@ -138,11 +138,22 @@ public:
     bool parseResponseData(const QVector<QByteArray>& data, QString& outMessage, QVariant& outParsedData) const override;
 };
 
-// VOLUME команда с переопределенным onOkReceived
+// VOLUME команда с переопределенным onOkReceived и статическими методами
 class VolumeCommand : public ConcretePPBCommand<TechCommand::VOLUME, 0> {
 public:
     void onOkReceived(CommandInterface* comm, uint16_t address) const override;
-    QByteArray buildRequest (uint16_t address)  const override;
+    QByteArray buildRequest(uint16_t address) const override;
+
+    // Статические методы для установки данных перед вызовом
+    static void setCurrentVolumeData(const QByteArray& payload, uint8_t marker, uint16_t totalSize, uint16_t crc = 0);
+    static void clearCurrentVolumeData();
+
+private:
+    static QByteArray s_currentPayload;
+    static uint8_t s_currentMarker;
+    static uint16_t s_currentTotalSize;
+    static uint16_t s_currentCrc;
+    static bool s_useCustomData;
 };
 
 // CHECKSUM команда с переопределенным onDataReceived
@@ -152,9 +163,22 @@ public:
     bool parseResponseData(const QVector<QByteArray>& data, QString& outMessage, QVariant& outParsedData) const override;
 };
 
+//CLEAN переопределяем header
+class CleanCommand : public ConcretePPBCommand<TechCommand::CLEAN, 0> {
+public:
+    void onOkReceived(CommandInterface* comm, uint16_t address) const override;
+    QByteArray buildRequest(uint16_t address) const override;
+
+    static void setCurrentVersion(const QByteArray& version); // version – 4 байта
+    static void clearCurrentVersion();
+
+private:
+    static QByteArray s_currentVersion;
+    static bool s_useCustomVersion;
+};
+
 // Остальные команды (используют реализацию по умолчанию)
 using ProgrammCommand = ConcretePPBCommand<TechCommand::PROGRAMM, 0>;
-using CleanCommand = ConcretePPBCommand<TechCommand::CLEAN, 0>;
 
 // DROP команда с переопределенным onDataReceived
 class DROPCommand : public ConcretePPBCommand<TechCommand::DROP, 0> {

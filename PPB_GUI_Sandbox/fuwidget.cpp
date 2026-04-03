@@ -67,7 +67,16 @@ void FuWidget::on_fuBtnSent_clicked()
 
     bool transmit = ui->radioButtonFUTransmit->isChecked();
     //dur - период, duty - скважность
-    float delay = (dur/static_cast<float> (duty)) * 100; // считаем общую длинну в единце и нуло (вместе с дробью)
+    float delay = (dur/static_cast<float> (duty)) * 100; // считаем общую длинну в единце и нуле (вместе с дробью)
+    delay -= dur; // длинна в нуле
+    if(delay >= 65536)
+    {
+        QMessageBox::warning(this, "Ошибка",(QString("Значение периода нуля слишком большое = %1")
+                                                  .arg(delay)));
+        LOG_UI_ALERT(QString("Значение периода нуля слишком большое = %1")
+                         .arg(delay));
+        return;
+    }
     int delay_int = static_cast<int>(delay);  // целая часть общей длинны
     delay -= delay_int; // дробная часть общей длинны
 

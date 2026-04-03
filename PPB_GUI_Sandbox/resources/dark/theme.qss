@@ -1,0 +1,116 @@
+/* dark/theme.qss – глобальные стили для тёмной темы */
+
+/* Основные цвета */
+QWidget {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+}
+
+/* Кнопки – с градиентом и лёгкой тенью (имитация объёма) */
+QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #2d2d2d, stop:1 #1e1e1e);
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+    padding: 6px 12px;
+}
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #3a3a3a, stop:1 #2d2d2d);
+}
+QPushButton:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #1e1e1e, stop:1 #2d2d2d);
+}
+QPushButton:checked {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #f39c12, stop:1 #d35400);
+    border-color: #f39c12;
+}
+
+/* Поля ввода */
+QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QSpinBox, QDoubleSpinBox {
+    background-color: #2d2d2d;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    padding: 4px;
+    color: #e0e0e0;
+}
+QComboBox::drop-down {
+    border: none;
+}
+
+/* Чекбоксы и радиокнопки – оранжевый акцент */
+QCheckBox, QRadioButton {
+    color: #e0e0e0;
+}
+QCheckBox::indicator, QRadioButton::indicator {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 1px solid #6c6c6c;
+    background-color: #2d2d2d;
+}
+QCheckBox::indicator:checked, QRadioButton::indicator:checked {
+    background-color: #f39c12;
+    border-color: #f39c12;
+}
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {
+    background-color: #3a3a3a;
+}
+
+/* GroupBox */
+QGroupBox {
+    border: 1px solid #3a3a3a;
+    border-radius: 5px;
+    margin-top: 10px;
+    padding-top: 10px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 5px;
+    background-color: #1e1e1e;
+}
+
+/* Вкладки */
+QTabBar::tab {
+    background-color: #2d2d2d;
+    color: #e0e0e0;
+    padding: 6px 12px;
+    margin: 2px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border: 1px solid #3a3a3a;
+    border-bottom: none;
+}
+QTabBar::tab:selected {
+    background-color: #3a3a3a;
+    color: #ffffff;
+}
+QTabBar::tab:hover:!selected {
+    background-color: #3a3a3a;
+}
+QTabWidget::pane {
+    border: 1px solid #3a3a3a;
+    background-color: #1e1e1e;
+}
+
+/* Полосы прокрутки */
+QScrollBar:vertical {
+    background: #2d2d2d;
+    width: 12px;
+}
+QScrollBar::handle:vertical {
+    background: #5a5a5a;
+    border-radius: 6px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #6a6a6a;
+}
+
+/* Строка состояния */
+QStatusBar {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+}

@@ -1,0 +1,24 @@
+/* dark/status.qss */
+
+/* Общие стили для всех лампочек-индикаторов (круглые, размер 20x20) */
+StatusWidget QLabel {
+    border-radius: 10px;
+    min-width: 20px;
+    min-height: 20px;
+    max-width: 20px;
+    max-height: 20px;
+}
+
+/* Состояния для разных лампочек – через свойство "state" */
+StatusWidget QLabel[state="ok"] {
+    background-color: #2ecc71;
+}
+StatusWidget QLabel[state="alarm"] {
+    background-color: #e74c3c;
+}
+StatusWidget QLabel[state="warning"] {
+    background-color: #f39c12;
+}
+StatusWidget QLabel[state="unknown"] {
+    background-color: #7f8c8d;
+}

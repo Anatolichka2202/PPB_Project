@@ -7,9 +7,10 @@
 #include "ds18b20.h"
 #include "scenarioengine.h"
 #include "../Analize_Module/packetanalyzer.h"
+#include "firmwareupdater.h"
+#include "../PPBCommunicationLib/src/commandandoperation.h"
 
-#define CRC24_POLY  0x864CFB
-#define CRC24_INIT  0xB704CE
+
 static struct MetaTypeRegistrar {
     MetaTypeRegistrar() {
         qRegisterMetaType<PPBState>();
@@ -300,11 +301,13 @@ void PPBController::requestVersion(uint16_t address)
     }
 }
 
-void PPBController::requestVolume(uint16_t address)
+void PPBController::requestVolume(uint16_t address, const QString& hexFilePath, float newVersion)
 {
+
     if (m_communication) {
-        m_communication->executeCommand(TechCommand::VOLUME, address);
-        LOG_UI_OPERATION(QString("Запрос тома ПО ППБ %1").arg(address));
+        updateFirmware(address, hexFilePath, newVersion);
+        //m_communication->executeCommand(TechCommand::VOLUME, address);
+        LOG_UI_OPERATION(QString("Отправка тома ПО ППБ %1").arg(address));
     }
 }
 
@@ -1190,16 +1193,20 @@ void PPBController::stopScenario()
     }
 }
 
+
+#define CRC24_POLY  0x864CFB
+#define CRC24_INIT  0xB704CE
+
 uint32_t Crc24(const uint8_t *data, uint32_t len)
 {
-    uint32_t crc= CRC24_INT;
+    uint32_t crc= CRC24_INIT;
     for(uint32_t i = 0; i<len; i++)
     {
-        crc ^= ((uint32_t)data[i],,16);
+        crc ^= ((uint32_t)data[i]<<16);
         for(int bit = 0; bit<8; bit++){
             crc <<=1;
             if(crc & 0x01000000)
-            { crc^= CRC24_POLY}
+            { crc^= CRC24_POLY;}
         }
     }
     return crc & 0x00FFFFFF;
@@ -1236,7 +1243,7 @@ void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFile
     m_communication->executeCommand(TechCommand::IS_YOU, 0);
     loop.exec();
 
-    disconnect(conn);
+    QObject::disconnect(conn);
     timeout.stop();
 
     if (activeMask == 0) {

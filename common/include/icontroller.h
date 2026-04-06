@@ -35,7 +35,6 @@ public:
 
     // === Информационные команды ===
     virtual void requestVersion(uint16_t address) = 0;
-    virtual void requestVolume(uint16_t address) = 0;
     virtual void requestChecksum(uint16_t address) = 0;
     virtual void sendProgram(uint16_t address) = 0;
     virtual void sendClean(uint16_t address) = 0;
@@ -43,6 +42,10 @@ public:
     virtual void requestBER_T(uint16_t address) = 0;
     virtual void requestBER_F(uint16_t address) = 0;
     virtual void requestFabricNumber(uint16_t address) = 0;
+
+    //команда прошивк
+    virtual void requestVolume(uint16_t address, const QString& hexFilePath, float newVersion) = 0;
+
 
     // === Анализ пакетов ===
     virtual void analize() = 0;

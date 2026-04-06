@@ -10,7 +10,7 @@
 #include <QTimer>
 
 namespace PPBConstants {
-constexpr int OPERATION_TIMEOUT_MS = 200;    // Таймаут операции 5 сек
+constexpr int OPERATION_TIMEOUT_MS = 200;    // Таймаут операции 2 сек
 constexpr int PACKET_TIMEOUT_MS = 10;       // Таймаут между пакетами 1 сек
 constexpr int TEST_PACKET_COUNT = 512;        // 512 тестовых пакетов
 constexpr int PACKET_INTERVAL_MS = 100;       // Интервал 10 Гц = 100 мс - очередь

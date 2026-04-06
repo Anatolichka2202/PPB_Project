@@ -32,7 +32,7 @@ public:
 
     // === Информационные команды ===
     void requestVersion(uint16_t address) override;
-    void requestVolume(uint16_t address) override;
+    void requestVolume(uint16_t address, const QString& hexFilePath, float newVersion) override;
     void requestChecksum(uint16_t address) override;
     void sendProgram(uint16_t address) override;
     void sendClean(uint16_t address) override;
@@ -90,6 +90,9 @@ public:
 
     void runFullTest(uint16_t address) override;
 
+    void updateFirmware(uint16_t mask, const QString &hexFilePath, float newVersion);
+
+
     //++++++++Сценарии++++++++++++++++++++++++++++++++
     Q_INVOKABLE void loadScenario(const QString &fileName);
     Q_INVOKABLE void runScenario();
@@ -136,7 +139,6 @@ private:
     void showPacketsTable(const QString& title, const QVector<DataPacket>& packets);
     int addressToIndex(uint16_t address) const;
 
-    void updateFirmware(uint16_t mask, const QString &hexFilePath, float newVersion);
 
     ICommunication* m_communication;
     PacketAnalyzerInterface* m_packetAnalyzer;

@@ -4,6 +4,10 @@
 #include "dependencies.h"
 #include <QTimer>
 #include <QValidator>
+#include <QFile>
+#include <QFileDialog>
+#include <QInputDialog>
+#include "../PPBControllerLib/include/controller_dependencies.h"
 pult::pult(uint16_t address, PPBController* controller, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::pult)
@@ -125,8 +129,19 @@ void pult::on_VERSComand_clicked()
 
 void pult::on_VolumeComand_clicked()
 {
-    if (m_controller)
-        m_controller->requestVolume(m_address);
+    if (!m_controller) return;
+
+    QString filePath = QFileDialog::getOpenFileName(this, "Выберите HEX-файл прошивки", "",
+                                                    "HEX Files (*.hex *.ihx);;All Files (*)");
+    if (filePath.isEmpty()) return;
+
+    bool ok;
+    double version = QInputDialog::getDouble(this, "Версия прошивки",
+                                             "Введите новую версию (например, 1.23):",
+                                             1.0, 0.0, 999.99, 2, &ok);
+    if (!ok) return;
+
+    m_controller->requestVolume(m_address, filePath, static_cast<float>(version));
 }
 
 void pult::on_ChecksumCommand_clicked()

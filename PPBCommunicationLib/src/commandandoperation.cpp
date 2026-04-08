@@ -22,6 +22,7 @@ std::unique_ptr<PPBCommand> CommandFactory::create(TechCommand cmd) {
     case TechCommand::BER_F: return std::make_unique<BER_FCommand>();
     case TechCommand::Factory_Number: return std::make_unique<Factory_Number>();
     case TechCommand::IS_YOU: return std::make_unique<IsYouCommand>();
+    case TechCommand::UPDATE: return std::make_unique<UPDATE>();
     default: return nullptr;
     }
 }
@@ -41,7 +42,8 @@ QString CommandFactory::commandName(TechCommand cmd) {
                                                      {TechCommand::BER_T, "Коэффициент ошибок линии ТУ"},
                                                      {TechCommand::BER_F, "Коэффициент ошибок линии ФУ"},
                                                      { TechCommand::Factory_Number, "Выдать заводской номер устройства (0x1F)" },
-                                                     {TechCommand::IS_YOU, "Проверка доступных ППБ(0x20)"}
+                                                     {TechCommand::IS_YOU, "Проверка доступных ППБ(0x20)"},
+                                                     {TechCommand::UPDATE, "Обновить прошивку и выйти из бутлодера(0x7e)"}
                                                      };
     return names.value(cmd, "Неизвестная команда");
 }
@@ -58,7 +60,7 @@ bool StatusCommand::parseResponseData(const QVector<QByteArray>& data,
     }
 
     const QByteArray& payload = data.first(); // весь UDP-пакет (заголовок уже отброшен)
-    if (payload.size() < 3) {
+    if (payload.size() < 4) {
         outMessage = "Ошибка: недостаточно данных (нет маски)";
         return false;
     }
@@ -434,14 +436,15 @@ void PRBS_S2MCommand::onDataReceived(CommandInterface* comm, const QVector<QByte
 QByteArray VolumeCommand::s_currentPayload;
 uint8_t VolumeCommand::s_currentMarker = 0;
 uint16_t VolumeCommand::s_currentTotalSize = 0;
-uint16_t VolumeCommand::s_currentCrc = 0;
+uint32_t VolumeCommand::s_currentCrc = 0;
 bool VolumeCommand::s_useCustomData = false;
 
-void VolumeCommand::setCurrentVolumeData(const QByteArray& payload, uint8_t marker, uint16_t totalSize, uint16_t crc) {
+void VolumeCommand::setCurrentVolumeData(const QByteArray& payload, uint8_t marker, uint16_t totalSize, uint8_t *data) {
     s_currentPayload = payload;
     s_currentMarker = marker;
     s_currentTotalSize = totalSize;
-    s_currentCrc = crc;
+
+    s_currentCrc = ((static_cast<uint32_t> (data[0]) ) << 16) | ((static_cast<uint32_t>(data[1]) )<< 8) | data[2];
     s_useCustomData = true;
 }
 
@@ -453,32 +456,42 @@ void VolumeCommand::clearCurrentVolumeData() {
     s_useCustomData = false;
 }
 
-QByteArray VolumeCommand::buildRequest(uint16_t address) const {
-    if (!s_useCustomData) {
+QByteArray VolumeCommand::buildRequest(uint16_t address) const
+{
+    if (!s_useCustomData) return {};
 
-        // Лучше вернуть пустой запрос или залогировать.
-        LOG_ERROR(LogCategory::GENERAL, "VolumeCommand called without  data");
-        return QByteArray();
-    }
     uint8_t fuData[3] = {0};
-    if (s_currentTotalSize != 0) {
-        // totalSize – 1 байт (0-255)
-        fuData[0] = static_cast<uint8_t>(s_currentTotalSize & 0xFF);
-        // fuData[1] и fuData[2] = 0
-    } else if (s_currentCrc != 0) {
-        fuData[0] = (s_currentCrc >> 8) & 0xFF;
-        fuData[1] = s_currentCrc & 0xFF;
-        // fuData[2] = 0 (можно использовать для младшего байта CRC, если CRC 16 бит – тогда задействовать fuData[2])
+    if (s_currentMarker == 0x01) {
+        // первое сообщение: передаём totalSize (2 байта)
+        fuData[0] = (s_currentTotalSize >> 8) & 0xFF;
+        fuData[1] = s_currentTotalSize & 0xFF;
+        fuData[2] = 0; // не используется
     }
-    return PacketBuilder::createTURequestWithData(address, TechCommand::VOLUME, s_currentPayload, s_currentMarker, fuData);
+    else if (s_currentMarker == 0x03) {
+        // последнее сообщение: передаём CRC24 (3 байта)
+        fuData[0] = (s_currentCrc >> 16) & 0xFF;
+        fuData[1] = (s_currentCrc >> 8) & 0xFF;
+        fuData[2] = s_currentCrc & 0xFF;
+    }
+    // для маркера 0x02 fuData остаётся нулевым
+
+    QByteArray packet = PacketBuilder::createTURequestWithData(address, TechCommand::VOLUME, s_currentPayload, s_currentMarker, fuData);
+
+    // Отладочный вывод: сырые данные пакета
+    LOG_TECH_DEBUG(QString("VOLUME packet: size=%1, marker=%2, totalSize=%3, crc=%4")
+                       .arg(packet.size()).arg(s_currentMarker).arg(s_currentTotalSize).arg(s_currentCrc));
+    LOG_TECH_DEBUG("HEX: " + packet.toHex(' '));
+    LOG_TECH_DEBUG("Payload HEX: " + s_currentPayload.toHex(' '));
+
+    return packet;
 }
 
-void VolumeCommand::onOkReceived(CommandInterface* comm, uint16_t address) const {
-    // После отправки сбрасываем данные, чтобы не повлиять на следующие вызовы
+void VolumeCommand::onOkReceived(CommandInterface* comm, uint16_t address) const
+{
+    LOG_TECH_DEBUG(QString("VOLUME block sent successfully, address=0x%1").arg(address,4,16,QChar('0')));
     clearCurrentVolumeData();
     comm->completeCurrentOperation(true, "VOLUME block sent");
 }
-
 //====================CLEAN=======================
 QByteArray CleanCommand::s_currentVersion;
 bool CleanCommand::s_useCustomVersion = false;

@@ -261,4 +261,7 @@ void CommunicationFacade::setBridgeAddress(const QString &ip, quint16 port)
     invokeInThread([this, ip, port]() { m_engine->setBridgeAddress(ip, port); });
 }
 
-
+void CommunicationFacade::clearCommandQueue(uint16_t address)
+{
+    invokeInThread([this, address]() { m_engine->clearCommandQueue(address); });
+}

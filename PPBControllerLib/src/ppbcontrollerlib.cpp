@@ -9,7 +9,7 @@
 #include "../Analize_Module/packetanalyzer.h"
 #include "firmwareupdater.h"
 #include "../PPBCommunicationLib/src/commandandoperation.h"
-
+#include <QDebug>
 
 static struct MetaTypeRegistrar {
     MetaTypeRegistrar() {
@@ -1019,6 +1019,7 @@ QString PPBController::commandToName(TechCommand command) const
                                                {TechCommand::BER_F, "BER ФУ"},
                                                {TechCommand::IS_YOU, "Прозвон сети"},
                                                {TechCommand::Factory_Number, "Заводской номер"},
+                                               {TechCommand::UPDATE, "Пременить обновления и выйти из бутлодера"}
                                                };
     return names.value(command, "Неизвестная команда");
 }
@@ -1140,25 +1141,31 @@ void PPBController::runFullTest(uint16_t address)
 
 void PPBController::loadScenario(const QString &fileName)
 {
-    m_scenarioFileName = fileName;
-
-    if (!m_scenarioThread->isRunning()) {
-        m_scenarioThread->start();
+    // 1. Остановить текущий сценарий, если он выполняется
+    if (m_scenarioEngine && m_scenarioThread->isRunning()) {
+        // Отправить сигнал остановки и дождаться
+        QEventLoop loop;
+        connect(m_scenarioEngine.get(), &ScenarioEngine::finished, &loop, &QEventLoop::quit);
+        QMetaObject::invokeMethod(m_scenarioEngine.get(), "stop", Qt::QueuedConnection);
+        loop.exec(); // ждём завершения
     }
 
-    // Удаляем старый движок, если есть
+    // 2. Удалить старый движок (синхронно, в его потоке)
     if (m_scenarioEngine) {
-        // Отключаем сигналы, чтобы не было дублирования
+        // Отключаем сигналы
         QObject::disconnect(m_scenarioEngine.get(), nullptr, this, nullptr);
-        m_scenarioEngine->deleteLater(); // удалится в своём потоке
-        m_scenarioEngine.release(); // отпускаем умный указатель, deleteLater уже вызван
+        // Перемещаем обратно в главный поток для удаления (или удаляем через deleteLater, но с ожиданием)
+        m_scenarioEngine->moveToThread(this->thread());
+        m_scenarioEngine->deleteLater();
+        QCoreApplication::processEvents(); // обработать удаление
+        m_scenarioEngine.release();
     }
 
-    // Создаём новый движок
+    // 3. Создать новый движок
     m_scenarioEngine = std::make_unique<ScenarioEngine>(this);
     m_scenarioEngine->moveToThread(m_scenarioThread);
 
-    // Подключаем сигналы
+    // 4. Подключить сигналы
     connect(m_scenarioEngine.get(), &ScenarioEngine::logMessage,
             this, &PPBController::scenarioLog);
     connect(m_scenarioEngine.get(), &ScenarioEngine::errorOccurred,
@@ -1166,7 +1173,8 @@ void PPBController::loadScenario(const QString &fileName)
     connect(m_scenarioEngine.get(), &ScenarioEngine::finished,
             this, &PPBController::scenarioFinished);
 
-    // Загружаем скрипт (синхронно, в текущем потоке – это безопасно)
+    // 5. Загрузить скрипт
+    m_scenarioFileName = fileName;
     if (!m_scenarioEngine->loadScript(fileName)) {
         m_scenarioFileName.clear();
     }
@@ -1212,90 +1220,204 @@ uint32_t Crc24(const uint8_t *data, uint32_t len)
     return crc & 0x00FFFFFF;
 }
 
+bool PPBController::waitForGroupCommand(quint64 groupId, int timeoutMs)
+{
+    QEventLoop loop;
+    QTimer timer;
+    timer.setSingleShot(true);
+    bool allSuccess = false;
+    QString summary;
+
+    auto conn = connect(m_communication, &ICommunication::groupCommandCompleted,
+                        [&](quint64 id, bool success, const QString& msg) {
+                            if (id == groupId) {
+                                allSuccess = success;
+                                summary = msg;
+                                loop.quit();
+                            }
+                        });
+
+    connect(&timer, &QTimer::timeout, &loop, [&]() {
+        allSuccess = false;
+        summary = "Group command timeout";
+        loop.quit();
+    });
+
+    timer.start(timeoutMs);
+    loop.exec();
+
+    QObject::disconnect(conn);
+    if (!allSuccess) {
+        LOG_UI_ALERT("Group command failed: " + summary);
+        // Очищаем очередь команд для адреса 0 и всех ППБ, чтобы прервать операцию
+        m_communication->clearCommandQueue(0);
+        for (int i = 0; i < 16; ++i) {
+            //if (targetMask & (1 << i))
+                m_communication->clearCommandQueue(1 << i);
+        }
+    }
+    return allSuccess;
+}
+
 void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFilePath, float newVersion)
 {
-    // 1. Подготовка данных
+    // 1. Подготовка данных (без изменений)
     auto dataBlocks = FirmwareUpdater::parseHexToDataBlocks(hexFilePath);
     if (dataBlocks.isEmpty()) {
         emit errorOccurred("No data blocks extracted from HEX file");
         return;
     }
-    m_firmwarePayloads = FirmwareUpdater::buildVolumePayloads(dataBlocks);
-    m_firmwareTotalSize = dataBlocks.size() * 16;
-    m_firmwareVersion = newVersion;
-
-    // 2. Получение маски активных ППБ через IS_YOU (синхронно, таймаут 200 мс)
-    uint16_t activeMask = 0;
-    QEventLoop loop;
-    QTimer timeout;
-    timeout.setSingleShot(true);
-    timeout.start(PPBConstants::DATA_TIMEOUT_MS); // 200 мс
-
-    auto conn = connect(m_communication, &ICommunication::commandDataParsed,
-                        [&](uint16_t addr, const QVariant& data, TechCommand cmd) {
-                            if (cmd == TechCommand::IS_YOU && addr == 0) {
-                                activeMask = data.toMap()["mask"].toUInt();
-                                loop.quit();
-                            }
-                        });
-    connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
-
-    m_communication->executeCommand(TechCommand::IS_YOU, 0);
-    loop.exec();
-
-    QObject::disconnect(conn);
-    timeout.stop();
-
-    if (activeMask == 0) {
-        emit errorOccurred("No active PPB found (IS_YOU timeout or empty mask)");
+    auto payloads = FirmwareUpdater::buildVolumePayloads(dataBlocks);
+    int totalBlocks = payloads.size();
+    if (totalBlocks == 0) {
+        emit errorOccurred("No VOLUME blocks to send");
         return;
     }
 
-    // 3. Вычисляем маску для отправки (активные И выбранные)
+    // Вычисляем CRC24 для всего файла
+    QByteArray allData;
+    for (const auto& block : dataBlocks) allData.append(block);
+    uint32_t crc24 = Crc24(reinterpret_cast<const uint8_t*>(allData.constData()), allData.size());
+
+    // 2. Получаем маску активных ППБ
+    uint16_t activeMask = 0;
+    {
+        QEventLoop loop;
+        QTimer timeout;
+        timeout.setSingleShot(true);
+        timeout.start(PPBConstants::DATA_TIMEOUT_MS);
+        auto conn = connect(m_communication, &ICommunication::commandDataParsed,
+                            [&](uint16_t addr, const QVariant& data, TechCommand cmd) {
+                                if (cmd == TechCommand::IS_YOU && addr == 0) {
+                                    activeMask = data.toMap()["mask"].toUInt();
+                                    loop.quit();
+                                }
+                            });
+        connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+        m_communication->executeCommand(TechCommand::IS_YOU, 0);
+        loop.exec();
+        QObject::disconnect(conn);
+        if (activeMask == 0) {
+            emit errorOccurred("No active PPB found (IS_YOU timeout or empty mask)");
+            return;
+        }
+    }
+
     uint16_t targetMask = activeMask & selectedMask;
     if (targetMask == 0) {
         emit errorOccurred("No selected PPB are active");
         return;
     }
-
     LOG_UI_OPERATION(QString("Active mask: 0x%1, selected: 0x%2, target: 0x%3")
-                         .arg(activeMask, 4, 16, QChar('0'))
-                         .arg(selectedMask, 4, 16, QChar('0'))
-                         .arg(targetMask, 4, 16, QChar('0')));
+                         .arg(activeMask,4,16,QChar('0'))
+                         .arg(selectedMask,4,16,QChar('0'))
+                         .arg(targetMask,4,16,QChar('0')));
 
-    // 4. Отправка VERS и PROGRAMM на целевую маску
+    // 3. Отправляем VERS и PROGRAMM на целевую маску
     m_communication->executeGroupCommand(TechCommand::VERS, targetMask);
     m_communication->executeGroupCommand(TechCommand::PROGRAMM, targetMask);
 
-    // 5. VOLUME блоки (на адрес 0)
-    // Вычисляем CRC24 для всего файла (только для последнего блока)
-    uint32_t crc24 = 0;
-    // Собираем все данные в один массив для CRC
-    QByteArray allData;
-    for (const auto& block : dataBlocks) {
-        allData.append(block);
-    }
-    crc24 = Crc24(reinterpret_cast<const uint8_t*>(allData.constData()), allData.size());
+    // 4. Отправляем VOLUME блоки последовательно, синхронно ожидая ответа
+    emit operationProgress(0, totalBlocks, "VOLUME");
+    uint8_t crc_arr[3] = {0};
+    for (int i = 0; i < totalBlocks; ++i) {
+        uint8_t marker = (i == 0) ? 0x01  : 0x02;
 
-    for (int i = 0; i < m_firmwarePayloads.size(); ++i) {
-        uint8_t marker = (i == 0) ? 0x01 : (i == m_firmwarePayloads.size()-1 ? 0x03 : 0x02);
-        uint16_t sizeForHeader = (i == 0) ? static_cast<uint16_t>(m_firmwareTotalSize) : 0;
-        uint16_t crcForHeader = (i == m_firmwarePayloads.size()-1) ? static_cast<uint16_t>(crc24 & 0xFFFF) : 0;
-        // CRC24 у нас 24 бита, в заголовке только 16 бит (fu_data[0..1]), поэтому берём младшие 16 бит.
-        // Если нужно полное 24 бита, придётся использовать ещё и fu_period? Пока так.
+        uint16_t sizeForHeader = (i == 0) ? static_cast<uint16_t>(totalBlocks) : 0;
+        if(i == totalBlocks-1) {
+        uint32_t crcForHeader = static_cast<uint32_t>(crc24);
+        //дробим crc по 8 байт
+        crc_arr[2] = static_cast<uint8_t>(crcForHeader);
+        crc_arr[1]= static_cast<uint8_t>(crcForHeader >> 8);
+        crc_arr[0] = static_cast<uint8_t>(crcForHeader >> 16);
+        qDebug()<<"создан массив срс";
+        }
+          VolumeCommand::setCurrentVolumeData(payloads[i], marker, sizeForHeader, crc_arr);
+        // Синхронное ожидание завершения VOLUME (успех или таймаут)
+        QEventLoop loop;
+        QTimer timeout;
+        timeout.setSingleShot(true);
+        timeout.start(PPBConstants::OPERATION_TIMEOUT_MS); // таймаут команды
+        bool success = false;
+        QString errorMsg;
 
-        VolumeCommand::setCurrentVolumeData(m_firmwarePayloads[i], marker, sizeForHeader, crcForHeader);
+        auto conn = connect(m_communication, &ICommunication::commandCompleted,
+                            [&](bool ok, const QString& msg, TechCommand cmd) {
+                                if (cmd == TechCommand::VOLUME) {
+                                    success = ok;
+                                    errorMsg = msg;
+                                    loop.quit();
+                                }
+                            });
+        connect(&timeout, &QTimer::timeout, &loop, [&]() {
+            success = false;
+            errorMsg = "VOLUME timeout";
+            loop.quit();
+        });
+
         m_communication->executeCommand(TechCommand::VOLUME, 0);
-        // Данные сбросятся в onOkReceived
+        loop.exec();
+
+        QObject::disconnect(conn);
+        timeout.stop();
+
+        emit operationProgress(i+1, totalBlocks, "VOLUME");
+
+        if (!success) {
+            emit errorOccurred(QString("VOLUME block %1 failed: %2").arg(i+1).arg(errorMsg));
+            // Очищаем очередь команд для адреса 0
+            m_communication->clearCommandQueue(0);
+            return;  // прерываем прошивку
+        }
     }
 
-    // 6. CLEAN с версией
-    uint32_t versionCode = static_cast<uint32_t>(m_firmwareVersion * 100);
+    //5 end
+    uint32_t versionCode = static_cast<uint32_t>(newVersion * 100);
     QByteArray versionBytes;
     versionBytes.append(static_cast<char>((versionCode >> 24) & 0xFF));
     versionBytes.append(static_cast<char>((versionCode >> 16) & 0xFF));
     versionBytes.append(static_cast<char>((versionCode >> 8) & 0xFF));
     versionBytes.append(static_cast<char>(versionCode & 0xFF));
-    CleanCommand::setCurrentVersion(versionBytes);
-    m_communication->executeGroupCommand(TechCommand::CLEAN, targetMask);
+    VolumeCommand::setCurrentVolumeData(versionBytes, 3, 0, crc_arr);
+
+   // m_communication->executeCommand(TechCommand::VOLUME, 0);
+
+    {
+        QEventLoop loop;
+        QTimer timeout;
+        timeout.setSingleShot(true);
+        timeout.start(PPBConstants::OPERATION_TIMEOUT_MS);
+        bool success = false;
+        QString errorMsg;
+
+        auto conn = connect(m_communication, &ICommunication::commandCompleted,
+                            [&](bool ok, const QString& msg, TechCommand cmd) {
+                                if (cmd == TechCommand::VOLUME) {
+                                    success = ok;
+                                    errorMsg = msg;
+                                    loop.quit();
+                                }
+                            });
+        connect(&timeout, &QTimer::timeout, &loop, [&]() {
+            success = false;
+            errorMsg = "Final VOLUME timeout";
+            loop.quit();
+        });
+
+        m_communication->executeCommand(TechCommand::VOLUME, 0);
+        loop.exec();
+
+       QObject::disconnect(conn);
+        timeout.stop();
+
+        if (!success) {
+            emit errorOccurred("Final VOLUME failed: " + errorMsg);
+            m_communication->clearCommandQueue(0);
+            return;
+        }
+    }
+
+    m_communication->executeCommand(TechCommand::UPDATE,0);
+    m_communication->executeCommand(TechCommand::CLEAN,0);
+    emit operationProgress(totalBlocks, totalBlocks, "Прошивка завершена");
 }

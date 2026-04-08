@@ -9,7 +9,7 @@
 
 #ifndef TESTERWINDOW_H
 #define TESTERWINDOW_H
-
+#include <QPointer>
 #include <QMainWindow>
 #include <QGroupBox>
 #include <QSet>
@@ -20,6 +20,7 @@
 #include "pult.h"
 #include "ppbcontrollerlib.h"
 #include <QMap>
+#include "performancewindow.h"
 QT_BEGIN_NAMESPACE
 namespace Ui { class TesterWindow; }
 QT_END_NAMESPACE
@@ -103,6 +104,8 @@ private:
 
     uint16_t m_lastPpbMask = 0;
     void updateTabIconsFromMask(uint16_t mask);
+    QPointer<PerformanceWindow> m_perfWindow;
+
 };
 
 #endif // TESTERWINDOW_H

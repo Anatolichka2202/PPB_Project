@@ -4,7 +4,7 @@
 #include "controller_dependencies.h"
 #include <QTimer>
 #include <QMap>
-
+#include <QCoreApplication>
 class ScenarioEngine;
 class PPBController : public IController {
     Q_OBJECT
@@ -138,7 +138,7 @@ private:
     void showAnalysisResults(const QString& summary, const QVariantMap& details);
     void showPacketsTable(const QString& title, const QVector<DataPacket>& packets);
     int addressToIndex(uint16_t address) const;
-
+    bool waitForGroupCommand(quint64 groupId, int timeoutMs);
 
     ICommunication* m_communication;
     PacketAnalyzerInterface* m_packetAnalyzer;

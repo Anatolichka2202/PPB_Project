@@ -126,8 +126,7 @@ void ApplicationManager::initializeCommunication()
     loop.exec();
 
     if (!initSuccess) {
-       // LOG_UI_ALERT(errorMsg);
-        // Ошибка: удаляем объект в его потоке через deleteLater
+
         QMetaObject::invokeMethod(
             facade.get(),
             "deleteLater",

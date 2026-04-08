@@ -51,8 +51,8 @@ public:
     void enqueue(uint16_t address, std::unique_ptr<PPBCommand> cmd);
     std::unique_ptr<PPBCommand> dequeue(uint16_t address);
     bool isEmpty(uint16_t address) const;
+    void clear(uint16_t address);
     void clear();
-
 
 
     // Получить список всех адресов, для которых есть очереди
@@ -184,6 +184,7 @@ public:
     bool isBusy() const { return m_busy; }
 
     void setBridgeAddress(const QString &ip, quint16 port);
+    void clearCommandQueue(uint16_t address);
 
 
 public slots:

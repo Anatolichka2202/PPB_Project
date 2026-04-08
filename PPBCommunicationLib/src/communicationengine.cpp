@@ -146,6 +146,16 @@ void Internal::CommandQueue::clear() {
     m_queues.clear();
 }
 
+void Internal::CommandQueue::clear(uint16_t address)
+{
+    QMutexLocker locker(&m_mutex);
+    auto it = m_queues.find(address);
+    if (it != m_queues.end()) {
+        it->second.clear();
+        m_queues.erase(it);
+    }
+}
+
 QList<uint16_t> Internal::CommandQueue::addresses() const {
     QMutexLocker locker(&m_mutex);
     QList<uint16_t> keys;
@@ -586,8 +596,13 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
                 if (context->currentCommand) {
                     CommandHost host(this, addressFromPacket);
                     context->currentCommand->onOkReceived(&host, addressFromPacket);
+                    // Если команда уже вызвала completeOperation, флаг operationCompleted будет true
+                    if (!context->operationCompleted) {
+                        completeOperation(addressFromPacket, true, "Команда выполнена"); }
                 }
+                else {
                 completeOperation(addressFromPacket, true, "Команда выполнена");
+                }
                 break;
             case ProtocolEvent::Data: {
                 QVector<QByteArray> dataList;
@@ -927,3 +942,12 @@ void communicationengine::setBridgeAddress(const QString &ip, quint16 port)
     LOG_TECH_DEBUG(QString("communicationengine: bridge address set to %1:%2").arg(ip).arg(port));
 }
 
+void communicationengine::clearCommandQueue(uint16_t address)
+{
+    if (QThread::currentThread() != this->thread()) {
+        QMetaObject::invokeMethod(this, "clearCommandQueue", Qt::QueuedConnection,
+                                  Q_ARG(uint16_t, address));
+        return;
+    }
+    m_commandQueue->clear(address);
+}

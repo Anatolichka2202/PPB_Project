@@ -31,6 +31,9 @@ public:
     virtual void setBridgeAddress(const QString &ip, quint16 port) = 0;
     virtual quint64 executeGroupCommand(TechCommand cmd, uint16_t mask, const QByteArray& data = {}) = 0;
 
+    virtual void clearCommandQueue(uint16_t address) = 0;
+
+
 signals:
     void stateChanged(uint16_t address, PPBState state);
     void connected();

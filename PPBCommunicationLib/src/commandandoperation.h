@@ -145,14 +145,14 @@ public:
     QByteArray buildRequest(uint16_t address) const override;
 
     // Статические методы для установки данных перед вызовом
-    static void setCurrentVolumeData(const QByteArray& payload, uint8_t marker, uint16_t totalSize, uint16_t crc = 0);
+    static void setCurrentVolumeData(const QByteArray& payload, uint8_t marker, uint16_t totalSize, uint8_t *crc);
     static void clearCurrentVolumeData();
 
 private:
     static QByteArray s_currentPayload;
     static uint8_t s_currentMarker;
     static uint16_t s_currentTotalSize;
-    static uint16_t s_currentCrc;
+    static uint32_t s_currentCrc;
     static bool s_useCustomData;
 };
 
@@ -178,7 +178,9 @@ private:
 };
 
 // Остальные команды (используют реализацию по умолчанию)
-using ProgrammCommand = ConcretePPBCommand<TechCommand::PROGRAMM, 0>;
+using ProgrammCommand = ConcretePPBCommand<TechCommand::PROGRAMM, 0>; // зайти в бутлодер
+
+using UPDATE = ConcretePPBCommand <TechCommand::UPDATE,0>; //просто отправляем команду обновиться
 
 // DROP команда с переопределенным onDataReceived
 class DROPCommand : public ConcretePPBCommand<TechCommand::DROP, 0> {
@@ -239,6 +241,8 @@ public:
     bool parseResponseData(const QVector<QByteArray>& data, QString& outMessage, QVariant& outParsedData) const override;
     QByteArray buildRequest(uint16_t address) const override;
 };
+
+
 
 // Определяем метод name() для ConcretePPBCommand
 template<TechCommand CmdId, int ExpectedPackets, int Timeout>

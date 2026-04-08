@@ -479,15 +479,14 @@ void TesterWindow::onPultClicked()
 }
 void TesterWindow::onMetricsClicked()
 {
-    static PerformanceWindow *perfWindow = nullptr;
-    if (!perfWindow) {
-        perfWindow = new PerformanceWindow(nullptr);
-        perfWindow->setAttribute(Qt::WA_DeleteOnClose);
-        perfWindow->setWindowFlags(Qt::Window);
+    if (m_perfWindow.isNull()) {
+        m_perfWindow = new PerformanceWindow(nullptr);
+        m_perfWindow->setAttribute(Qt::WA_DeleteOnClose);
+        m_perfWindow->setWindowFlags(Qt::Window);
     }
-    perfWindow->show();
-    perfWindow->raise();
-    perfWindow->activateWindow();
+    m_perfWindow->show();
+    m_perfWindow->raise();
+    m_perfWindow->activateWindow();
 }
 
 void TesterWindow::onAkipPultClicked()

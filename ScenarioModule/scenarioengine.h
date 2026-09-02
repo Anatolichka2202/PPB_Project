@@ -17,10 +17,10 @@ public:
     explicit ScenarioEngine(PPBController* controller, QObject *parent = nullptr);
     ~ScenarioEngine();
 
-   Q_INVOKABLE  bool loadScript(const QString &fileName);
-   Q_INVOKABLE  bool execute();
+   Q_INVOKABLE bool loadScript(const QString &fileName);
+   Q_INVOKABLE bool execute();
 
-   bool  loadEmbeddedScript(const QString& name);
+   bool loadEmbeddedScript(const QString& name);
 
 public slots:
     void stop();
@@ -58,6 +58,8 @@ private:
     bool luaSetGeneratorDutyCycle(int channel, double percent);
     std::string luaGetGeneratorIdentity();
 
+    bool loadScriptContent(const QString& content, const QString& scriptName);
+
     // Вспомогательные методы для ожидания команд
     template<typename Func>
     bool waitForCommand(uint16_t address, Func&& commandLauncher, TechCommand expectedCmd, int timeoutMs = 10000);
@@ -76,6 +78,8 @@ template<typename Func>
 bool ScenarioEngine::waitForCommand(uint16_t address, Func&& commandLauncher,
                                     TechCommand expectedCmd, int timeoutMs)
 {
+    Q_UNUSED(address)
+
     if (m_stopRequested) return false;
 
     QEventLoop loop;

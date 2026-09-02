@@ -65,7 +65,9 @@ ScenarioEngine::~ScenarioEngine()
 
 void ScenarioEngine::stop()
 {
-    m_stopRequested = true;
+    // stop() intentionally contains no QObject/thread-affine work. It is safe
+    // to call directly from the controller thread while Lua is running.
+    m_stopRequested.store(true, std::memory_order_release);
 }
 
 void ScenarioEngine::luaLog(const std::string &msg) {
@@ -128,7 +130,7 @@ bool ScenarioEngine::loadScript(const QString &fileName)
 bool ScenarioEngine::execute()
 {
     LOG_OP_OPERATION(QString("========== Запуск скрипта: %1 ==========").arg(m_scriptName));
-    m_stopRequested = false;
+    m_stopRequested.store(false, std::memory_order_release);
     try {
         sol::function main = lua["main"];
         if (!main.valid()) {
@@ -137,6 +139,13 @@ bool ScenarioEngine::execute()
             return false;
         }
         main();
+
+        if (m_stopRequested.load(std::memory_order_acquire)) {
+            LOG_OP_OPERATION(QString("========== Скрипт %1 остановлен ==========").arg(m_scriptName));
+            emit finished(false);
+            return false;
+        }
+
         LOG_OP_OPERATION(QString("========== Скрипт %1 завершён успешно ==========").arg(m_scriptName));
         emit finished(true);
     } catch (const sol::error &e) {
@@ -152,7 +161,7 @@ bool ScenarioEngine::waitForFUCommand(uint16_t address, uint8_t fuCmd,
                                       std::function<void()> commandLauncher,
                                       int timeoutMs)
 {
-    if (m_stopRequested) return false;
+    if (m_stopRequested.load(std::memory_order_acquire)) return false;
 
     QEventLoop loop;
     bool success = false;
@@ -162,6 +171,14 @@ bool ScenarioEngine::waitForFUCommand(uint16_t address, uint8_t fuCmd,
     QTimer timer;
     timer.setSingleShot(true);
     timer.callOnTimeout([&] { timeout = true; loop.quit(); });
+
+    QTimer stopPoll;
+    stopPoll.setInterval(20);
+    stopPoll.callOnTimeout([&] {
+        if (m_stopRequested.load(std::memory_order_acquire)) {
+            loop.quit();
+        }
+    });
 
     QMetaObject::invokeMethod(m_controller, [&] {
         conn = connect(m_controller, &PPBController::fuCommandCompleted,
@@ -175,12 +192,14 @@ bool ScenarioEngine::waitForFUCommand(uint16_t address, uint8_t fuCmd,
     }, Qt::BlockingQueuedConnection);
 
     timer.start(timeoutMs);
+    stopPoll.start();
     loop.exec();
+    stopPoll.stop();
 
     QMetaObject::invokeMethod(m_controller, [&] { disconnect(conn); },
                               Qt::BlockingQueuedConnection);
 
-    return success && !timeout && !m_stopRequested;
+    return success && !timeout && !m_stopRequested.load(std::memory_order_acquire);
 }
 
 bool ScenarioEngine::luaRequestStatus(uint16_t address)
@@ -337,11 +356,11 @@ bool ScenarioEngine::luaStartPRBS_S2M(uint16_t address)
 
 void ScenarioEngine::luaSleep(int ms)
 {
-    if (ms <= 0 || m_stopRequested) return;
+    if (ms <= 0 || m_stopRequested.load(std::memory_order_acquire)) return;
 
     constexpr int stopPollMs = 20;
     int remaining = ms;
-    while (remaining > 0 && !m_stopRequested) {
+    while (remaining > 0 && !m_stopRequested.load(std::memory_order_acquire)) {
         const int chunk = qMin(stopPollMs, remaining);
         QThread::msleep(static_cast<unsigned long>(chunk));
         remaining -= chunk;

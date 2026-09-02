@@ -4,8 +4,6 @@ project(AKIP-module LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-
-
 option(BUILD_AKIP_TESTS "Build AKIP test application" OFF)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Network)
@@ -17,23 +15,33 @@ endif()
 
 # ==================== Платформозависимые настройки ====================
 if(WIN32)
-    # Windows: используем оригинальный SDK от WCH
+    # Windows: заголовки WCH нужны на этапе компиляции, но CH375DLL64.dll
+    # загружается динамически через QLibrary. Это убирает зависимость сборки
+    # от отсутствующей в репозитории CH375DLL64.lib.
     set(CH375_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ch375_sdk")
+    set(CH375_DLL_FILE "${CH375_SDK_DIR}/CH375DLL64.dll")
     set(EXTRA_INCLUDES ${CH375_SDK_DIR})
-    set(EXTRA_LIBS ${CH375_SDK_DIR}/CH375DLL64.lib)
-    # Для MinGW могут потребоваться дополнительные системные библиотеки
+    set(EXTRA_LIBS "")
+
     if(MINGW)
-        set(EXTRA_LIBS ${EXTRA_LIBS} -luser32 -lgdi32 -ladvapi32 -lshell32 -lole32 -loleaut32 -luuid -lws2_32)
+        list(APPEND EXTRA_LIBS
+            -luser32 -lgdi32 -ladvapi32 -lshell32
+            -lole32 -loleaut32 -luuid -lws2_32
+        )
     endif()
-    # Переменная для исходников CH37X (пустая на Windows)
+
+    # Если фирменная DLL WCH присутствует в локальном SDK, включаем её в
+    # install tree/NSIS. В чистом clone её нет, поэтому установка приложения
+    # остаётся воспроизводимой, а USB backend сообщит о недостающем runtime.
+    install(FILES "${CH375_DLL_FILE}" DESTINATION . OPTIONAL)
+
     set(CH37X_SOURCES "")
 else()
     # Linux: используем SDK из папки ch375_linux/demo
     set(CH375_LINUX_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ch375_sdk/ch375_linux/demo")
     set(EXTRA_INCLUDES ${CH375_LINUX_DIR})
-    set(EXTRA_LIBS pthread)   # может потребоваться для многопоточности
+    set(EXTRA_LIBS pthread)
     set(CH37X_SOURCES ${CH375_LINUX_DIR}/ch37x_lib.c)
-    # Явно указываем, что файл нужно компилировать как C++
     set_source_files_properties(${CH37X_SOURCES} PROPERTIES LANGUAGE CXX)
 endif()
 
@@ -44,7 +52,7 @@ set(LIB_SOURCES
     laninterface.cpp
     grattenga1483controller.cpp
     abstractscpicontroller.cpp
-    ${CH37X_SOURCES}   # для Linux добавится ch37x_lib.c, для Windows останется пустым
+    ${CH37X_SOURCES}
 )
 
 set(LIB_HEADERS
@@ -94,18 +102,13 @@ if(BUILD_AKIP_TESTS)
         akip_module
         Qt${QT_VERSION_MAJOR}::Widgets
     )
-    # Копирование CH375DLL64.dll только для Windows
-    if(WIN32)
+
+    if(WIN32 AND EXISTS "${CH375_DLL_FILE}")
         add_custom_command(TARGET akip_test POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${CH375_SDK_DIR}/CH375DLL64.dll"
+                "${CH375_DLL_FILE}"
                 $<TARGET_FILE_DIR:akip_test>
             COMMENT "Copying CH375DLL64.dll to test output directory"
-        )
-    endif()
-    if(MINGW)
-        target_link_libraries(akip_test PRIVATE
-            -luser32 -lgdi32 -ladvapi32 -lshell32 -lole32 -loleaut32 -luuid -lws2_32
         )
     endif()
 endif()

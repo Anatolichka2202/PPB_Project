@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 3.16)
 project(PPB_Project LANGUAGES C CXX)
 
+include(GNUInstallDirs)
+
+# На Windows exe и runtime DLL должны лежать в одном каталоге. Qt инициализирует
+# QT_DEPLOY_BIN_DIR из CMAKE_INSTALL_BINDIR при find_package(Qt6::Core), поэтому
+# значение задаётся ДО поиска Qt.
+if(WIN32)
+    set(CMAKE_INSTALL_BINDIR "." CACHE STRING "Windows runtime install directory" FORCE)
+endif()
+
 # определяем выходные директории
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 #set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -47,11 +56,7 @@ elseif(PPB_FETCH_LUA_IF_MISSING)
         GIT_TAG 6e22fedb74cf0c9b6656e9fce8b7331db847c605 # v5.4.8
         GIT_SHALLOW FALSE
     )
-
-    FetchContent_GetProperties(ppb_lua_source)
-    if(NOT ppb_lua_source_POPULATED)
-        FetchContent_Populate(ppb_lua_source)
-    endif()
+    FetchContent_MakeAvailable(ppb_lua_source)
 
     set(PPB_LUA_SOURCES
         lapi.c
@@ -95,9 +100,9 @@ elseif(PPB_FETCH_LUA_IF_MISSING)
     target_include_directories(ppb_lua PUBLIC "${ppb_lua_source_SOURCE_DIR}")
     set_target_properties(ppb_lua PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-    if(WIN32)
-        target_compile_definitions(ppb_lua PRIVATE LUA_USE_WINDOWS)
-    elseif(UNIX AND NOT APPLE)
+    # Lua 5.4.8's luaconf.h already enables LUA_USE_WINDOWS when compiling on
+    # Windows; defining it again only creates noisy redefinition warnings.
+    if(UNIX AND NOT APPLE)
         target_compile_definitions(ppb_lua PRIVATE LUA_USE_LINUX)
         target_link_libraries(ppb_lua PUBLIC m ${CMAKE_DL_LIBS})
     endif()

@@ -1,0 +1,77 @@
+name: Windows installer
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - windows-installer
+    tags:
+      - 'v*'
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt 6.8.0 + MinGW 13.1
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.0'
+          host: windows
+          target: desktop
+          arch: win64_mingw
+          modules: 'qtcharts'
+          tools: 'tools_mingw1310'
+          cache: true
+
+      - name: Install Ninja and NSIS
+        shell: powershell
+        run: choco install ninja nsis -y --no-progress
+
+      - name: Toolchain diagnostics
+        shell: powershell
+        run: |
+          g++ --version
+          cmake --version
+          ninja --version
+          qmake --version
+
+      - name: Configure release build
+        shell: powershell
+        run: >-
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_TESTS=OFF
+          -DPPB_FETCH_LUA_IF_MISSING=ON
+
+      - name: Build
+        shell: powershell
+        run: cmake --build build --parallel 2
+
+      - name: Build NSIS installer
+        shell: powershell
+        run: cmake --build build --target package
+
+      - name: Verify installer artifact
+        shell: powershell
+        run: |
+          $installer = Get-ChildItem -Path build -Recurse -Filter 'PPB-*-Windows-x86_64.exe' | Select-Object -First 1
+          if (-not $installer) {
+            throw 'CPack completed but no PPB Windows installer was found.'
+          }
+          Write-Host "Installer: $($installer.FullName)"
+          Write-Host "Size: $($installer.Length) bytes"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: PPB-Windows-Installer
+          path: build/PPB-*-Windows-x86_64.exe
+          if-no-files-found: error
+          retention-days: 30

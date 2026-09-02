@@ -7,7 +7,11 @@
 
 // Определяем, под какой ОС собираем
 #ifdef Q_OS_WIN
-// Windows: подключаем windows.h и CH375DLL
+#include <QLibrary>
+
+// Windows: подключаем windows.h и объявления CH375DLL.
+// Сама DLL загружается динамически в runtime, поэтому import .lib для сборки
+// приложения больше не требуется.
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -31,9 +35,8 @@ typedef HANDLE DeviceHandle;
 const DeviceHandle InvalidDeviceHandle = INVALID_HANDLE_VALUE;
 #else
 // Linux: подключаем SDK от производителя
-#include "ch37x_lib.h"   // путь к файлам из Linux-архива
+#include "ch37x_lib.h"
 
-// В Linux дескриптор – это файловый номер (int)
 typedef int DeviceHandle;
 const DeviceHandle InvalidDeviceHandle = -1;
 #endif
@@ -69,20 +72,30 @@ signals:
     void errorOccurred(const QString &error);
 
 private:
-    DeviceHandle m_deviceHandle;   // сохраняем имя переменной
+    DeviceHandle m_deviceHandle;
     bool m_isOpen;
     int m_writeTimeout;
     int m_readTimeout;
 
 #ifdef Q_OS_WIN
-    // Вспомогательный метод для Windows (безопасное приведение HANDLE к ULONG)
+    using CH375OpenDeviceFn = decltype(&CH375OpenDevice);
+    using CH375CloseDeviceFn = decltype(&CH375CloseDevice);
+    using CH375SetTimeoutFn = decltype(&CH375SetTimeout);
+    using CH375WriteDataFn = decltype(&CH375WriteData);
+    using CH375ReadDataFn = decltype(&CH375ReadData);
+
+    bool ensureWindowsApiLoaded();
+    void clearWindowsApi();
     ULONG handleToULong() const;
-#else
-    // Для Linux дополнительные данные (информация о конечных точках)
-    // Можно хранить прямо в реализации или здесь, если нужно
+
+    QLibrary m_ch375Library;
+    CH375OpenDeviceFn m_ch375OpenDevice = nullptr;
+    CH375CloseDeviceFn m_ch375CloseDevice = nullptr;
+    CH375SetTimeoutFn m_ch375SetTimeout = nullptr;
+    CH375WriteDataFn m_ch375WriteData = nullptr;
+    CH375ReadDataFn m_ch375ReadData = nullptr;
 #endif
 
-    // Общие методы для работы с ответом
     QString waitForResponse(int timeoutMs);
 };
 

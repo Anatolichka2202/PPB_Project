@@ -6,8 +6,6 @@ on:
     branches:
       - master
   push:
-    branches:
-      - windows-installer
     tags:
       - 'v*'
 

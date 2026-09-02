@@ -21,8 +21,8 @@ ScenarioEngine::ScenarioEngine(PPBController* controller, QObject *parent)
 
     lua.set_function("requestStatus",  [this](uint16_t a) { return luaRequestStatus(a); });
     lua.set_function("sendTC",         [this](uint16_t a) { return luaSendTC(a); });
-    // Lua API documents dutyCycle as a scalar value. The previous uint8_t[] binding
-    // required Lua to marshal a native pointer and failed for normal numeric calls.
+    // Lua API uses duty cycle in percent, just like the current FU widget.
+    // Convert it to the three-byte zero-pulse duration expected by PPBController.
     lua.set_function("setFUReceive",   [this](uint16_t a, uint16_t d, uint16_t c) { return luaSetFUReceive(a, d, c); });
     lua.set_function("setFUTransmit",  [this](uint16_t a, uint16_t d, uint16_t c) { return luaSetFUTransmit(a, d, c); });
     lua.set_function("requestVersion", [this](uint16_t a) { return luaRequestVersion(a); });
@@ -199,30 +199,66 @@ bool ScenarioEngine::luaSendTC(uint16_t address)
 
 bool ScenarioEngine::luaSetFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle)
 {
-    if (dutyCycle > 100) {
-        emit logMessage(QString("Invalid FU dutyCycle %1: expected 0..100").arg(dutyCycle));
+    if (duration < 1 || duration > 27000 || dutyCycle < 1 || dutyCycle > 99) {
+        emit logMessage(QString("Invalid FU timing: duration=%1 us, dutyCycle=%2%%")
+                            .arg(duration).arg(dutyCycle));
+        return false;
+    }
+
+    // duty = one / (one + zero) * 100
+    // => zero = one * (100 / duty - 1)
+    double zeroDuration = (static_cast<double>(duration) * 100.0 / dutyCycle) - duration;
+    if (zeroDuration < 0.0 || zeroDuration >= 65536.0) {
+        emit logMessage(QString("Calculated FU zero duration is out of range: %1 us").arg(zeroDuration));
+        return false;
+    }
+
+    int whole = static_cast<int>(zeroDuration);
+    int hundredths = static_cast<int>((zeroDuration - whole) * 100.0 + 0.5);
+    if (hundredths >= 100) {
+        ++whole;
+        hundredths = 0;
+    }
+    if (whole >= 65536) {
         return false;
     }
 
     uint8_t encoded[3] = {
-        static_cast<uint8_t>((dutyCycle >> 8) & 0xFF),
-        static_cast<uint8_t>(dutyCycle & 0xFF),
-        0
+        static_cast<uint8_t>((whole >> 8) & 0xFF),
+        static_cast<uint8_t>(whole & 0xFF),
+        static_cast<uint8_t>(hundredths)
     };
     return luaSetFUReceive(address, duration, encoded);
 }
 
 bool ScenarioEngine::luaSetFUTransmit(uint16_t address, uint16_t duration, uint16_t dutyCycle)
 {
-    if (dutyCycle > 100) {
-        emit logMessage(QString("Invalid FU dutyCycle %1: expected 0..100").arg(dutyCycle));
+    if (duration < 1 || duration > 27000 || dutyCycle < 1 || dutyCycle > 99) {
+        emit logMessage(QString("Invalid FU timing: duration=%1 us, dutyCycle=%2%%")
+                            .arg(duration).arg(dutyCycle));
+        return false;
+    }
+
+    double zeroDuration = (static_cast<double>(duration) * 100.0 / dutyCycle) - duration;
+    if (zeroDuration < 0.0 || zeroDuration >= 65536.0) {
+        emit logMessage(QString("Calculated FU zero duration is out of range: %1 us").arg(zeroDuration));
+        return false;
+    }
+
+    int whole = static_cast<int>(zeroDuration);
+    int hundredths = static_cast<int>((zeroDuration - whole) * 100.0 + 0.5);
+    if (hundredths >= 100) {
+        ++whole;
+        hundredths = 0;
+    }
+    if (whole >= 65536) {
         return false;
     }
 
     uint8_t encoded[3] = {
-        static_cast<uint8_t>((dutyCycle >> 8) & 0xFF),
-        static_cast<uint8_t>(dutyCycle & 0xFF),
-        0
+        static_cast<uint8_t>((whole >> 8) & 0xFF),
+        static_cast<uint8_t>(whole & 0xFF),
+        static_cast<uint8_t>(hundredths)
     };
     return luaSetFUTransmit(address, duration, encoded);
 }
@@ -303,8 +339,6 @@ void ScenarioEngine::luaSleep(int ms)
 {
     if (ms <= 0 || m_stopRequested) return;
 
-    // Do not sleep for one large interval: once stop() can be issued directly from
-    // the controller, this bounds cancellation latency without changing Lua timing.
     constexpr int stopPollMs = 20;
     int remaining = ms;
     while (remaining > 0 && !m_stopRequested) {

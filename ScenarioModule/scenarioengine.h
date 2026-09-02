@@ -5,6 +5,7 @@
 #include <QTimer>
 #include <sol/sol.hpp>
 #include <functional>
+#include <atomic>
 #include "ppbprotocol.h"  // для TechCommand
 #include "ppbcontrollerlib.h"
 #include <QEventLoop>
@@ -23,6 +24,8 @@ public:
    bool loadEmbeddedScript(const QString& name);
 
 public slots:
+    // Потокобезопасно: stop() может вызываться напрямую из GUI/controller
+    // thread, пока Lua main() занят в scenario thread.
     void stop();
 
 signals:
@@ -69,7 +72,7 @@ private:
 
     sol::state lua;
     PPBController* m_controller;
-    bool m_stopRequested;
+    std::atomic_bool m_stopRequested{false};
     QString m_scriptName;
 };
 
@@ -80,7 +83,7 @@ bool ScenarioEngine::waitForCommand(uint16_t address, Func&& commandLauncher,
 {
     Q_UNUSED(address)
 
-    if (m_stopRequested) return false;
+    if (m_stopRequested.load(std::memory_order_acquire)) return false;
 
     QEventLoop loop;
     bool success = false;
@@ -90,6 +93,17 @@ bool ScenarioEngine::waitForCommand(uint16_t address, Func&& commandLauncher,
     QTimer timer;
     timer.setSingleShot(true);
     timer.callOnTimeout([&] { timeout = true; loop.quit(); });
+
+    // stop() вызывается напрямую из другого потока и только меняет atomic flag.
+    // Этот локальный таймер будит nested event loop, чтобы не ждать hardware
+    // timeout до 10/30 секунд после нажатия "Остановить".
+    QTimer stopPoll;
+    stopPoll.setInterval(20);
+    stopPoll.callOnTimeout([&] {
+        if (m_stopRequested.load(std::memory_order_acquire)) {
+            loop.quit();
+        }
+    });
 
     QMetaObject::invokeMethod(m_controller, [&] {
         conn = connect(m_controller, &PPBController::commandCompleted,
@@ -103,12 +117,14 @@ bool ScenarioEngine::waitForCommand(uint16_t address, Func&& commandLauncher,
     }, Qt::BlockingQueuedConnection);
 
     timer.start(timeoutMs);
+    stopPoll.start();
     loop.exec();
+    stopPoll.stop();
 
     QMetaObject::invokeMethod(m_controller, [&] { disconnect(conn); },
                               Qt::BlockingQueuedConnection);
 
-    return success && !timeout && !m_stopRequested;
+    return success && !timeout && !m_stopRequested.load(std::memory_order_acquire);
 }
 
 #endif // SCENARIOENGINE_H

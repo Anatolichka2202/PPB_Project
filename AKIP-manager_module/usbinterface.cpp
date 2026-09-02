@@ -4,7 +4,12 @@
 #include <QThread>
 #include <cstdint>
 
-// Для Linux добавляем необходимые заголовки
+#ifdef Q_OS_WIN
+#include <QCoreApplication>
+#include <QDir>
+#include <QStringList>
+#endif
+
 #ifdef Q_OS_LINUX
 #include <errno.h>
 #include <string.h>
@@ -23,12 +28,95 @@ UsbInterface::UsbInterface(QObject *parent)
 UsbInterface::~UsbInterface()
 {
     close();
+#ifdef Q_OS_WIN
+    clearWindowsApi();
+#endif
 }
 
 #ifdef Q_OS_WIN
 ULONG UsbInterface::handleToULong() const
 {
+    // Сохраняем существующую семантику WCH API, использованную проектом:
+    // после CH375OpenDevice дескриптор передаётся в функции с ULONG-параметром.
     return static_cast<ULONG>(reinterpret_cast<ULONG_PTR>(m_deviceHandle));
+}
+
+void UsbInterface::clearWindowsApi()
+{
+    m_ch375OpenDevice = nullptr;
+    m_ch375CloseDevice = nullptr;
+    m_ch375SetTimeout = nullptr;
+    m_ch375WriteData = nullptr;
+    m_ch375ReadData = nullptr;
+
+    if (m_ch375Library.isLoaded()) {
+        m_ch375Library.unload();
+    }
+}
+
+bool UsbInterface::ensureWindowsApiLoaded()
+{
+    if (m_ch375Library.isLoaded()
+        && m_ch375OpenDevice
+        && m_ch375CloseDevice
+        && m_ch375SetTimeout
+        && m_ch375WriteData
+        && m_ch375ReadData) {
+        return true;
+    }
+
+    const QString applicationDll =
+        QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("CH375DLL64.dll"));
+
+    // Сначала DLL рядом с PPB.exe, затем стандартный Windows DLL search path.
+    const QStringList candidates = {
+        applicationDll,
+        QStringLiteral("CH375DLL64"),
+        QStringLiteral("CH375DLL")
+    };
+
+    QStringList loadErrors;
+
+    for (const QString &candidate : candidates) {
+        clearWindowsApi();
+        m_ch375Library.setFileName(candidate);
+
+        if (!m_ch375Library.load()) {
+            loadErrors.append(QStringLiteral("%1: %2").arg(candidate, m_ch375Library.errorString()));
+            continue;
+        }
+
+        m_ch375OpenDevice = reinterpret_cast<CH375OpenDeviceFn>(
+            m_ch375Library.resolve("CH375OpenDevice"));
+        m_ch375CloseDevice = reinterpret_cast<CH375CloseDeviceFn>(
+            m_ch375Library.resolve("CH375CloseDevice"));
+        m_ch375SetTimeout = reinterpret_cast<CH375SetTimeoutFn>(
+            m_ch375Library.resolve("CH375SetTimeout"));
+        m_ch375WriteData = reinterpret_cast<CH375WriteDataFn>(
+            m_ch375Library.resolve("CH375WriteData"));
+        m_ch375ReadData = reinterpret_cast<CH375ReadDataFn>(
+            m_ch375Library.resolve("CH375ReadData"));
+
+        if (m_ch375OpenDevice
+            && m_ch375CloseDevice
+            && m_ch375SetTimeout
+            && m_ch375WriteData
+            && m_ch375ReadData) {
+            qInfo() << "Loaded CH375 runtime from" << m_ch375Library.fileName();
+            return true;
+        }
+
+        loadErrors.append(QStringLiteral("%1: DLL loaded, but required CH375 exports are missing")
+                              .arg(candidate));
+    }
+
+    clearWindowsApi();
+    emit errorOccurred(
+        QStringLiteral(
+            "Не найден runtime CH375DLL64.dll для USB-интерфейса АКИП. "
+            "Установите официальный драйвер/runtime WCH или поместите CH375DLL64.dll рядом с PPB.exe.\n%1")
+            .arg(loadErrors.join(QLatin1Char('\n'))));
+    return false;
 }
 #endif
 
@@ -39,18 +127,21 @@ bool UsbInterface::open(int index)
     }
 
 #ifdef Q_OS_WIN
-    // Windows implementation
-    m_deviceHandle = CH375OpenDevice(index);
+    if (!ensureWindowsApiLoaded()) {
+        return false;
+    }
+
+    m_deviceHandle = m_ch375OpenDevice(static_cast<ULONG>(index));
     if (m_deviceHandle == InvalidDeviceHandle) {
         emit errorOccurred("Не удалось открыть устройство. Проверьте подключение и драйвер.");
         return false;
     }
 
-    // Устанавливаем таймауты
-    CH375SetTimeout(handleToULong(), m_writeTimeout, m_readTimeout);
+    m_ch375SetTimeout(handleToULong(),
+                      static_cast<ULONG>(m_writeTimeout),
+                      static_cast<ULONG>(m_readTimeout));
 
 #else
-    // Linux implementation
     char devname[20];
     snprintf(devname, sizeof(devname), "/dev/ch37x%d", index);
     m_deviceHandle = CH37XOpenDevice(devname, true); // non-block
@@ -60,7 +151,6 @@ bool UsbInterface::open(int index)
         return false;
     }
 
-    // Получаем информацию о конечных точках (обязательно)
     if (!CH37XGetDeviceEpMsg(m_deviceHandle)) {
         emit errorOccurred("Не удалось получить информацию о конечных точках");
         CH37XCloseDevice(m_deviceHandle);
@@ -81,7 +171,9 @@ void UsbInterface::close()
     if (!m_isOpen) return;
 
 #ifdef Q_OS_WIN
-    CH375CloseDevice(handleToULong());
+    if (m_ch375CloseDevice) {
+        m_ch375CloseDevice(handleToULong());
+    }
 #else
     CH37XCloseDevice(m_deviceHandle);
 #endif
@@ -106,9 +198,9 @@ bool UsbInterface::sendScpiCommand(const QString &command)
     QByteArray data = command.toLatin1() + "\n";
 
 #ifdef Q_OS_WIN
-    ULONG length = data.size();
-    BOOL result = CH375WriteData(handleToULong(), data.data(), &length);
-    if (result && length == (ULONG)data.size()) {
+    ULONG length = static_cast<ULONG>(data.size());
+    BOOL result = m_ch375WriteData(handleToULong(), data.data(), &length);
+    if (result && length == static_cast<ULONG>(data.size())) {
         return true;
     } else {
         QString error = QString("Ошибка отправки команды. Отправлено %1 из %2 байт")
@@ -155,9 +247,9 @@ QString UsbInterface::waitForResponse(int timeoutMs)
 
 #ifdef Q_OS_WIN
         ULONG length = sizeof(buffer);
-        BOOL result = CH375ReadData(handleToULong(), buffer, &length);
+        BOOL result = m_ch375ReadData(handleToULong(), buffer, &length);
         if (result && length > 0) {
-            response.append(buffer, length);
+            response.append(buffer, static_cast<int>(length));
             if (response.contains('\n') || response.contains('\r'))
                 break;
         }
@@ -186,7 +278,9 @@ bool UsbInterface::setWriteTimeout(int ms)
     if (!m_isOpen) return true;
 
 #ifdef Q_OS_WIN
-    return CH375SetTimeout(handleToULong(), m_writeTimeout, m_readTimeout) != 0;
+    return m_ch375SetTimeout(handleToULong(),
+                             static_cast<ULONG>(m_writeTimeout),
+                             static_cast<ULONG>(m_readTimeout)) != 0;
 #else
     return CH37XSetTimeout(m_deviceHandle, m_writeTimeout, m_readTimeout);
 #endif
@@ -198,15 +292,13 @@ bool UsbInterface::setReadTimeout(int ms)
     if (!m_isOpen) return true;
 
 #ifdef Q_OS_WIN
-    return CH375SetTimeout(handleToULong(), m_writeTimeout, m_readTimeout) != 0;
+    return m_ch375SetTimeout(handleToULong(),
+                             static_cast<ULONG>(m_writeTimeout),
+                             static_cast<ULONG>(m_readTimeout)) != 0;
 #else
     return CH37XSetTimeout(m_deviceHandle, m_writeTimeout, m_readTimeout);
 #endif
 }
-
-// Остальные методы (setOutput, setFrequency, getIdentity, resetDevice,
-// setAmplitude, setWaveform) остаются без изменений, так как они
-// вызывают sendScpiCommand.
 
 bool UsbInterface::setOutput(bool enable, int channel)
 {
@@ -234,9 +326,9 @@ bool UsbInterface::resetDevice()
 bool UsbInterface::setAmplitude(double amplitude, const QString &unit, int channel)
 {
     QString cmd = QString("VOLT:CH%1 %2 %3")
-    .arg(channel == 1 ? "A" : "B")
-        .arg(amplitude)
-        .arg(unit.toUpper());
+                      .arg(channel == 1 ? "A" : "B")
+                      .arg(amplitude)
+                      .arg(unit.toUpper());
     return sendScpiCommand(cmd);
 }
 

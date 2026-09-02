@@ -1,0 +1,36 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - fix/firmware-lua-safety
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  linux-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake \
+            ninja-build \
+            g++ \
+            qt6-base-dev \
+            qt6-charts-dev \
+            liblua5.4-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build --parallel 2

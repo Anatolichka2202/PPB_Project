@@ -5,13 +5,12 @@
 #include "../comm_dependencies.h"
 
 static int techCommandType = qRegisterMetaType<TechCommand>("TechCommand");
-// В начале communicationengine.cpp, после включений
+
 class CommandHost : public CommandInterface {
 public:
     CommandHost(communicationengine* engine, uint16_t address)
         : m_engine(engine), m_address(address) {}
 
-    // --- Методы, которые делегируем движку с адресом ---
     void setParseResult(bool success, const QString& message) override {
         m_engine->setCommandParseResult(m_address, success, message);
     }
@@ -26,20 +25,15 @@ public:
         }
     }
 
-    // --- Методы, которые можно игнорировать или делегировать без адреса ---
     void setState(PPBState state) override {
         Q_UNUSED(state)
-        // Состояние управляется движком, игнорируем
     }
 
     void startTimeoutTimer(int ms) override {
         Q_UNUSED(ms)
-        // Таймеры в движке
     }
 
-    void stopTimeoutTimer() override {
-        // Игнорируем
-    }
+    void stopTimeoutTimer() override {}
 
     void sendPacket(const QByteArray& packet, const QString& description) override {
         m_engine->sendPacketInternal(packet, description);
@@ -53,10 +47,9 @@ public:
     }
 
     QVector<DataPacket> getGeneratedPackets() const override {
-        return QVector<DataPacket>(); // заглушка
+        return QVector<DataPacket>();
     }
 
-    // --- Методы, связанные с уведомлениями о пакетах (не критичны, можно заглушить) ---
     void notifySentPackets(const QVector<DataPacket>& packets) override {
         Q_UNUSED(packets)
         LOG_TECH_DEBUG("notifySentPackets called, ignored");
@@ -64,11 +57,11 @@ public:
 
     void notifyReceivedPackets(const QVector<DataPacket>& packets) override {
         Q_UNUSED(packets)
-        LOG_TECH_DEBUG("notifySentPackets called, ignored");
+        LOG_TECH_DEBUG("notifyReceivedPackets called, ignored");
     }
 
     void requestClearPacketData() override {
-        LOG_TECH_DEBUG("notifySentPackets called, ignored");
+        LOG_TECH_DEBUG("requestClearPacketData called, ignored");
     }
 
 private:
@@ -215,7 +208,7 @@ void communicationengine::clearContext(uint16_t address) {
             it->second.operationTimer.reset();
         }
         m_contexts.erase(it);
-        LOG_TECH_DEBUG("Engine: Context deleeted");
+        LOG_TECH_DEBUG("Engine: Context deleted");
     }
 }
 
@@ -280,6 +273,17 @@ void communicationengine::executeCommand(TechCommand cmd, uint16_t address) {
         return;
     }
     QString cmdName = command->name();
+
+    // Address 0 is used by the firmware VOLUME/UPDATE/CLEAN stream. Do not let
+    // it overtake an active or queued group command (VERS/PROGRAMM). Otherwise
+    // the first VOLUME may hit the bridge while selected PPBs are still entering
+    // the bootloader.
+    if (address == 0 && (!m_groupOperations.empty() || !m_pendingGroupCommands.empty())) {
+        m_commandQueue->enqueue(address, std::move(command));
+        LOG_TECH_PROTOCOL(QString("Command %1 for address 0x0000 gated behind group operations").arg(cmdName));
+        return;
+    }
+
     PPBState currentState = m_stateManager->getState(address);
     if (currentState != PPBState::Ready && currentState != PPBState::Idle) {
         m_commandQueue->enqueue(address, std::move(command));
@@ -291,6 +295,12 @@ void communicationengine::executeCommand(TechCommand cmd, uint16_t address) {
 
 void communicationengine::executeCommand(TechCommand cmd, uint16_t address, const QByteArray& data) {
     auto command = std::make_unique<DataCommand>(cmd, data);
+
+    if (address == 0 && (!m_groupOperations.empty() || !m_pendingGroupCommands.empty())) {
+        m_commandQueue->enqueue(address, std::move(command));
+        return;
+    }
+
     PPBState currentState = m_stateManager->getState(address);
     if (currentState != PPBState::Ready && currentState != PPBState::Idle) {
         m_commandQueue->enqueue(address, std::move(command));
@@ -451,11 +461,6 @@ bool communicationengine::startGroupCommand(quint64 groupId, TechCommand cmd, ui
             m_groupOperations.erase(groupId);
             return false;
         }
-
-        // В контексте создаём ожидающую команду, но индивидуальный пакет не отправляем.
-        // Раньше suppressSend выставлялся до вызова, а executeCommandImmediately
-        // тут же затирала его значением по умолчанию false, из-за чего уходили и
-        // индивидуальные пакеты, и общий пакет с маской.
         executeCommandImmediately(address, std::move(command), true);
     }
 
@@ -521,18 +526,36 @@ void communicationengine::executeCommandImmediately(uint16_t address, std::uniqu
     }
 
     if (!context.suppressSend) {
-        sendPacketInternal(request, context.currentCommand->name());
-
-        // VOLUME — поток прошивки. МК не подтверждает каждый блок. Для этой
-        // команды commandCompleted означает только то, что пакет передан в
-        // локальный UDP-транспорт. Следующий блок формируется только после
-        // этого сигнала, поэтому shared VolumeCommand data не перетирается
-        // следующим блоком до buildRequest().
+        // VOLUME is a fire-and-stream packet. Its completion is local transport
+        // completion, not an MCU ACK. Check writeDatagram() directly so a dead
+        // or unbound socket cannot be reported as a successful firmware block.
         if (context.currentCommand->commandId() == TechCommand::VOLUME) {
+            if (!m_udpClient) {
+                VolumeCommand::clearCurrentVolumeData();
+                completeOperation(address, false, "VOLUME: UDPClient не инициализирован");
+                return;
+            }
+
+            qint64 bytesSent = -1;
+            if (m_currentIP.isEmpty() || m_currentIP == "255.255.255.255") {
+                bytesSent = m_udpClient->sendBroadcast(request, m_currentPort);
+            } else {
+                bytesSent = m_udpClient->sendTo(request, m_currentIP, m_currentPort);
+            }
+
             VolumeCommand::clearCurrentVolumeData();
+            if (bytesSent != request.size()) {
+                completeOperation(address, false,
+                                  QString("VOLUME: ошибка локальной UDP-отправки (%1/%2 байт)")
+                                      .arg(bytesSent).arg(request.size()));
+                return;
+            }
+
             completeOperation(address, true, "VOLUME передан в UDP; ACK блока не ожидается");
             return;
         }
+
+        sendPacketInternal(request, context.currentCommand->name());
     }
 
     context.operationTimer = std::make_unique<QTimer>();
@@ -546,6 +569,12 @@ void communicationengine::processCommandQueue() {
     auto addresses = m_commandQueue->addresses();
 
     for (uint16_t address : addresses) {
+        // Keep address 0 behind every active/pending group command. This is the
+        // firmware ordering barrier between PROGRAMM and the VOLUME stream.
+        if (address == 0 && (!m_groupOperations.empty() || !m_pendingGroupCommands.empty())) {
+            continue;
+        }
+
         PPBState state = m_stateManager->getState(address);
 
         if ((state == PPBState::Ready || state == PPBState::Idle) &&
@@ -728,7 +757,7 @@ void communicationengine::sendPacketInternal(const QByteArray& packet, const QSt
     }
 }
 
-QString communicationengine::stateToString(PPBState state)  const {
+QString communicationengine::stateToString(PPBState state) const {
     switch (state) {
     case PPBState::Idle: return "Idle";
     case PPBState::Ready: return "Ready";
@@ -836,9 +865,13 @@ void communicationengine::completeOperation(uint16_t address, bool success, cons
         }
     }
 
-    // Групповые команды могут приходить подряд (например VERS -> PROGRAMM).
-    // Запускаем следующую только когда все её адреса реально освободились.
     tryStartPendingGroupCommands();
+
+    // If no group remains, release any firmware/control command waiting at
+    // address 0 without waiting for the 100 ms polling timer.
+    if (m_groupOperations.empty() && m_pendingGroupCommands.empty()) {
+        QTimer::singleShot(0, this, [this]() { processCommandQueue(); });
+    }
 }
 
 void communicationengine::processNextCommandForAddress(uint16_t address) {

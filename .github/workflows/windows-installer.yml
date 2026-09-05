@@ -6,13 +6,8 @@ on:
     branches:
       - master
   push:
-    branches:
-      - master
     tags:
       - 'v*'
-
-permissions:
-  contents: write
 
 jobs:
   build-installer:
@@ -131,38 +126,3 @@ jobs:
           path: build/PPB-*-Windows-x86_64.exe
           if-no-files-found: error
           retention-days: 30
-
-      - name: Publish v1.01-beta GitHub Release
-        if: "github.ref == 'refs/heads/master' && github.event.head_commit.message == 'release: publish v1.01-beta'"
-        shell: powershell
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $installer = Get-ChildItem -Path build -Recurse -Filter 'PPB-*-Windows-x86_64.exe' | Select-Object -First 1
-          if (-not $installer) {
-            throw 'Installer not found for GitHub Release.'
-          }
-
-          $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLower()
-          $checksumPath = Join-Path $PWD 'build/SHA256SUMS.txt'
-          "$hash  $($installer.Name)" | Set-Content -Path $checksumPath -Encoding ascii
-
-          $notes = @"
-          Windows installer for PPB 1.01 beta.
-
-          CI verification:
-          - clean Windows build: PASS
-          - NSIS package generation: PASS
-          - silent installation: PASS
-          - Qt/MinGW runtime layout checks: PASS
-          - installed application startup in --test mode: PASS
-
-          Hardware note: CH375 USB support requires the official WCH runtime/driver (CH375DLL64.dll is not redistributed in this repository).
-          "@
-
-          gh release create 'v1.01-beta' $installer.FullName $checksumPath `
-            --repo $env:GITHUB_REPOSITORY `
-            --target '5fb6317a0e2e5bcffb89bcb85b0425beec5b6a1e' `
-            --title 'PPB 1.01 beta' `
-            --notes $notes `
-            --prerelease

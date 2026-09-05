@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationName("PPB Tester");
     QCoreApplication::setOrganizationName("MILTECH");
     QCoreApplication::setApplicationVersion(QStringLiteral(PPB_VERSION));
-    app.setWindowIcon(QIcon(QStringLiteral(":/app/ppb-icon.svg")));
+    app.setWindowIcon(QIcon(QStringLiteral(":/app/ppb-icon.ico")));
 
     auto& themeManager = ThemeManager::instance();
     Q_UNUSED(themeManager)

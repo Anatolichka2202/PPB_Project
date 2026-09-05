@@ -127,6 +127,7 @@ PPBController::PPBController(ICommunication* communication, PacketAnalyzerInterf
 
     //поток сценария
     m_scenarioThread = new QThread(this);
+    m_scenarioThread->start();
 }
 
 PPBController::~PPBController()
@@ -1141,41 +1142,79 @@ void PPBController::runFullTest(uint16_t address)
 
 void PPBController::loadScenario(const QString &fileName)
 {
-    // 1. Остановить текущий сценарий, если он выполняется
-    if (m_scenarioEngine && m_scenarioThread->isRunning()) {
-        // Отправить сигнал остановки и дождаться
+    if (!m_scenarioThread->isRunning()) {
+        m_scenarioThread->start();
+    }
+
+    // Нельзя удалять ScenarioEngine, пока Lua main() ещё выполняется.
+    // stop() потокобезопасен: он меняет atomic flag напрямую.
+    if (m_scenarioEngine && m_scenarioRunning) {
+        m_scenarioEngine->stop();
+
         QEventLoop loop;
-        connect(m_scenarioEngine.get(), &ScenarioEngine::finished, &loop, &QEventLoop::quit);
-        QMetaObject::invokeMethod(m_scenarioEngine.get(), "stop", Qt::QueuedConnection);
-        loop.exec(); // ждём завершения
+        QTimer timeout;
+        QTimer statePoll;
+        bool finished = false;
+
+        timeout.setSingleShot(true);
+        timeout.setInterval(3000);
+        statePoll.setInterval(20);
+
+        auto finishedConn = connect(m_scenarioEngine.get(), &ScenarioEngine::finished,
+                                    &loop, [&](bool) {
+                                        finished = true;
+                                        loop.quit();
+                                    });
+        connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+        connect(&statePoll, &QTimer::timeout, &loop, [&]() {
+            if (!m_scenarioRunning) {
+                finished = true;
+                loop.quit();
+            }
+        });
+
+        timeout.start();
+        statePoll.start();
+        loop.exec();
+        statePoll.stop();
+        QObject::disconnect(finishedConn);
+
+        if (!finished && m_scenarioRunning) {
+            emit scenarioError("Scenario did not stop within 3 seconds; new scenario was not loaded");
+            return;
+        }
     }
 
-    // 2. Удалить старый движок (синхронно, в его потоке)
+    // Старый engine удаляем в его собственном потоке.
     if (m_scenarioEngine) {
-        // Отключаем сигналы
         QObject::disconnect(m_scenarioEngine.get(), nullptr, this, nullptr);
-        // Перемещаем обратно в главный поток для удаления (или удаляем через deleteLater, но с ожиданием)
-        m_scenarioEngine->moveToThread(this->thread());
-        m_scenarioEngine->deleteLater();
-        QCoreApplication::processEvents(); // обработать удаление
-        m_scenarioEngine.release();
+        ScenarioEngine* oldEngine = m_scenarioEngine.release();
+        QMetaObject::invokeMethod(oldEngine, "deleteLater", Qt::QueuedConnection);
     }
 
-    // 3. Создать новый движок
     m_scenarioEngine = std::make_unique<ScenarioEngine>(this);
     m_scenarioEngine->moveToThread(m_scenarioThread);
 
-    // 4. Подключить сигналы
     connect(m_scenarioEngine.get(), &ScenarioEngine::logMessage,
             this, &PPBController::scenarioLog);
     connect(m_scenarioEngine.get(), &ScenarioEngine::errorOccurred,
             this, &PPBController::scenarioError);
     connect(m_scenarioEngine.get(), &ScenarioEngine::finished,
-            this, &PPBController::scenarioFinished);
+            this, [this](bool success) {
+                m_scenarioRunning = false;
+                emit scenarioFinished(success);
+            });
 
-    // 5. Загрузить скрипт
     m_scenarioFileName = fileName;
-    if (!m_scenarioEngine->loadScript(fileName)) {
+    bool loaded = false;
+    const bool invoked = QMetaObject::invokeMethod(
+        m_scenarioEngine.get(),
+        [this, &fileName, &loaded]() {
+            loaded = m_scenarioEngine->loadScript(fileName);
+        },
+        Qt::BlockingQueuedConnection);
+
+    if (!invoked || !loaded) {
         m_scenarioFileName.clear();
     }
 }
@@ -1187,17 +1226,34 @@ void PPBController::runScenario()
         return;
     }
     if (!m_scenarioEngine) {
-        // На всякий случай, если движок почему-то отсутствует
         loadScenario(m_scenarioFileName);
     }
-    QMetaObject::invokeMethod(m_scenarioEngine.get(), "execute", Qt::QueuedConnection);
+    if (!m_scenarioEngine || m_scenarioFileName.isEmpty()) {
+        return;
+    }
+    if (m_scenarioRunning) {
+        emit scenarioError("Scenario is already running");
+        return;
+    }
+    if (!m_scenarioThread->isRunning()) {
+        m_scenarioThread->start();
+    }
+
+    m_scenarioRunning = true;
+    const bool invoked = QMetaObject::invokeMethod(
+        m_scenarioEngine.get(), "execute", Qt::QueuedConnection);
+    if (!invoked) {
+        m_scenarioRunning = false;
+        emit scenarioError("Failed to queue scenario execution");
+    }
 }
 
 void PPBController::stopScenario()
 {
-    if (m_scenarioEngine && m_scenarioThread->isRunning()) {
-        // Устанавливаем флаг остановки (нужно добавить в ScenarioEngine)
-        QMetaObject::invokeMethod(m_scenarioEngine.get(), "stop", Qt::QueuedConnection);
+    if (m_scenarioEngine && m_scenarioRunning) {
+        // Прямой вызов намеренный: ScenarioEngine::stop() только выставляет
+        // atomic flag, поэтому он не зависит от event loop занятого Lua-потока.
+        m_scenarioEngine->stop();
     }
 }
 
@@ -1313,11 +1369,27 @@ void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFile
                          .arg(selectedMask,4,16,QChar('0'))
                          .arg(targetMask,4,16,QChar('0')));
 
-    // 3. Отправляем VERS и PROGRAMM на целевую маску
-    m_communication->executeGroupCommand(TechCommand::VERS, targetMask);
-    m_communication->executeGroupCommand(TechCommand::PROGRAMM, targetMask);
+    // 3. Сначала подтверждаем VERS, затем вход в bootloader (PROGRAMM).
+    // VOLUME нельзя начинать, если хотя бы один целевой ППБ не подтвердил
+    // подготовительные команды.
+    constexpr int firmwareGroupTimeoutMs = 5000;
 
-    // 4. Отправляем VOLUME блоки последовательно, синхронно ожидая ответа
+    const quint64 versGroupId =
+        m_communication->executeGroupCommand(TechCommand::VERS, targetMask);
+    if (!waitForGroupCommand(versGroupId, firmwareGroupTimeoutMs)) {
+        emit errorOccurred("VERS group command failed; firmware update aborted");
+        return;
+    }
+
+    const quint64 programmGroupId =
+        m_communication->executeGroupCommand(TechCommand::PROGRAMM, targetMask);
+    if (!waitForGroupCommand(programmGroupId, firmwareGroupTimeoutMs)) {
+        emit errorOccurred("PROGRAMM group command failed; firmware update aborted");
+        return;
+    }
+
+    // 4. Отправляем VOLUME блоки последовательно. Для VOLUME completion
+    // означает успешную локальную отправку UDP-пакета; ACK от МК не ожидается.
     emit operationProgress(0, totalBlocks, "VOLUME");
     uint8_t crc_arr[3] = {0};
     for (int i = 0; i < totalBlocks; ++i) {
@@ -1417,7 +1489,53 @@ void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFile
         }
     }
 
-    m_communication->executeCommand(TechCommand::UPDATE,0);
-    m_communication->executeCommand(TechCommand::CLEAN,0);
+    auto executeAndWait = [&](TechCommand command,
+                           uint16_t address,
+                           const QString& stage) -> bool {
+    QEventLoop loop;
+    QTimer timeout;
+    timeout.setSingleShot(true);
+
+    bool completed = false;
+    bool success = false;
+    QString message;
+
+    auto conn = connect(m_communication, &ICommunication::commandCompleted,
+                        this,
+                        [&](bool ok, const QString& msg, TechCommand cmd) {
+                            if (cmd != command) return;
+                            completed = true;
+                            success = ok;
+                            message = msg;
+                            loop.quit();
+                        },
+                        Qt::QueuedConnection);
+
+    connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+    timeout.start(1000);
+    m_communication->executeCommand(command, address);
+    loop.exec();
+
+    QObject::disconnect(conn);
+    timeout.stop();
+
+    if (!completed || !success) {
+        const QString reason = completed ? message : QString("timeout");
+        emit errorOccurred(QString("%1 failed: %2").arg(stage, reason));
+        m_communication->clearCommandQueue(address);
+        return false;
+    }
+    return true;
+};
+
+    // Сохраняем существующий wire-order UPDATE -> CLEAN, но теперь успех
+    // прошивки публикуется только после подтверждения обеих команд.
+    if (!executeAndWait(TechCommand::UPDATE, 0, "UPDATE")) {
+        return;
+    }
+    if (!executeAndWait(TechCommand::CLEAN, 0, "CLEAN")) {
+        return;
+    }
+
     emit operationProgress(totalBlocks, totalBlocks, "Прошивка завершена");
 }

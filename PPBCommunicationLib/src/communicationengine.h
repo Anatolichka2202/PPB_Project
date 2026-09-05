@@ -146,9 +146,17 @@ private:
         QSet<uint16_t> pendingAddresses;   // адреса, ещё не ответившие
         QMap<uint16_t, bool> results;      // результаты по каждому адресу (успех/ошибка)
         QMap<uint16_t, QString> messages;  // сообщения для каждого адреса
-        // Можно добавить общий таймер группы, если нужен
     };
+
+    struct PendingGroupCommand {
+        quint64 groupId = 0;
+        TechCommand command = TechCommand::TS;
+        uint16_t mask = 0;
+        QByteArray data;
+    };
+
     std::map<quint64, GroupInfo> m_groupOperations;
+    std::deque<PendingGroupCommand> m_pendingGroupCommands;
     quint64 m_nextGroupId = 1;
     //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
 
@@ -259,6 +267,9 @@ private:
     void processNextCommandForAddress(uint16_t address); // Обработка следующей команды для указанного адреса
 
     bool canExecuteCommand(uint16_t address, const PPBCommand* command) const;
+    bool canStartGroupCommand(uint16_t mask) const;
+    bool startGroupCommand(quint64 groupId, TechCommand cmd, uint16_t mask, const QByteArray& data);
+    void tryStartPendingGroupCommands();
 
     void updateBusyState();
 

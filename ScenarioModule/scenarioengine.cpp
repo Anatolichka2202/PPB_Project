@@ -7,6 +7,7 @@
 #include <QMetaObject>
 #include <QThread>
 #include <QFileInfo>
+
 ScenarioEngine::ScenarioEngine(PPBController* controller, QObject *parent)
     : QObject(parent)
     , m_controller(controller)
@@ -20,8 +21,10 @@ ScenarioEngine::ScenarioEngine(PPBController* controller, QObject *parent)
 
     lua.set_function("requestStatus",  [this](uint16_t a) { return luaRequestStatus(a); });
     lua.set_function("sendTC",         [this](uint16_t a) { return luaSendTC(a); });
-    lua.set_function("setFUReceive",   [this](uint16_t a, uint16_t d, uint8_t c[]) { return luaSetFUReceive(a, d, c); });
-    lua.set_function("setFUTransmit",  [this](uint16_t a, uint16_t d, uint8_t c[]) { return luaSetFUTransmit(a, d, c); });
+    // Lua API uses duty cycle in percent, just like the current FU widget.
+    // Convert it to the three-byte zero-pulse duration expected by PPBController.
+    lua.set_function("setFUReceive",   [this](uint16_t a, uint16_t d, uint16_t c) { return luaSetFUReceive(a, d, c); });
+    lua.set_function("setFUTransmit",  [this](uint16_t a, uint16_t d, uint16_t c) { return luaSetFUTransmit(a, d, c); });
     lua.set_function("requestVersion", [this](uint16_t a) { return luaRequestVersion(a); });
     lua.set_function("requestChecksum",[this](uint16_t a) { return luaRequestChecksum(a); });
     lua.set_function("requestDropped", [this](uint16_t a) { return luaRequestDroppedPackets(a); });
@@ -62,83 +65,88 @@ ScenarioEngine::~ScenarioEngine()
 
 void ScenarioEngine::stop()
 {
-    m_stopRequested = true;
+    // stop() intentionally contains no QObject/thread-affine work. It is safe
+    // to call directly from the controller thread while Lua is running.
+    m_stopRequested.store(true, std::memory_order_release);
 }
 
 void ScenarioEngine::luaLog(const std::string &msg) {
     QString qmsg = QString::fromStdString(msg);
     LOG_INFO(LogCategory::GENERAL, "[SCENARIO] " + qmsg);
-    emit logMessage(qmsg); // для GUI
+    emit logMessage(qmsg);
+}
+
+bool ScenarioEngine::loadScriptContent(const QString& content, const QString& scriptName)
+{
+    m_scriptName = scriptName;
+
+    QString source = content;
+    if (source.startsWith(QChar(0xFEFF))) {
+        source = source.mid(1);
+    }
+
+    try {
+        lua.script(source.toStdString());
+        sol::function main = lua["main"];
+        if (!main.valid()) {
+            emit errorOccurred("Script does not contain 'main' function: " + m_scriptName);
+            return false;
+        }
+    } catch (const sol::error &e) {
+        emit errorOccurred(QString("Lua error in %1: %2").arg(m_scriptName, e.what()));
+        return false;
+    }
+
+    return true;
 }
 
 bool ScenarioEngine::loadEmbeddedScript(const QString& name) {
-    m_scriptName = name + ".lua";
-    QString path = QString(":/scenario/scripts/%1.lua").arg(name);
+    const QString path = QString(":/scenario/scripts/%1.lua").arg(name);
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
         emit errorOccurred("Cannot open embedded script: " + path);
         return false;
     }
-    QString content = QString::fromUtf8(file.readAll());
-    return loadScript(content);
+
+    const QString content = QString::fromUtf8(file.readAll());
+    return loadScriptContent(content, name + ".lua");
 }
 
 bool ScenarioEngine::loadScript(const QString &fileName)
 {
-     m_scriptName = QFileInfo(fileName).fileName();
-    qDebug() << "Loading script from:" << fileName;
     QFile file(fileName);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qDebug() << "Cannot open file:" << fileName;
         emit errorOccurred("Cannot open file: " + fileName);
         return false;
     }
+
     QTextStream in(&file);
-    QString content = in.readAll();
+    const QString content = in.readAll();
     file.close();
-    qDebug() << "Script content length:" << content.length();
-    // Удалить BOM, если есть
-    if (content.startsWith(QChar(0xFEFF))) {
-        content = content.mid(1);
-        qDebug() << "Removed BOM";
-    }
-    try {
-        lua.script(content.toStdString());
-        qDebug() << "Script loaded successfully";
-        // Проверяем наличие main
-        sol::function main = lua["main"];
-        if (main.valid()) {
-            qDebug() << "main function found in Lua state";
-        } else {
-            qDebug() << "main function NOT found in Lua state";
-            // Выводим содержимое глобальной таблицы для диагностики (осторожно, может быть много)
-            sol::table globals = lua["_G"];
-            for (const auto& kv : globals) {
-                sol::object key = kv.first;
-                if (key.is<std::string>()) {
-                    qDebug() << "Global:" << key.as<std::string>().c_str();
-                }
-            }
-        }
-    } catch (const sol::error &e) {
-        qDebug() << "Lua error:" << e.what();
-        emit errorOccurred(QString("Lua error: %1").arg(e.what()));
-        return false;
-    }
-    return true;
+
+    return loadScriptContent(content, QFileInfo(fileName).fileName());
 }
+
 bool ScenarioEngine::execute()
 {
     LOG_OP_OPERATION(QString("========== Запуск скрипта: %1 ==========").arg(m_scriptName));
-    m_stopRequested = false;
+    m_stopRequested.store(false, std::memory_order_release);
     try {
         sol::function main = lua["main"];
         if (!main.valid()) {
             LOG_OP_OPERATION("Скрипт не содержит функцию main()");
             emit errorOccurred("Script does not contain 'main' function");
+            emit finished(false);
             return false;
         }
         main();
+
+        if (m_stopRequested.load(std::memory_order_acquire)) {
+            LOG_OP_OPERATION(QString("========== Скрипт %1 остановлен ==========").arg(m_scriptName));
+            emit finished(false);
+            return false;
+        }
+
         LOG_OP_OPERATION(QString("========== Скрипт %1 завершён успешно ==========").arg(m_scriptName));
         emit finished(true);
     } catch (const sol::error &e) {
@@ -154,7 +162,7 @@ bool ScenarioEngine::waitForFUCommand(uint16_t address, uint8_t fuCmd,
                                       std::function<void()> commandLauncher,
                                       int timeoutMs)
 {
-    if (m_stopRequested) return false;
+    if (m_stopRequested.load(std::memory_order_acquire)) return false;
 
     QEventLoop loop;
     bool success = false;
@@ -164,6 +172,14 @@ bool ScenarioEngine::waitForFUCommand(uint16_t address, uint8_t fuCmd,
     QTimer timer;
     timer.setSingleShot(true);
     timer.callOnTimeout([&] { timeout = true; loop.quit(); });
+
+    QTimer stopPoll;
+    stopPoll.setInterval(20);
+    stopPoll.callOnTimeout([&] {
+        if (m_stopRequested.load(std::memory_order_acquire)) {
+            loop.quit();
+        }
+    });
 
     QMetaObject::invokeMethod(m_controller, [&] {
         conn = connect(m_controller, &PPBController::fuCommandCompleted,
@@ -177,12 +193,14 @@ bool ScenarioEngine::waitForFUCommand(uint16_t address, uint8_t fuCmd,
     }, Qt::BlockingQueuedConnection);
 
     timer.start(timeoutMs);
+    stopPoll.start();
     loop.exec();
+    stopPoll.stop();
 
     QMetaObject::invokeMethod(m_controller, [&] { disconnect(conn); },
                               Qt::BlockingQueuedConnection);
 
-    return success && !timeout && !m_stopRequested;
+    return success && !timeout && !m_stopRequested.load(std::memory_order_acquire);
 }
 
 bool ScenarioEngine::luaRequestStatus(uint16_t address)
@@ -197,6 +215,72 @@ bool ScenarioEngine::luaSendTC(uint16_t address)
     return waitForCommand(address,
                           [this, address] { m_controller->sendTC(address); },
                           TechCommand::TC, 5000);
+}
+
+bool ScenarioEngine::luaSetFUReceive(uint16_t address, uint16_t duration, uint16_t dutyCycle)
+{
+    if (duration < 1 || duration > 27000 || dutyCycle < 1 || dutyCycle > 99) {
+        emit logMessage(QString("Invalid FU timing: duration=%1 us, dutyCycle=%2%%")
+                            .arg(duration).arg(dutyCycle));
+        return false;
+    }
+
+    // duty = one / (one + zero) * 100
+    // => zero = one * (100 / duty - 1)
+    double zeroDuration = (static_cast<double>(duration) * 100.0 / dutyCycle) - duration;
+    if (zeroDuration < 0.0 || zeroDuration >= 65536.0) {
+        emit logMessage(QString("Calculated FU zero duration is out of range: %1 us").arg(zeroDuration));
+        return false;
+    }
+
+    int whole = static_cast<int>(zeroDuration);
+    int hundredths = static_cast<int>((zeroDuration - whole) * 100.0 + 0.5);
+    if (hundredths >= 100) {
+        ++whole;
+        hundredths = 0;
+    }
+    if (whole >= 65536) {
+        return false;
+    }
+
+    uint8_t encoded[3] = {
+        static_cast<uint8_t>((whole >> 8) & 0xFF),
+        static_cast<uint8_t>(whole & 0xFF),
+        static_cast<uint8_t>(hundredths)
+    };
+    return luaSetFUReceive(address, duration, encoded);
+}
+
+bool ScenarioEngine::luaSetFUTransmit(uint16_t address, uint16_t duration, uint16_t dutyCycle)
+{
+    if (duration < 1 || duration > 27000 || dutyCycle < 1 || dutyCycle > 99) {
+        emit logMessage(QString("Invalid FU timing: duration=%1 us, dutyCycle=%2%%")
+                            .arg(duration).arg(dutyCycle));
+        return false;
+    }
+
+    double zeroDuration = (static_cast<double>(duration) * 100.0 / dutyCycle) - duration;
+    if (zeroDuration < 0.0 || zeroDuration >= 65536.0) {
+        emit logMessage(QString("Calculated FU zero duration is out of range: %1 us").arg(zeroDuration));
+        return false;
+    }
+
+    int whole = static_cast<int>(zeroDuration);
+    int hundredths = static_cast<int>((zeroDuration - whole) * 100.0 + 0.5);
+    if (hundredths >= 100) {
+        ++whole;
+        hundredths = 0;
+    }
+    if (whole >= 65536) {
+        return false;
+    }
+
+    uint8_t encoded[3] = {
+        static_cast<uint8_t>((whole >> 8) & 0xFF),
+        static_cast<uint8_t>(whole & 0xFF),
+        static_cast<uint8_t>(hundredths)
+    };
+    return luaSetFUTransmit(address, duration, encoded);
 }
 
 bool ScenarioEngine::luaSetFUReceive(uint16_t address, uint16_t duration, uint8_t dutyCycle[3])
@@ -273,8 +357,15 @@ bool ScenarioEngine::luaStartPRBS_S2M(uint16_t address)
 
 void ScenarioEngine::luaSleep(int ms)
 {
-    if (m_stopRequested) return;
-    QThread::msleep(ms);
+    if (ms <= 0 || m_stopRequested.load(std::memory_order_acquire)) return;
+
+    constexpr int stopPollMs = 20;
+    int remaining = ms;
+    while (remaining > 0 && !m_stopRequested.load(std::memory_order_acquire)) {
+        const int chunk = qMin(stopPollMs, remaining);
+        QThread::msleep(static_cast<unsigned long>(chunk));
+        remaining -= chunk;
+    }
 }
 
 bool ScenarioEngine::luaGeneratorAvailable() {

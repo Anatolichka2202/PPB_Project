@@ -20,7 +20,6 @@ CommunicationFacade::CommunicationFacade(UDPClient* udpClient,
     , m_udpClient(udpClient)
     , m_engine(new communicationengine(m_udpClient, std::move(adapter), this))
 {
-    // Соединяем сигналы движка с внутренними слотами
     connect(m_engine, &communicationengine::stateChanged,
             this, &CommunicationFacade::onEngineStateChanged);
     connect(m_engine, &communicationengine::commandCompleted,
@@ -37,7 +36,6 @@ CommunicationFacade::CommunicationFacade(UDPClient* udpClient,
             this, &CommunicationFacade::onEngineClearPacketDataRequested);
     connect(m_engine, &communicationengine::statusReceived,
             this, &CommunicationFacade::statusReceived);
-    // Добавляем новые соединения
     connect(m_engine, &communicationengine::commandProgress,
             this, &CommunicationFacade::onEngineCommandProgress);
     connect(m_engine, &communicationengine::busyChanged,
@@ -49,39 +47,25 @@ CommunicationFacade::CommunicationFacade(UDPClient* udpClient,
 CommunicationFacade::CommunicationFacade(QObject* parent)
     : ICommunication(parent)
     , m_ownsUdpClient(true)
-    , m_udpClient(new UDPClient(this))  // создаём как дочерний объект
-    , m_engine(nullptr)  // пока не создаём, нужно дождаться инициализации?
+    , m_udpClient(new UDPClient(this))
+    , m_engine(nullptr)
 {
-    // В этом конструкторе мы ещё не можем создать движок, так как для него нужен адаптер.
-    // Создадим адаптер по умолчанию и движок позже, после того как переместим в поток.
-    // Но поскольку мы ещё не в потоке, отложим создание до initialize().
-    // Альтернатива: создать адаптер и движок прямо здесь, но тогда они будут в основном потоке.
-    // Лучше всё создавать в потоке в initialize().
-    // Пока только сохраняем указатель на UDPClient (он уже дочерний).
 }
 
 CommunicationFacade::~CommunicationFacade()
 {
-    // Если мы владеем UDPClient, он удалится автоматически как дочерний объект.
-    // Движок тоже дочерний, удалится.
 }
 
 void CommunicationFacade::initialize()
 {
-    // Этот метод должен вызываться, когда объект уже находится в своём рабочем потоке.
-    // Создаём адаптер и движок.
     if (m_engine) {
         qWarning() << "CommunicationFacade already initialized";
         return;
     }
 
-    // Создаём адаптер протокола (можно заменить на фабрику, если нужно)
     auto adapter = std::make_unique<ProtocolAdapter>();
-
-    // Создаём движок
     m_engine = new communicationengine(m_udpClient, std::move(adapter), this);
 
-    // Повторяем соединения (как в другом конструкторе)
     connect(m_engine, &communicationengine::stateChanged,
             this, &CommunicationFacade::onEngineStateChanged);
     connect(m_engine, &communicationengine::commandCompleted,
@@ -105,15 +89,9 @@ void CommunicationFacade::initialize()
     connect(m_engine, &communicationengine::groupCommandCompleted,
             this, &CommunicationFacade::onEngineGroupCommandCompleted);
 
-    // Инициализируем UDPClient в его потоке
     QMetaObject::invokeMethod(m_udpClient, "initializeInThread", Qt::QueuedConnection);
-
-    // Когда UDPClient инициализируется, он пошлёт сигнал initialized, который мы должны пробросить.
-    // Но у нас пока нет соединения с сигналом UDPClient::initialized. Добавим его.
     connect(m_udpClient, &UDPClient::initialized, this, &CommunicationFacade::initialized);
 }
-
-// ... остальные методы интерфейса с проверкой потока
 
 bool CommunicationFacade::connectToPPB(uint16_t address, const QString& ip, quint16 port)
 {
@@ -145,7 +123,6 @@ void CommunicationFacade::executeCommand(TechCommand cmd, uint16_t address, cons
 
 quint64 CommunicationFacade::executeGroupCommand(TechCommand cmd, uint16_t mask, const QByteArray& data)
 {
-    // Проверка потока
     if (QThread::currentThread() != thread()) {
         quint64 result = 0;
         QMetaObject::invokeMethod(this, "executeGroupCommand", Qt::BlockingQueuedConnection,
@@ -155,7 +132,6 @@ quint64 CommunicationFacade::executeGroupCommand(TechCommand cmd, uint16_t mask,
                                   Q_ARG(QByteArray, data));
         return result;
     }
-    // Вызов метода движка (предполагается, что он уже добавлен)
     return m_engine->executeGroupCommand(cmd, mask, data);
 }
 
@@ -164,19 +140,34 @@ void CommunicationFacade::onEngineGroupCommandCompleted(quint64 groupId, bool al
     emit groupCommandCompleted(groupId, allSuccess, summary);
 }
 
-
 void CommunicationFacade::sendFUTransmit(uint16_t address, uint8_t period, const uint8_t fuData[3])
 {
-    invokeInThread([this, address, period, fuData]() {
-        m_engine->sendFUTransmit(address, period, fuData);
+    // fuData is commonly stack-backed in the GUI/Lua caller. Copy it before
+    // queueing work to the communication thread; capturing the pointer itself
+    // is a use-after-scope race.
+    const QByteArray dataCopy = fuData
+        ? QByteArray(reinterpret_cast<const char*>(fuData), 3)
+        : QByteArray();
+
+    invokeInThread([this, address, period, dataCopy]() {
+        const uint8_t* data = dataCopy.size() == 3
+            ? reinterpret_cast<const uint8_t*>(dataCopy.constData())
+            : nullptr;
+        m_engine->sendFUTransmit(address, period, data);
     });
-    //invokeInThread([this, address]() { m_engine->(address); });
 }
 
 void CommunicationFacade::sendFUReceive(uint16_t address, uint8_t period, const uint8_t fuData[3])
 {
-    invokeInThread([this, address, period, fuData]() {
-        m_engine->sendFUReceive(address, period, fuData);
+    const QByteArray dataCopy = fuData
+        ? QByteArray(reinterpret_cast<const char*>(fuData), 3)
+        : QByteArray();
+
+    invokeInThread([this, address, period, dataCopy]() {
+        const uint8_t* data = dataCopy.size() == 3
+            ? reinterpret_cast<const uint8_t*>(dataCopy.constData())
+            : nullptr;
+        m_engine->sendFUReceive(address, period, data);
     });
 }
 
@@ -208,8 +199,6 @@ bool CommunicationFacade::isBusy() const
     }
     return m_engine->isBusy();
 }
-
-// Приватные слоты для проброса сигналов
 
 void CommunicationFacade::onEngineStateChanged(uint16_t address, PPBState state)
 {

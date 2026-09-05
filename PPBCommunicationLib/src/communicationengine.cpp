@@ -5,13 +5,12 @@
 #include "../comm_dependencies.h"
 
 static int techCommandType = qRegisterMetaType<TechCommand>("TechCommand");
-// В начале communicationengine.cpp, после включений
+
 class CommandHost : public CommandInterface {
 public:
     CommandHost(communicationengine* engine, uint16_t address)
         : m_engine(engine), m_address(address) {}
 
-    // --- Методы, которые делегируем движку с адресом ---
     void setParseResult(bool success, const QString& message) override {
         m_engine->setCommandParseResult(m_address, success, message);
     }
@@ -26,20 +25,15 @@ public:
         }
     }
 
-    // --- Методы, которые можно игнорировать или делегировать без адреса ---
     void setState(PPBState state) override {
         Q_UNUSED(state)
-        // Состояние управляется движком, игнорируем
     }
 
     void startTimeoutTimer(int ms) override {
         Q_UNUSED(ms)
-        // Таймеры в движке
     }
 
-    void stopTimeoutTimer() override {
-        // Игнорируем
-    }
+    void stopTimeoutTimer() override {}
 
     void sendPacket(const QByteArray& packet, const QString& description) override {
         m_engine->sendPacketInternal(packet, description);
@@ -53,10 +47,9 @@ public:
     }
 
     QVector<DataPacket> getGeneratedPackets() const override {
-        return QVector<DataPacket>(); // заглушка
+        return QVector<DataPacket>();
     }
 
-    // --- Методы, связанные с уведомлениями о пакетах (не критичны, можно заглушить) ---
     void notifySentPackets(const QVector<DataPacket>& packets) override {
         Q_UNUSED(packets)
         LOG_TECH_DEBUG("notifySentPackets called, ignored");
@@ -64,22 +57,18 @@ public:
 
     void notifyReceivedPackets(const QVector<DataPacket>& packets) override {
         Q_UNUSED(packets)
-        LOG_TECH_DEBUG("notifySentPackets called, ignored");
+        LOG_TECH_DEBUG("notifyReceivedPackets called, ignored");
     }
 
     void requestClearPacketData() override {
-        LOG_TECH_DEBUG("notifySentPackets called, ignored");
+        LOG_TECH_DEBUG("requestClearPacketData called, ignored");
     }
-
-
 
 private:
     communicationengine* m_engine;
     uint16_t m_address;
 };
 
-
-// Определения методов для Internal::StateManager
 namespace Internal {
 
 StateManager::StateManager(QObject* parent) : QObject(parent) {}
@@ -107,7 +96,7 @@ void StateManager::clear() {
 CommandQueue::CommandQueue(QObject* parent) : QObject(parent) {}
 
 CommandQueue::~CommandQueue() {
-    clear(); // Очищаем все команды при уничтожении
+    clear();
 }
 
 void Internal::CommandQueue::enqueue(uint16_t address, std::unique_ptr<PPBCommand> cmd) {
@@ -121,7 +110,6 @@ std::unique_ptr<PPBCommand> Internal::CommandQueue::dequeue(uint16_t address) {
 
     auto it = m_queues.find(address);
     if (it != m_queues.end() && !it->second.empty()) {
-        // Берем первый элемент из deque
         std::unique_ptr<PPBCommand> cmd = std::move(it->second.front());
         it->second.pop_front();
 
@@ -135,6 +123,7 @@ std::unique_ptr<PPBCommand> Internal::CommandQueue::dequeue(uint16_t address) {
 
     return nullptr;
 }
+
 bool Internal::CommandQueue::isEmpty(uint16_t address) const {
     QMutexLocker locker(&m_mutex);
     auto it = m_queues.find(address);
@@ -167,8 +156,6 @@ QList<uint16_t> Internal::CommandQueue::addresses() const {
 
 } // namespace Internal
 
-
-
 communicationengine::communicationengine(UDPClient* udpClient, std::unique_ptr<IProtocolAdapter> adapter, QObject* parent)
     : QObject(parent)
     , m_udpClient(udpClient)
@@ -180,7 +167,6 @@ communicationengine::communicationengine(UDPClient* udpClient, std::unique_ptr<I
     , m_stateManager(new Internal::StateManager(this))
     , m_commandQueue(new Internal::CommandQueue(this))
 {
-
     LOG_TECH_STATE("communicationengine created");
 
     if (m_udpClient) {
@@ -194,21 +180,13 @@ communicationengine::communicationengine(UDPClient* udpClient, std::unique_ptr<I
     m_queueTimer->setInterval(100);
     connect(m_queueTimer, &QTimer::timeout, this, &communicationengine::processCommandQueue);
     m_queueTimer->start();
-
 }
-
-
 
 communicationengine::~communicationengine() {
     m_queueTimer->stop();
-
-    // Очищаем все контексты и их таймеры
-
     m_contexts.clear();
 }
 
-
-// Получаем контекст для адреса
 communicationengine::PPBContext* communicationengine::findContext(uint16_t address) {
     QMutexLocker locker(&m_contextsMutex);
     auto it = m_contexts.find(address);
@@ -217,45 +195,37 @@ communicationengine::PPBContext* communicationengine::findContext(uint16_t addre
 
 communicationengine::PPBContext& communicationengine::getOrCreateContext(uint16_t address) {
     QMutexLocker locker(&m_contextsMutex);
-    return m_contexts[address]; // operator[] создаст, если нет
+    return m_contexts[address];
 }
 
-
-
-// Очищаем контекст
 void communicationengine::clearContext(uint16_t address) {
-     LOG_TECH_DEBUG(QString("Clearing context for address 0x%1").arg(address, 4, 16, QChar('0')));
+    LOG_TECH_DEBUG(QString("Clearing context for address 0x%1").arg(address, 4, 16, QChar('0')));
     QMutexLocker locker(&m_contextsMutex);
     auto it = m_contexts.find(address);
     if (it != m_contexts.end()) {
         if (it->second.operationTimer) {
             it->second.operationTimer->stop();
-           it->second.operationTimer.reset();
+            it->second.operationTimer.reset();
         }
         m_contexts.erase(it);
-          LOG_TECH_DEBUG("Engine: Context deleeted");
+        LOG_TECH_DEBUG("Engine: Context deleted");
     }
 }
 
-//++++++++++++++++++++++++++++++++++++++++ПУБЛИЧНЫЕ СЛОТЫ+++++++++++++++++++++++++++++++
-
 bool communicationengine::connectToPPB(uint16_t address, const QString& ip, quint16 port) {
-
     if (QThread::currentThread() != this->thread()) {
-                bool result = false;
-                QMetaObject::invokeMethod(this, "connectToPPB", Qt::BlockingQueuedConnection,
-                                                                     Q_RETURN_ARG(bool, result),
-                                                                     Q_ARG(uint16_t, address),
-                                                                     Q_ARG(QString, ip),
-                                                                     Q_ARG(quint16, port));
-                return result;
-            }
+        bool result = false;
+        QMetaObject::invokeMethod(this, "connectToPPB", Qt::BlockingQueuedConnection,
+                                 Q_RETURN_ARG(bool, result),
+                                 Q_ARG(uint16_t, address),
+                                 Q_ARG(QString, ip),
+                                 Q_ARG(quint16, port));
+        return result;
+    }
 
-
-            LOG_UI_OPERATION(QString("Connecting to PPB %1:%2").arg(ip).arg(port));
-
-            LOG_TECH_STATE(QString("connectToPPB: address=0x%1, IP=%2, port=%3").arg(address, 4, 16, QChar('0'))
-                               .arg(ip).arg(port));
+    LOG_UI_OPERATION(QString("Connecting to PPB %1:%2").arg(ip).arg(port));
+    LOG_TECH_STATE(QString("connectToPPB: address=0x%1, IP=%2, port=%3").arg(address, 4, 16, QChar('0'))
+                       .arg(ip).arg(port));
 
     m_currentAddress = address;
     m_currentIP = ip;
@@ -272,49 +242,65 @@ bool communicationengine::connectToPPB(uint16_t address, const QString& ip, quin
 }
 
 void communicationengine::disconnect() {
-
     if (QThread::currentThread() != this->thread()) {
-                QMetaObject::invokeMethod(this, "disconnect", Qt::QueuedConnection);
-                return;
-            }
+        QMetaObject::invokeMethod(this, "disconnect", Qt::QueuedConnection);
+        return;
+    }
 
     LOG_UI_OPERATION("Disconnected from PPB");
     LOG_TECH_STATE("disconnect called");
 
-
     m_commandQueue->clear();
+    m_pendingGroupCommands.clear();
+    m_groupOperations.clear();
     m_stateManager->clear();
     emit disconnected();
 }
 
 void communicationengine::executeCommand(TechCommand cmd, uint16_t address) {
-
     if (QThread::currentThread() != this->thread()) {
-                QMetaObject::invokeMethod(this, "executeCommand", Qt::QueuedConnection,
-                                                                    Q_ARG(TechCommand, cmd),
-                                                                   Q_ARG(uint16_t, address));
-                return;
-            }
+        QMetaObject::invokeMethod(this, "executeCommand", Qt::QueuedConnection,
+                                 Q_ARG(TechCommand, cmd),
+                                 Q_ARG(uint16_t, address));
+        return;
+    }
 
     LOG_TECH_PROTOCOL(QString("executeCommand: cmd=%1, addr=0x%2").arg(int(cmd)).arg(address,4,16,QLatin1Char('0')));
 
-            auto command = CommandFactory::create(cmd);
-            if (!command) {
-                emit errorOccurred(QString("Неизвестная команда: %1").arg(static_cast<int>(cmd)));
-                return;
-            }
-            QString cmdName = command->name(); // сохраняем имя
-            PPBState currentState = m_stateManager->getState(address);
-            if (currentState != PPBState::Ready && currentState != PPBState::Idle) {
-                m_commandQueue->enqueue(address, std::move(command));
-                LOG_TECH_PROTOCOL(QString("Command %1 for address 0x%2 enqueued").arg(cmdName).arg(address,4,16,QLatin1Char('0')));
-            } else {
-                executeCommandImmediately(address, std::move(command));
-            }
+    auto command = CommandFactory::create(cmd);
+    if (!command) {
+        emit errorOccurred(QString("Неизвестная команда: %1").arg(static_cast<int>(cmd)));
+        return;
+    }
+    QString cmdName = command->name();
+
+    // Address 0 is used by the firmware VOLUME/UPDATE/CLEAN stream. Do not let
+    // it overtake an active or queued group command (VERS/PROGRAMM). Otherwise
+    // the first VOLUME may hit the bridge while selected PPBs are still entering
+    // the bootloader.
+    if (address == 0 && (!m_groupOperations.empty() || !m_pendingGroupCommands.empty())) {
+        m_commandQueue->enqueue(address, std::move(command));
+        LOG_TECH_PROTOCOL(QString("Command %1 for address 0x0000 gated behind group operations").arg(cmdName));
+        return;
+    }
+
+    PPBState currentState = m_stateManager->getState(address);
+    if (currentState != PPBState::Ready && currentState != PPBState::Idle) {
+        m_commandQueue->enqueue(address, std::move(command));
+        LOG_TECH_PROTOCOL(QString("Command %1 for address 0x%2 enqueued").arg(cmdName).arg(address,4,16,QLatin1Char('0')));
+    } else {
+        executeCommandImmediately(address, std::move(command));
+    }
 }
 
 void communicationengine::executeCommand(TechCommand cmd, uint16_t address, const QByteArray& data) {
     auto command = std::make_unique<DataCommand>(cmd, data);
+
+    if (address == 0 && (!m_groupOperations.empty() || !m_pendingGroupCommands.empty())) {
+        m_commandQueue->enqueue(address, std::move(command));
+        return;
+    }
+
     PPBState currentState = m_stateManager->getState(address);
     if (currentState != PPBState::Ready && currentState != PPBState::Idle) {
         m_commandQueue->enqueue(address, std::move(command));
@@ -327,36 +313,35 @@ void communicationengine::sendFUTransmit(uint16_t address, uint8_t period, const
     QByteArray packet = m_protocolAdapter->buildFURequest(address,1, period, fuData);
     sendPacketInternal(packet, "ФУ передача");
 }
+
 void communicationengine::sendFUReceiveImpl(uint16_t address, uint8_t period, const QByteArray& fuData)
 {
-    // Этот слот ВСЕГДА выполняется в потоке объекта, поэтому проверка не нужна
     const uint8_t* dataPtr = nullptr;
     uint8_t buffer[3];
     if (fuData.size() >= 3) {
         memcpy(buffer, fuData.constData(), 3);
         dataPtr = buffer;
     }
-    // Вызываем основной метод уже в правильном потоке
     sendFUReceive(address, period, dataPtr);
 }
+
 void communicationengine::sendFUReceive(uint16_t address, uint8_t period, const uint8_t fuData[3]) {
     QByteArray packet = m_protocolAdapter->buildFURequest(address,0, period, fuData);
     sendPacketInternal(packet, "ФУ прием");
 }
 
 void communicationengine::setCommandParseResult(uint16_t address, bool success, const QString& message) {
-
     if (QThread::currentThread() != this->thread()) {
-                QMetaObject::invokeMethod(this, "setCommandParseResult", Qt::QueuedConnection,
-                                                                    Q_ARG(uint16_t, address),
-                                                                    Q_ARG(bool, success),
-                                                                    Q_ARG(QString, message));
-                return;
-            }
+        QMetaObject::invokeMethod(this, "setCommandParseResult", Qt::QueuedConnection,
+                                 Q_ARG(uint16_t, address),
+                                 Q_ARG(bool, success),
+                                 Q_ARG(QString, message));
+        return;
+    }
 
     PPBContext* context = findContext(address);
     if (!context) {
-       LOG_TECH_DEBUG(QString("setCommandParseResult: no context for addr 0x%1").arg(address,4,16,QChar('0')));
+        LOG_TECH_DEBUG(QString("setCommandParseResult: no context for addr 0x%1").arg(address,4,16,QChar('0')));
         return;
     }
 
@@ -370,18 +355,15 @@ void communicationengine::setCommandParseResult(uint16_t address, bool success, 
 }
 
 void communicationengine::setCommandParseData(uint16_t address, const QVariant& data) {
-
     if (QThread::currentThread() != this->thread()) {
-                QMetaObject::invokeMethod(this, "setCommandParseData", Qt::QueuedConnection,
-                                                                     Q_ARG(uint16_t, address),
-                                                                     Q_ARG(QVariant, data));
-                return;
-            }
+        QMetaObject::invokeMethod(this, "setCommandParseData", Qt::QueuedConnection,
+                                 Q_ARG(uint16_t, address),
+                                 Q_ARG(QVariant, data));
+        return;
+    }
 
     PPBContext* context = findContext(address);
     if (!context) {
-       // LOG_CAT_WARNING("Engine",QString("setCommandParseData: нет контекста для адреса 0x%1")
-                        //.arg(address, 4, 16, QChar('0')));
         return;
     }
 
@@ -394,7 +376,6 @@ void communicationengine::setCommandParseData(uint16_t address, const QVariant& 
 
 quint64 communicationengine::executeGroupCommand(TechCommand cmd, uint16_t mask, const QByteArray& data)
 {
-
     if (QThread::currentThread() != this->thread()) {
         quint64 result = 0;
         QMetaObject::invokeMethod(this, "executeGroupCommand", Qt::BlockingQueuedConnection,
@@ -405,77 +386,121 @@ quint64 communicationengine::executeGroupCommand(TechCommand cmd, uint16_t mask,
         return result;
     }
 
-    // Собираем все адреса из маски (битовая маска: 1 << index)
-    QList<uint16_t> addresses;
-
-
-
-    for (int i = 0; i < 16; ++i) {
-        if (mask & (1 << i)) {
-            addresses.append(1 << i);
-        }
-    }
-
-    for (uint16_t addr : addresses) {
-        PPBState state = m_stateManager->getState(addr);
-        if (state != PPBState::Ready && state != PPBState::Idle) {
-            emit errorOccurred(QString("Address 0x%1 is busy, cannot start group command").arg(addr,4,16,QChar('0')));
-            return 0;
-        }
-    }
-
-    if (addresses.isEmpty()) {
+    if (mask == 0) {
         emit errorOccurred("Group command: empty mask");
         return 0;
     }
 
-    // Создаём запись о группе
-    quint64 groupId = m_nextGroupId++;
-    GroupInfo& group = m_groupOperations[groupId];
-    group.pendingAddresses = QSet<uint16_t>(addresses.begin(), addresses.end());
-
-    // Для каждого адреса создаём контекст с командой, но подавляем отправку
-    for (uint16_t addr : addresses) {
-        auto command = CommandFactory::create(cmd);
-        if (!command) {
-            emit errorOccurred(QString("Group command: unknown command %1").arg(static_cast<int>(cmd)));
-            // Очистить уже созданные контексты?
-            return 0;
-        }
-
-        // Если команда с данными, нужно использовать DataCommand
-        // Для простоты предполагаем, что фабрика создаёт нужный тип
-
-        PPBContext& context = getOrCreateContext(addr);
-        context.suppressSend = true;  // не отправлять пакет
-        // Вызываем стандартную процедуру выполнения команды (без отправки)
-        // Важно: executeCommandImmediately сама очистит контекст и установит новую команду
-        executeCommandImmediately(addr, std::move(command));
-        // После возврата suppressSend может быть сброшен? Нет, он остаётся true.
-        // Но можно оставить как есть.
+    if (!CommandFactory::create(cmd)) {
+        emit errorOccurred(QString("Group command: unknown command %1").arg(static_cast<int>(cmd)));
+        return 0;
     }
 
-    // Теперь отправляем один общий пакет с маской
+    const quint64 groupId = m_nextGroupId++;
+
+    if (!canStartGroupCommand(mask)) {
+        PendingGroupCommand pending;
+        pending.groupId = groupId;
+        pending.command = cmd;
+        pending.mask = mask;
+        pending.data = data;
+        m_pendingGroupCommands.push_back(std::move(pending));
+        LOG_TECH_PROTOCOL(QString("Group command %1 queued, id=%2, mask=0x%3")
+                              .arg(static_cast<int>(cmd))
+                              .arg(groupId)
+                              .arg(mask, 4, 16, QChar('0')));
+        return groupId;
+    }
+
+    if (!startGroupCommand(groupId, cmd, mask, data)) {
+        emit groupCommandCompleted(groupId, false, "Не удалось запустить групповую команду");
+    }
+
+    return groupId;
+}
+
+bool communicationengine::canStartGroupCommand(uint16_t mask) const
+{
+    for (int i = 0; i < 16; ++i) {
+        if (!(mask & (1u << i))) {
+            continue;
+        }
+        const uint16_t address = static_cast<uint16_t>(1u << i);
+        const PPBState state = m_stateManager->getState(address);
+        if (state != PPBState::Ready && state != PPBState::Idle) {
+            return false;
+        }
+    }
+    return mask != 0;
+}
+
+bool communicationengine::startGroupCommand(quint64 groupId, TechCommand cmd, uint16_t mask, const QByteArray& data)
+{
+    if (!canStartGroupCommand(mask)) {
+        return false;
+    }
+
+    QList<uint16_t> addresses;
+    for (int i = 0; i < 16; ++i) {
+        if (mask & (1u << i)) {
+            addresses.append(static_cast<uint16_t>(1u << i));
+        }
+    }
+
+    if (addresses.isEmpty() || !CommandFactory::create(cmd)) {
+        return false;
+    }
+
+    GroupInfo group;
+    group.pendingAddresses = QSet<uint16_t>(addresses.begin(), addresses.end());
+    m_groupOperations[groupId] = std::move(group);
+
+    for (uint16_t address : addresses) {
+        auto command = CommandFactory::create(cmd);
+        if (!command) {
+            m_groupOperations.erase(groupId);
+            return false;
+        }
+        executeCommandImmediately(address, std::move(command), true);
+    }
+
     QByteArray request;
     if (data.isEmpty()) {
         request = PacketBuilder::createTURequest(mask, cmd);
     } else {
         request = PacketBuilder::createTURequestWithData(mask, cmd, data);
     }
+
     sendPacketInternal(request, QString("Group command %1").arg(static_cast<int>(cmd)));
+    LOG_TECH_PROTOCOL(QString("Group command %1 started, id=%2, mask=0x%3")
+                          .arg(static_cast<int>(cmd))
+                          .arg(groupId)
+                          .arg(mask, 4, 16, QChar('0')));
+    return true;
+}
 
-    // Запуск таймеров уже произошёл внутри executeCommandImmediately
-    // (они запущены для каждого контекста)
+void communicationengine::tryStartPendingGroupCommands()
+{
+    if (m_pendingGroupCommands.empty()) {
+        return;
+    }
 
-    return groupId;
-} //реализация групповых команд
+    const PendingGroupCommand& front = m_pendingGroupCommands.front();
+    if (!canStartGroupCommand(front.mask)) {
+        return;
+    }
 
-// ===== ПРИВАТНЫЕ МЕТОДЫ =====
+    PendingGroupCommand pending = std::move(m_pendingGroupCommands.front());
+    m_pendingGroupCommands.pop_front();
+
+    if (!startGroupCommand(pending.groupId, pending.command, pending.mask, pending.data)) {
+        emit groupCommandCompleted(pending.groupId, false, "Не удалось запустить отложенную групповую команду");
+    }
+}
 
 void communicationengine::executeCommandImmediately(uint16_t address, std::unique_ptr<PPBCommand> command, bool suppressSend) {
     if (!command) return;
 
-    // Проверяем, можем ли выполнить команду
     PPBState currentState = m_stateManager->getState(address);
     if (currentState != PPBState::Ready && currentState != PPBState::Idle) {
         LOG_TECH_STATE(QString("Cannot execute %1 for 0x%2: state %3")
@@ -486,29 +511,53 @@ void communicationengine::executeCommandImmediately(uint16_t address, std::uniqu
     }
 
     PPBContext& context = getOrCreateContext(address);
-    context = PPBContext(); // очистка
+    context = PPBContext();
     context.currentCommand = std::move(command);
-    context.suppressSend = suppressSend; // восстанавливаем флаг
-
+    context.suppressSend = suppressSend;
     context.operationCompleted = false;
 
     transitionState(address, PPBState::SendingCommand, "Начинаем " + context.currentCommand->name());
     updateBusyState();
-    // Построение запроса через адаптер
-    QByteArray request;
-    if (/* это TU команда? */ true) { // нужно определять тип, но пока все TU через buildRequest
-        request = context.currentCommand->buildRequest(address);
-    } else {
-        // для FU команд будет отдельный вызов
+
+    QByteArray request = context.currentCommand->buildRequest(address);
+    if (request.isEmpty()) {
+        completeOperation(address, false, "Не удалось сформировать пакет команды");
+        return;
     }
 
-    if (!context.suppressSend) { //отправляем пакет если мультикаст не перехватывает отправку
+    if (!context.suppressSend) {
+        // VOLUME is a fire-and-stream packet. Its completion is local transport
+        // completion, not an MCU ACK. Check writeDatagram() directly so a dead
+        // or unbound socket cannot be reported as a successful firmware block.
+        if (context.currentCommand->commandId() == TechCommand::VOLUME) {
+            if (!m_udpClient) {
+                VolumeCommand::clearCurrentVolumeData();
+                completeOperation(address, false, "VOLUME: UDPClient не инициализирован");
+                return;
+            }
+
+            qint64 bytesSent = -1;
+            if (m_currentIP.isEmpty() || m_currentIP == "255.255.255.255") {
+                bytesSent = m_udpClient->sendBroadcast(request, m_currentPort);
+            } else {
+                bytesSent = m_udpClient->sendTo(request, m_currentIP, m_currentPort);
+            }
+
+            VolumeCommand::clearCurrentVolumeData();
+            if (bytesSent != request.size()) {
+                completeOperation(address, false,
+                                  QString("VOLUME: ошибка локальной UDP-отправки (%1/%2 байт)")
+                                      .arg(bytesSent).arg(request.size()));
+                return;
+            }
+
+            completeOperation(address, true, "VOLUME передан в UDP; ACK блока не ожидается");
+            return;
+        }
+
         sendPacketInternal(request, context.currentCommand->name());
     }
 
-
-
-    // Таймаут
     context.operationTimer = std::make_unique<QTimer>();
     context.operationTimer->setSingleShot(true);
     connect(context.operationTimer.get(), &QTimer::timeout,
@@ -520,6 +569,12 @@ void communicationengine::processCommandQueue() {
     auto addresses = m_commandQueue->addresses();
 
     for (uint16_t address : addresses) {
+        // Keep address 0 behind every active/pending group command. This is the
+        // firmware ordering barrier between PROGRAMM and the VOLUME stream.
+        if (address == 0 && (!m_groupOperations.empty() || !m_pendingGroupCommands.empty())) {
+            continue;
+        }
+
         PPBState state = m_stateManager->getState(address);
 
         if ((state == PPBState::Ready || state == PPBState::Idle) &&
@@ -537,28 +592,23 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
     Q_UNUSED(sender)
     Q_UNUSED(port)
 
-   // LOG_TECH_DEBUG(QString("onDataReceived: size=%1").arg(data.size()));
-
     if (data.size() < 2) {
         LOG_TECH_DEBUG("Packet too short, ignored");
         return;
     }
 
-    // Извлекаем адрес из первых двух байт (big-endian)
     uint16_t addressFromPacket = qFromBigEndian(*reinterpret_cast<const uint16_t*>(data.constData()));
     PPBContext* context = findContext(addressFromPacket);
 
     ProtocolEvent event;
     bool handled = false;
 
-    // ========== 1. Есть активный контекст для адреса из пакета ==========
     if (context && context->currentCommand && !context->operationCompleted) {
         TechCommand cmd = context->currentCommand->commandId();
 
-        // ----- Специальная обработка для IS_YOU (команда 0x20) -----
         if (cmd == TechCommand::IS_YOU) {
             if (m_protocolAdapter->parseBridgeResponse(data, event)) {
-                bool success = true; // IS_YOU всегда считаем успехом при получении данных
+                bool success = true;
                 QString message;
                 QVariant parsedData;
                 if (event.payload.size() == 2) {
@@ -582,8 +632,6 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
             if (handled) return;
         }
 
-        // ----- Обычные TU-команды (не IS_YOU) -----
-        // Сначала пробуем TU-парсер
         if (m_protocolAdapter->parseTUResponse(data, event)) {
             switch (event.type) {
             case ProtocolEvent::Error:
@@ -596,12 +644,11 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
                 if (context->currentCommand) {
                     CommandHost host(this, addressFromPacket);
                     context->currentCommand->onOkReceived(&host, addressFromPacket);
-                    // Если команда уже вызвала completeOperation, флаг operationCompleted будет true
                     if (!context->operationCompleted) {
-                        completeOperation(addressFromPacket, true, "Команда выполнена"); }
-                }
-                else {
-                completeOperation(addressFromPacket, true, "Команда выполнена");
+                        completeOperation(addressFromPacket, true, "Команда выполнена");
+                    }
+                } else {
+                    completeOperation(addressFromPacket, true, "Команда выполнена");
                 }
                 break;
             case ProtocolEvent::Data: {
@@ -619,9 +666,7 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
             }
             handled = true;
         } else {
-            // TU не распознан – пробуем Bridge (может быть ответ на ФУ команду, но для TU контекста это редкость)
             if (m_protocolAdapter->parseBridgeResponse(data, event)) {
-                // Если это ответ на IS_YOU, мы уже обработали выше; здесь другие команды
                 completeOperation(addressFromPacket, false, "Неожиданный Bridge-ответ");
                 handled = true;
             }
@@ -629,15 +674,11 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
         if (handled) return;
     }
 
-    // ========== 2. Нет активного контекста для адреса из пакета ==========
-    // Пробуем парсить как BridgeResponse
     if (m_protocolAdapter->parseBridgeResponse(data, event)) {
-        // Возможно, ответ пришёл на команду, отправленную с другим адресом (например, 0)
         uint16_t bridgeAddress = event.address;
         PPBContext* ctx = findContext(bridgeAddress);
         if (ctx && ctx->currentCommand && !ctx->operationCompleted) {
             bool success = (event.status == 1);
-            // Если команда IS_YOU, считаем успехом даже при status=0
             if (ctx->currentCommand->commandId() == TechCommand::IS_YOU) {
                 success = true;
             }
@@ -659,7 +700,6 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
             setCommandParseData(bridgeAddress, parsedData);
             completeOperation(bridgeAddress, success, message);
         } else {
-            // Нет контекста – это ФУ команда, которая не ожидает ответа, или спонтанный ответ
             emit fuCommandCompleted(event.address, event.command, event.status == 1,
                                     event.status == 1 ? "ФУ команда выполнена" : "Ошибка ФУ");
         }
@@ -671,7 +711,6 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
     }
 }
 
-// Вспомогательная функция для расшифровки кодов ошибок
 QString communicationengine::errorCodeToString(uint8_t code) const {
     switch (code) {
     case 0x00: return "OK";
@@ -682,6 +721,7 @@ QString communicationengine::errorCodeToString(uint8_t code) const {
     default:   return QString("Неизвестный код ошибки 0x%1").arg(code, 2, 16, QChar('0'));
     }
 }
+
 void communicationengine::onNetworkError(const QString& error) {
     emit errorOccurred(error);
 }
@@ -689,9 +729,7 @@ void communicationengine::onNetworkError(const QString& error) {
 void communicationengine::onOperationTimeout(uint16_t address)
 {
     PPBContext* context = findContext(address);
-    // Добавлена проверка operationCompleted
     if (!context || !context->currentCommand || context->operationCompleted) {
-        // Если контекста нет, нет активной команды или операция уже завершена — игнорируем таймаут
         return;
     }
 
@@ -700,13 +738,12 @@ void communicationengine::onOperationTimeout(uint16_t address)
 }
 
 void communicationengine::sendPacketInternal(const QByteArray& packet, const QString& description) {
-
     if (QThread::currentThread() != this->thread()) {
-                QMetaObject::invokeMethod(this, "sendPacketInternal", Qt::QueuedConnection,
-                                                                     Q_ARG(QByteArray, packet),
-                                                                     Q_ARG(QString, description));
-                return;
-            }
+        QMetaObject::invokeMethod(this, "sendPacketInternal", Qt::QueuedConnection,
+                                  Q_ARG(QByteArray, packet),
+                                  Q_ARG(QString, description));
+        return;
+    }
 
     if (!m_udpClient) {
         emit errorOccurred("UDPClient не инициализирован");
@@ -718,12 +755,9 @@ void communicationengine::sendPacketInternal(const QByteArray& packet, const QSt
     } else {
         m_udpClient->sendTo(packet, m_currentIP, m_currentPort);
     }
-
-    //LOG_TECH_DEBUG(QString("Packet sent: %1 (%2 bytes)").arg(description).arg(packet.size()));
 }
 
-// +++++++++++++++++++++++++++++++++++++++++++++++++ МАШИНА СОСТОЯНИЯ +++++++++++++++++++++++++++++++++++++
-QString communicationengine::stateToString(PPBState state)  const {
+QString communicationengine::stateToString(PPBState state) const {
     switch (state) {
     case PPBState::Idle: return "Idle";
     case PPBState::Ready: return "Ready";
@@ -733,10 +767,8 @@ QString communicationengine::stateToString(PPBState state)  const {
 }
 
 void communicationengine::transitionState(uint16_t address, PPBState newState, const QString& reason) {
-    // Получаем текущее состояние
     PPBState oldState = m_stateManager->getState(address);
 
-    // Если состояние не изменилось - выходим
     if (oldState == newState) {
         LOG_TECH_DEBUG(QString("State unchanged for 0x%1: %2 [%3]")
                       .arg(address, 4, 16, QChar('0'))
@@ -745,22 +777,18 @@ void communicationengine::transitionState(uint16_t address, PPBState newState, c
         return;
     }
 
-    // Логируем переход
     LOG_TECH_STATE(QString("State transition for 0x%1: %2 -> %3 [%4]")
                  .arg(address, 4, 16, QChar('0'))
                  .arg(stateToString(oldState))
                  .arg(stateToString(newState))
                  .arg(reason));
 
-    // Дополнительные действия при определенных переходах
     switch (newState) {
     case PPBState::Idle:
-        // При переходе в Idle очищаем контекст
         clearContext(address);
         break;
 
     case PPBState::Ready:
-        // При готовности проверяем очередь команд
         QTimer::singleShot(0, this, [this, address]() {
             processNextCommandForAddress(address);
         });
@@ -770,10 +798,8 @@ void communicationengine::transitionState(uint16_t address, PPBState newState, c
         break;
     }
 
-    // Устанавливаем новое состояние
     m_stateManager->setState(address, newState);
 
-    // Отправляем сигнал (если нужно)
     if (address == m_currentAddress) {
         emit stateChanged(address, newState);
     }
@@ -794,9 +820,6 @@ void communicationengine::completeOperation(uint16_t address, bool success, cons
     }
     LOG_TECH_STATE(QString("Operation completed for 0x%1: %2 - %3").arg(address,4,16,QChar('0')).arg(success?"success":"fail").arg(finalMessage));
 
-    //if(success) LOG_UI_RESULT(message);
-    //else LOG_UI_ALERT(message);
-
     emit commandCompleted(success, finalMessage, context->currentCommand->commandId());
 
     if (context->parsedData.isValid()) {
@@ -814,15 +837,12 @@ void communicationengine::completeOperation(uint16_t address, bool success, cons
         emit statusReceived(address, mask, data);
     }
 
-    // Очищаем результаты парсинга и обновляем состояние занятости ДО перехода,
-    // так как переход может удалить контекст
     context->clearParseResults();
     updateBusyState();
 
     PPBState nextState = success ? PPBState::Ready : PPBState::Idle;
     transitionState(address, nextState, "Завершение операции");
 
-    // Проверить, не принадлежит ли этот адрес какой-либо группе
     for (auto it = m_groupOperations.begin(); it != m_groupOperations.end(); ) {
         if (it->second.pendingAddresses.contains(address)) {
             it->second.pendingAddresses.remove(address);
@@ -830,13 +850,11 @@ void communicationengine::completeOperation(uint16_t address, bool success, cons
             it->second.messages[address] = finalMessage;
 
             if (it->second.pendingAddresses.isEmpty()) {
-                // Группа полностью завершена
                 bool allSuccess = true;
                 QString summary;
                 for (auto res : it->second.results) {
                     if (!res) { allSuccess = false; break; }
                 }
-                // Можно сформировать сводку
                 emit groupCommandCompleted(it->first, allSuccess, summary);
                 it = m_groupOperations.erase(it);
             } else {
@@ -846,36 +864,40 @@ void communicationengine::completeOperation(uint16_t address, bool success, cons
             ++it;
         }
     }
+
+    tryStartPendingGroupCommands();
+
+    // If no group remains, release any firmware/control command waiting at
+    // address 0 without waiting for the 100 ms polling timer.
+    if (m_groupOperations.empty() && m_pendingGroupCommands.empty()) {
+        QTimer::singleShot(0, this, [this]() { processCommandQueue(); });
+    }
 }
+
 void communicationengine::processNextCommandForAddress(uint16_t address) {
-    // Проверяем, что мы в состоянии Ready
     if (m_stateManager->getState(address) != PPBState::Ready) {
         return;
     }
 
-    // Проверяем, есть ли команды в очереди
     if (m_commandQueue->isEmpty(address)) {
         return;
     }
 
-    // Берем следующую команду из очереди
     auto command = m_commandQueue->dequeue(address);
     if (!command) {
         return;
     }
 
-   LOG_TECH_PROTOCOL(QString("Dequeue command for 0x%1: %2")
+    LOG_TECH_PROTOCOL(QString("Dequeue command for 0x%1: %2")
                  .arg(address, 4, 16, QChar('0'))
                  .arg(command->name()));
 
-    // Выполняем команду немедленно
     executeCommandImmediately(address, std::move(command));
 }
 
 bool communicationengine::canExecuteCommand(uint16_t address, const PPBCommand* command) const {
     Q_UNUSED(address)
     Q_UNUSED(command)
-    // В новой архитектуре команды можно выполнять всегда, если состояние позволяет
     return true;
 }
 
@@ -893,6 +915,7 @@ void communicationengine::requestClearPacketData() {
     emit clearPacketDataRequested();
     LOG_TECH_DEBUG("Clear packet data requested");
 }
+
 void communicationengine::sendDataPackets(const QVector<DataPacket>& packets) {
     for (const DataPacket& pkt : packets) {
         QByteArray data(reinterpret_cast<const char*>(&pkt), sizeof(DataPacket));
@@ -900,6 +923,7 @@ void communicationengine::sendDataPackets(const QVector<DataPacket>& packets) {
     }
     emit sentPacketsSaved(packets);
 }
+
 void communicationengine::updateBusyState() {
     QMutexLocker locker(&m_contextsMutex);
     Q_ASSERT(thread() == QThread::currentThread());

@@ -2,6 +2,7 @@
 #include "ui_fuwidget.h"
 #include <logmacros.h>
 #include <QMessageBox>
+
 FuWidget::FuWidget(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::FuWidget)
@@ -66,25 +67,24 @@ void FuWidget::on_fuBtnSent_clicked()
     }
 
     bool transmit = ui->radioButtonFUTransmit->isChecked();
-    //dur - период, duty - скважность
-    float delay = (dur/static_cast<float> (duty)) * 100; // считаем общую длинну в единце и нуле (вместе с дробью)
-    delay -= dur; // длинна в нуле
-    if(delay >= 65536)
-    {
-        QMessageBox::warning(this, "Ошибка",(QString("Значение периода нуля слишком большое = %1")
-                                                  .arg(delay)));
+    // dur - длительность единицы, duty - скважность в процентах.
+    // Полный период = dur / duty * 100, длительность нуля = полный период - dur.
+    float zeroDuration = (dur / static_cast<float>(duty)) * 100.0f - dur;
+    if (zeroDuration >= 65536.0f) {
+        QMessageBox::warning(this, "Ошибка", (QString("Значение периода нуля слишком большое = %1")
+                                                   .arg(zeroDuration)));
         LOG_UI_ALERT(QString("Значение периода нуля слишком большое = %1")
-                         .arg(delay));
+                         .arg(zeroDuration));
         return;
     }
-    int delay_int = static_cast<int>(delay);  // целая часть общей длинны
-    delay -= delay_int; // дробная часть общей длинны
 
-    delay *= 100; // представление дробной части как инт
-    uint8_t arr[3]; // массив нуля (целая + дробная части) [][] -  целая, []-дробь
-    arr[0] = (static_cast<uint16_t>(delay_int - dur)) >> 8; // старшая часть
-    arr[1] = (static_cast<uint8_t>(delay_int - dur)); // младшая часть
-    arr[2] = static_cast<uint8_t> (delay); // дробная часть
-    emit sendFuCommand(transmit, static_cast<uint16_t>(dur), arr );
+    int zeroDurationInt = static_cast<int>(zeroDuration);
+    float fraction = (zeroDuration - zeroDurationInt) * 100.0f;
+
+    uint8_t arr[3]; // [целая часть hi][целая часть lo][сотые доли]
+    arr[0] = static_cast<uint8_t>((static_cast<uint16_t>(zeroDurationInt) >> 8) & 0xFF);
+    arr[1] = static_cast<uint8_t>(zeroDurationInt & 0xFF);
+    arr[2] = static_cast<uint8_t>(fraction);
+
+    emit sendFuCommand(transmit, static_cast<uint16_t>(dur), arr);
 }
-

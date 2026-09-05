@@ -1,22 +1,22 @@
 #include <QApplication>
 #include <QTimer>
 #include <QMessageBox>
+#include <QIcon>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
 #endif
 
 #include <QDebug>
-
 #include <QDateTime>
 #include <QFile>
 #include <QTextStream>
-#include "applicationmanager.h"
-#include "testerwindow.h"
-
 #include <QCommandLineParser>
 
+#include "applicationmanager.h"
+#include "testerwindow.h"
 #include "thememanager.h"
+#include "updatemanager.h"
 
 #ifdef Q_OS_LINUX
 #include <signal.h>
@@ -25,9 +25,10 @@
 #include <cstring>
 #include <cstdio>
 
-// Обработчик сигналов с расширенной информацией
 void signalHandler(int sig, siginfo_t *info, void *context) {
-    // Пишем напрямую в stderr (избегаем небезопасных вызовов)
+    Q_UNUSED(info)
+    Q_UNUSED(context)
+
     const char msg1[] = "\n*** Caught signal ";
     write(STDERR_FILENO, msg1, sizeof(msg1)-1);
 
@@ -46,13 +47,10 @@ void signalHandler(int sig, siginfo_t *info, void *context) {
     const char msg3[] = ") ***\n";
     write(STDERR_FILENO, msg3, sizeof(msg3)-1);
 
-    // Выводим backtrace
     void* array[20];
     int size = backtrace(array, 20);
     backtrace_symbols_fd(array, size, STDERR_FILENO);
 
-    // Восстанавливаем стандартный обработчик и повторно поднимаем сигнал,
-    // чтобы процесс завершился с core dump (если разрешено)
     signal(sig, SIG_DFL);
     raise(sig);
 }
@@ -67,13 +65,10 @@ void setupSignalHandlers() {
     sigaction(SIGABRT, &sa, nullptr);
     sigaction(SIGFPE, &sa, nullptr);
     sigaction(SIGILL, &sa, nullptr);
-    // Можно добавить SIGBUS, SIGSYS при необходимости
 }
 #endif
 
-
 #ifdef Q_OS_WIN
-// Обработчик необработанных исключений Windows
 LONG WINAPI MyUnhandledExceptionFilter(struct _EXCEPTION_POINTERS* exceptionInfo)
 {
     QString errorMsg;
@@ -101,7 +96,6 @@ LONG WINAPI MyUnhandledExceptionFilter(struct _EXCEPTION_POINTERS* exceptionInfo
     QString logMessage = QString("[%1] [FATAL] Необработанное исключение Windows: %2, адрес: 0x%3")
                              .arg(timestamp).arg(errorMsg).arg(address, 16, 16, QChar('0'));
 
-    // Запись в файл crash.log
     QFile logFile("crash.log");
     if (logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
         QTextStream stream(&logFile);
@@ -121,10 +115,9 @@ LONG WINAPI MyUnhandledExceptionFilter(struct _EXCEPTION_POINTERS* exceptionInfo
 
 int main(int argc, char *argv[])
 {
-    #ifdef Q_OS_WIN
-    // Установка обработчика необработанных исключений Windows
+#ifdef Q_OS_WIN
     SetUnhandledExceptionFilter(MyUnhandledExceptionFilter);
-    #endif
+#endif
 
 #ifdef Q_OS_LINUX
     setupSignalHandlers();
@@ -132,44 +125,58 @@ int main(int argc, char *argv[])
 
     QApplication app(argc, argv);
 
-     auto& themeManager = ThemeManager::instance(); //инициализация менеджера темы
-
     QCoreApplication::setApplicationName("PPB Tester");
     QCoreApplication::setOrganizationName("MILTECH");
+    QCoreApplication::setApplicationVersion(QStringLiteral(PPB_VERSION));
+    app.setWindowIcon(QIcon(QStringLiteral(":/app/ppb-icon.ico")));
 
-    // ======== Парсинг аргументов ========
+    auto& themeManager = ThemeManager::instance();
+    Q_UNUSED(themeManager)
+
     QCommandLineParser parser;
     parser.setApplicationDescription("PPB Tester");
     parser.addHelpOption();
     parser.addVersionOption();
+
     QCommandLineOption testOption("test", "Run in test mode (use mock generator)");
+    QCommandLineOption noUpdateOption("no-update-check", "Disable automatic GitHub Releases update check");
     parser.addOption(testOption);
+    parser.addOption(noUpdateOption);
     parser.process(app);
 
     auto& manager = ApplicationManager::instance();
-    if (parser.isSet(testOption)) {
+    const bool testMode = parser.isSet(testOption);
+    const bool updateChecksEnabled = !testMode && !parser.isSet(noUpdateOption);
+
+    if (testMode) {
         manager.enableTestMode(true);
     }
-    // ====================================
 
-
+    auto* updateManager = new UpdateManager(&app);
 
     QObject::connect(&app, &QCoreApplication::aboutToQuit, [&]() {
         manager.shutdown();
     });
 
     QObject::connect(&manager, &ApplicationManager::initializationComplete,
-                     &app, [&]() {
+                     &app, [&, updateManager, updateChecksEnabled]() {
                          LOG_TECH_DEBUG("initializationComplete received");
                          auto* window = manager.mainWindow();
                          if (window) {
                              window->show();
                              LOG_TECH_DEBUG("Main window shown");
+
+                             if (updateChecksEnabled) {
+                                 QTimer::singleShot(1500, updateManager, [updateManager]() {
+                                     updateManager->checkForUpdates(false);
+                                 });
+                             }
                          } else {
                              qCritical() << "Main window is null";
                              app.quit();
                          }
                      });
+
     QObject::connect(&manager, &ApplicationManager::initializationFailed,
                      &app, [&](const QString& error) {
                          QMessageBox::critical(nullptr, "Initialization Error",
@@ -178,14 +185,10 @@ int main(int argc, char *argv[])
                      });
 
     QTimer::singleShot(0, [&]() {
-        if (!manager.initialize()) {
-            // initialize() сам пошлёт сигнал initializationFailed
-        }
+        manager.initialize();
     });
 
-    // Защита от C++ исключений
     int result;
-    //LOG_TECH_DEBUG("Entering app.exec()");
     try {
         result = app.exec();
     } catch (const std::exception& e) {
@@ -198,6 +201,5 @@ int main(int argc, char *argv[])
         result = 1;
     }
 
-    //LOG_TECH_DEBUG("app.exec() exited");
     return result;
 }

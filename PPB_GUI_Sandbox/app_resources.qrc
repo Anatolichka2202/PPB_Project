@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/app">
+    <file alias="ppb-icon.svg">resources/ppb-icon.svg</file>
+  </qresource>
+</RCC>

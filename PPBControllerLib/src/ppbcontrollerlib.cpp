@@ -1520,16 +1520,62 @@ void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFile
     // подготовительные команды.
     constexpr int firmwareGroupTimeoutMs = 5000;
 
-    const quint64 versGroupId =
-        m_communication->executeGroupCommand(TechCommand::VERS, targetMask);
-    if (!waitForGroupCommand(versGroupId, firmwareGroupTimeoutMs)) {
+    auto executeGroupAndWait = [&](TechCommand command, const QString& stage) -> bool {
+        QEventLoop loop;
+        QTimer timeout;
+        timeout.setSingleShot(true);
+
+        quint64 groupId = 0;
+        bool completed = false;
+        bool allSuccess = false;
+        QString summary;
+
+        // Connect before executeGroupCommand(). The communication call is
+        // cross-thread and a very fast response must not be able to beat
+        // installation of the completion handler.
+        auto conn = connect(m_communication, &ICommunication::groupCommandCompleted,
+                            this,
+                            [&](quint64 id, bool success, const QString& msg) {
+                                if (id != groupId) return;
+                                completed = true;
+                                allSuccess = success;
+                                summary = msg;
+                                loop.quit();
+                            },
+                            Qt::QueuedConnection);
+
+        connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+        groupId = m_communication->executeGroupCommand(command, targetMask);
+        if (groupId == 0) {
+            QObject::disconnect(conn);
+            LOG_UI_ALERT(stage + ": group command was not accepted");
+            return false;
+        }
+
+        timeout.start(firmwareGroupTimeoutMs);
+        loop.exec();
+        timeout.stop();
+        QObject::disconnect(conn);
+
+        if (!completed || !allSuccess) {
+            const QString reason = completed ? summary : QString("timeout");
+            LOG_UI_ALERT(QString("%1 group command failed: %2").arg(stage, reason));
+            m_communication->clearCommandQueue(0);
+            for (int i = 0; i < 16; ++i) {
+                const uint16_t address = static_cast<uint16_t>(1u << i);
+                if (targetMask & address) m_communication->clearCommandQueue(address);
+            }
+            return false;
+        }
+        return true;
+    };
+
+    if (!executeGroupAndWait(TechCommand::VERS, "VERS")) {
         emit errorOccurred("VERS group command failed; firmware update aborted");
         return;
     }
 
-    const quint64 programmGroupId =
-        m_communication->executeGroupCommand(TechCommand::PROGRAMM, targetMask);
-    if (!waitForGroupCommand(programmGroupId, firmwareGroupTimeoutMs)) {
+    if (!executeGroupAndWait(TechCommand::PROGRAMM, "PROGRAMM")) {
         emit errorOccurred("PROGRAMM group command failed; firmware update aborted");
         return;
     }

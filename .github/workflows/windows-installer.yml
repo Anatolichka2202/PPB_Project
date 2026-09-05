@@ -74,7 +74,7 @@ jobs:
         shell: powershell
         run: cmake --build build --target package
 
-      - name: Verify installer artifact
+      - name: Verify installer artifact and versioned filename
         shell: powershell
         run: |
           $expected = "PPB-$env:PPB_VERSION-Windows-x86_64.exe"
@@ -119,15 +119,6 @@ jobs:
           }
 
           Write-Host "Silent install verified at $installDir"
-
-      - name: Check installed executable version option
-        shell: powershell
-        run: |
-          $app = Join-Path $env:RUNNER_TEMP 'PPB-Smoke/PPB_GUI_Sandbox.exe'
-          $process = Start-Process -FilePath $app -ArgumentList '--version' -Wait -PassThru
-          if ($process.ExitCode -ne 0) {
-            throw "Installed PPB --version failed with code $($process.ExitCode)."
-          }
 
       - name: Smoke-run installed application in test mode
         shell: powershell

@@ -6,7 +6,7 @@ on:
       - fix/firmware-lua-safety-current
 
 jobs:
-  linux-tests:
+  linux-production-and-hex-test:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -24,17 +24,24 @@ jobs:
             qt6-charts-dev \
             liblua5.4-dev
 
-      - name: Configure with tests
-        run: cmake -S . -B build -G Ninja -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+      - name: Configure production build
+        run: cmake -S . -B build-prod -G Ninja -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build
-        run: cmake --build build --parallel 2
+      - name: Build production
+        run: cmake --build build-prod --parallel 2
 
-      - name: Run tests
-        run: ctest --test-dir build --output-on-failure
+      - name: Configure safety-test build
+        run: cmake -S . -B build-test -G Ninja -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build Intel HEX safety test only
+        run: cmake --build build-test --target test_firmwareupdater --parallel 2
+
+      - name: Run Intel HEX safety test only
+        run: ctest --test-dir build-test -R '^FirmwareUpdaterTest$' --output-on-failure
 
   windows-installer:
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,17 +77,37 @@ jobs:
         shell: powershell
         run: cmake --build build --target package
 
-      - name: Smoke-test silent install
+      - name: Verify and silent-install package
         shell: powershell
         run: |
           $installer = Get-ChildItem -Path build -Recurse -Filter 'PPB-*-Windows-x86_64.exe' | Select-Object -First 1
           if (-not $installer) { throw 'Installer not found.' }
+
           $installDir = Join-Path $env:RUNNER_TEMP 'PPB-Smoke'
           if (Test-Path $installDir) { Remove-Item -Recurse -Force $installDir }
+
           $p = Start-Process -FilePath $installer.FullName -ArgumentList "/S", "/D=$installDir" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "Install failed: $($p.ExitCode)" }
+
+          $requiredFiles = @(
+            'PPB_GUI_Sandbox.exe',
+            'Qt6Core.dll',
+            'Qt6Gui.dll',
+            'Qt6Widgets.dll',
+            'Qt6Network.dll',
+            'plugins/platforms/qwindows.dll'
+          )
+          foreach ($relativePath in $requiredFiles) {
+            if (-not (Test-Path (Join-Path $installDir $relativePath))) {
+              throw "Installed runtime is incomplete: missing $relativePath"
+            }
+          }
+
+      - name: Smoke-run installed application
+        shell: powershell
+        run: |
+          $installDir = Join-Path $env:RUNNER_TEMP 'PPB-Smoke'
           $app = Join-Path $installDir 'PPB_GUI_Sandbox.exe'
-          if (-not (Test-Path $app)) { throw 'Installed application missing.' }
           $run = Start-Process -FilePath $app -ArgumentList '--test' -WorkingDirectory $installDir -PassThru
           Start-Sleep -Seconds 5
           $run.Refresh()

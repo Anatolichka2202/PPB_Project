@@ -8,7 +8,6 @@ set(CMAKE_AUTORCC ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Core Network Charts)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Core Network Charts)
 
-# Список исходных файлов (убедитесь, что все .cpp перечислены)
 set(SOURCES
     main.cpp
     testerwindow.cpp
@@ -26,7 +25,6 @@ set(SOURCES
     grattencontrolwidget.cpp
 )
 
-# Заголовочные файлы (для отображения в IDE, не обязательны для компиляции)
 set(HEADERS
     testerwindow.h
     akip_pult.h
@@ -44,7 +42,6 @@ set(HEADERS
     grattencontrolwidget.h
 )
 
-# UI-файлы
 set(UIS
     akip_pult.ui
     pult.ui
@@ -60,7 +57,6 @@ set(UIS
     grattencontrolwidget.ui
 )
 
-# Ресурсы
 set(RESOURCES themes.qrc)
 
 add_executable(PPB_GUI_Sandbox
@@ -78,7 +74,6 @@ set_target_properties(PPB_GUI_Sandbox PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-# Подключаем директории с заголовками
 target_include_directories(PPB_GUI_Sandbox PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}/PPB_GUI_Sandbox_autogen/include
@@ -88,7 +83,6 @@ target_include_directories(PPB_GUI_Sandbox PRIVATE
     ${CMAKE_SOURCE_DIR}/AKIP-manager_module
 )
 
-# Линкуемся с Qt и нашими библиотеками
 target_link_libraries(PPB_GUI_Sandbox PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Core
@@ -102,7 +96,25 @@ target_link_libraries(PPB_GUI_Sandbox PRIVATE
     PacketAnalyzerLib
 )
 
-# Для Windows: скрыть консоль
 if(WIN32)
     set_target_properties(PPB_GUI_Sandbox PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
+
+# Install tree used by CPack.
+install(TARGETS PPB_GUI_Sandbox
+    RUNTIME DESTINATION .
+    BUNDLE DESTINATION .
+)
+
+# Qt 6 provides a supported deployment script which invokes windeployqt on
+# Windows and copies the required Qt DLLs/plugins into the install tree.
+if(WIN32 AND QT_VERSION_MAJOR EQUAL 6)
+    qt_generate_deploy_app_script(
+        TARGET PPB_GUI_Sandbox
+        OUTPUT_SCRIPT ppb_qt_deploy_script
+        NO_UNSUPPORTED_PLATFORM_ERROR
+    )
+    install(SCRIPT ${ppb_qt_deploy_script})
+elseif(WIN32)
+    message(WARNING "Automated Windows runtime deployment is supported for Qt 6 builds only")
 endif()

@@ -136,6 +136,7 @@ bool ScenarioEngine::execute()
         if (!main.valid()) {
             LOG_OP_OPERATION("Скрипт не содержит функцию main()");
             emit errorOccurred("Script does not contain 'main' function");
+            emit finished(false);
             return false;
         }
         main();

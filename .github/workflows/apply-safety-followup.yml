@@ -1,0 +1,528 @@
+name: Apply safety follow-up
+
+on:
+  push:
+    branches:
+      - fix/firmware-lua-safety-current
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply reviewed safety patch
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          def replace_once(text, old, new, label):
+              if old in text:
+                  return text.replace(old, new, 1)
+              if new in text:
+                  return text
+              raise RuntimeError(f"anchor not found: {label}")
+
+          # ------------------------------------------------------------------
+          # communicationengine: keep all engine state on the engine thread and
+          # reject stale 4-byte ACKs that echo a different TU command.
+          # ------------------------------------------------------------------
+          p = Path("PPBCommunicationLib/src/communicationengine.cpp")
+          text = p.read_text(encoding="utf-8")
+
+          text = replace_once(text,
+          '''        connect(m_udpClient, &UDPClient::dataReceived,
+                          this, &communicationengine::onDataReceived, Qt::DirectConnection);
+                  connect(m_udpClient, &UDPClient::errorOccurred,
+                          this, &communicationengine::onNetworkError, Qt::DirectConnection);''',
+          '''        connect(m_udpClient, &UDPClient::dataReceived,
+                          this, &communicationengine::onDataReceived, Qt::AutoConnection);
+                  connect(m_udpClient, &UDPClient::errorOccurred,
+                          this, &communicationengine::onNetworkError, Qt::AutoConnection);''',
+          "UDP connection type")
+
+          old_data_overload = '''void communicationengine::executeCommand(TechCommand cmd, uint16_t address, const QByteArray& data) {
+              auto command = std::make_unique<DataCommand>(cmd, data);'''
+          new_data_overload = '''void communicationengine::executeCommand(TechCommand cmd, uint16_t address, const QByteArray& data) {
+              if (QThread::currentThread() != this->thread()) {
+                  QMetaObject::invokeMethod(this,
+                                            [this, cmd, address, data]() {
+                                                executeCommand(cmd, address, data);
+                                            },
+                                            Qt::QueuedConnection);
+                  return;
+              }
+
+              auto command = std::make_unique<DataCommand>(cmd, data);'''
+          text = replace_once(text, old_data_overload, new_data_overload,
+                              "data command thread marshal")
+
+          text = replace_once(text,
+          '''    uint16_t addressFromPacket = qFromBigEndian(*reinterpret_cast<const uint16_t*>(data.constData()));''',
+          '''    const uint16_t addressFromPacket = qFromBigEndian<quint16>(
+                  reinterpret_cast<const uchar*>(data.constData()));''',
+          "aligned address read")
+
+          old_parse = '''        if (m_protocolAdapter->parseTUResponse(data, event)) {
+                      switch (event.type) {'''
+          new_parse = '''        if (m_protocolAdapter->parseTUResponse(data, event)) {
+                      // Current 4-byte TU ACK format echoes the command in byte 3.
+                      // A delayed UDP ACK from a previous operation must not complete
+                      // the command that happens to be active now on the same address.
+                      if (data.size() == 4 && event.type == ProtocolEvent::Ok &&
+                          event.command != static_cast<quint8>(cmd)) {
+                          LOG_TECH_DEBUG(QString("Stale/mismatched TU ACK ignored: addr=0x%1 expected=0x%2 got=0x%3")
+                                             .arg(addressFromPacket, 4, 16, QChar('0'))
+                                             .arg(static_cast<quint8>(cmd), 2, 16, QChar('0'))
+                                             .arg(event.command, 2, 16, QChar('0')));
+                          return;
+                      }
+
+                      switch (event.type) {'''
+          text = replace_once(text, old_parse, new_parse, "TU ACK correlation")
+          p.write_text(text, encoding="utf-8")
+
+          # ------------------------------------------------------------------
+          # ScenarioEngine: make stop work for pure-Lua loops and marshal every
+          # controller/generator call back to the controller thread.
+          # ------------------------------------------------------------------
+          p = Path("ScenarioModule/scenarioengine.cpp")
+          text = p.read_text(encoding="utf-8")
+
+          old_open = '''    lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table);
+
+              lua.set_function("log", [this](const std::string &msg) {'''
+          new_open = '''    lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table);
+
+              // Make stop() effective even for a Lua script that never calls one of
+              // our C++ wrappers (for example: while true do end). The hook only
+              // inspects the atomic flag and raises a protected Lua error.
+              *static_cast<ScenarioEngine**>(lua_getextraspace(lua.lua_state())) = this;
+              lua_sethook(lua.lua_state(),
+                          [](lua_State* state, lua_Debug*) {
+                              auto* engine = *static_cast<ScenarioEngine**>(lua_getextraspace(state));
+                              if (engine && engine->m_stopRequested.load(std::memory_order_acquire)) {
+                                  luaL_error(state, "Scenario execution stopped");
+                              }
+                          },
+                          LUA_MASKCOUNT,
+                          10000);
+
+              lua.set_function("log", [this](const std::string &msg) {'''
+          text = replace_once(text, old_open, new_open, "Lua stop hook")
+
+          old_analyze = '''    lua.set_function("analyzePackets", [this]() -> sol::table {
+                  auto res = m_controller->analyzeLastPackets();
+                  sol::table t = lua.create_table();'''
+          new_analyze = '''    lua.set_function("analyzePackets", [this]() -> sol::table {
+                  QVariantMap res;
+                  QMetaObject::invokeMethod(m_controller,
+                                            [this, &res]() { res = m_controller->analyzeLastPackets(); },
+                                            Qt::BlockingQueuedConnection);
+                  sol::table t = lua.create_table();'''
+          text = replace_once(text, old_analyze, new_analyze, "analyzePackets marshal")
+
+          old_catch = '''    } catch (const sol::error &e) {
+                  LOG_OP_OPERATION(QString("========== Скрипт %1 завершён с ошибкой: %2 ==========").arg(m_scriptName, e.what()));
+                  emit errorOccurred(QString("Execution error: %1").arg(e.what()));
+                  emit finished(false);
+                  return false;
+              }'''
+          new_catch = '''    } catch (const sol::error &e) {
+                  if (m_stopRequested.load(std::memory_order_acquire)) {
+                      LOG_OP_OPERATION(QString("========== Скрипт %1 остановлен ==========").arg(m_scriptName));
+                      emit finished(false);
+                      return false;
+                  }
+                  LOG_OP_OPERATION(QString("========== Скрипт %1 завершён с ошибкой: %2 ==========").arg(m_scriptName, e.what()));
+                  emit errorOccurred(QString("Execution error: %1").arg(e.what()));
+                  emit finished(false);
+                  return false;
+              }'''
+          text = replace_once(text, old_catch, new_catch, "stop-aware Lua catch")
+
+          gen_start = text.index("bool ScenarioEngine::luaGeneratorAvailable()")
+          gen_end = len(text)
+          generator_block = r'''bool ScenarioEngine::luaGeneratorAvailable()
+          {
+              bool available = false;
+              QMetaObject::invokeMethod(m_controller,
+                                        [this, &available]() {
+                                            available = m_controller->isGeneratorAvailable();
+                                        },
+                                        Qt::BlockingQueuedConnection);
+              return available;
+          }
+
+          bool ScenarioEngine::luaSetGeneratorFrequency(int channel, double freqHz)
+          {
+              bool success = false;
+              QMetaObject::invokeMethod(m_controller,
+                                        [this, channel, freqHz, &success]() {
+                                            if (!m_controller->isGeneratorAvailable()) return;
+                                            m_controller->setGeneratorFrequency(channel, freqHz);
+                                            success = true;
+                                        },
+                                        Qt::BlockingQueuedConnection);
+              if (!success) emit logMessage("Generator not available");
+              return success;
+          }
+
+          bool ScenarioEngine::luaSetGeneratorAmplitude(int channel, double value, const std::string& unit)
+          {
+              const QString qUnit = QString::fromStdString(unit);
+              bool success = false;
+              QMetaObject::invokeMethod(m_controller,
+                                        [this, channel, value, qUnit, &success]() {
+                                            if (!m_controller->isGeneratorAvailable()) return;
+                                            m_controller->setGeneratorAmplitude(channel, value, qUnit);
+                                            success = true;
+                                        },
+                                        Qt::BlockingQueuedConnection);
+              return success;
+          }
+
+          bool ScenarioEngine::luaSetGeneratorOutput(int channel, bool enable)
+          {
+              bool success = false;
+              QMetaObject::invokeMethod(m_controller,
+                                        [this, channel, enable, &success]() {
+                                            if (!m_controller->isGeneratorAvailable()) return;
+                                            m_controller->setGeneratorOutput(channel, enable);
+                                            success = true;
+                                        },
+                                        Qt::BlockingQueuedConnection);
+              return success;
+          }
+
+          bool ScenarioEngine::luaSetGeneratorWaveform(int channel, const std::string& wave)
+          {
+              const QString qWave = QString::fromStdString(wave);
+              bool success = false;
+              QMetaObject::invokeMethod(m_controller,
+                                        [this, channel, qWave, &success]() {
+                                            if (!m_controller->isGeneratorAvailable()) return;
+                                            m_controller->setGeneratorWaveform(channel, qWave);
+                                            success = true;
+                                        },
+                                        Qt::BlockingQueuedConnection);
+              return success;
+          }
+
+          bool ScenarioEngine::luaSetGeneratorDutyCycle(int channel, double percent)
+          {
+              bool success = false;
+              QMetaObject::invokeMethod(m_controller,
+                                        [this, channel, percent, &success]() {
+                                            if (!m_controller->isGeneratorAvailable()) return;
+                                            m_controller->setGeneratorDutyCycle(channel, percent);
+                                            success = true;
+                                        },
+                                        Qt::BlockingQueuedConnection);
+              return success;
+          }
+
+          std::string ScenarioEngine::luaGetGeneratorIdentity()
+          {
+              QString identity;
+              QMetaObject::invokeMethod(m_controller,
+                                        [this, &identity]() {
+                                            if (m_controller->isGeneratorAvailable()) {
+                                                identity = m_controller->getGeneratorIdentity();
+                                            }
+                                        },
+                                        Qt::BlockingQueuedConnection);
+              return identity.toStdString();
+          }
+          '''
+          text = text[:gen_start] + generator_block
+          p.write_text(text, encoding="utf-8")
+
+          # ------------------------------------------------------------------
+          # Controller: safe ScenarioEngine teardown and exclusive firmware
+          # transaction. Nested QEventLoops remain responsive but cannot inject
+          # normal PPB commands into the firmware stream.
+          # ------------------------------------------------------------------
+          p = Path("PPBControllerLib/src/ppbcontrollerlib.cpp")
+          text = p.read_text(encoding="utf-8")
+
+          text = replace_once(text,
+          '''#include <QDebug>
+
+          static struct MetaTypeRegistrar {''',
+          '''#include <QDebug>
+          #include <cmath>
+          #include <limits>
+
+          static struct MetaTypeRegistrar {''',
+          "controller safety includes")
+
+          old_dtor = '''PPBController::~PPBController()
+          {
+              if (m_autoPollTimer) {
+                  m_autoPollTimer->stop();
+                  delete m_autoPollTimer;
+              }
+              if (m_scenarioThread) {
+                  m_scenarioThread->quit();
+                  m_scenarioThread->wait(3000); // ждём завершения
+                  delete m_scenarioThread;
+              };
+          }'''
+          new_dtor = r'''PPBController::~PPBController()
+          {
+              if (m_autoPollTimer) {
+                  m_autoPollTimer->stop();
+                  delete m_autoPollTimer;
+                  m_autoPollTimer = nullptr;
+              }
+
+              if (m_scenarioEngine) {
+                  m_scenarioEngine->stop();
+
+                  if (m_scenarioRunning && m_scenarioThread && m_scenarioThread->isRunning()) {
+                      QEventLoop loop;
+                      QTimer timeout;
+                      QTimer statePoll;
+                      timeout.setSingleShot(true);
+                      timeout.setInterval(5000);
+                      statePoll.setInterval(20);
+
+                      auto finishedConn = connect(m_scenarioEngine.get(), &ScenarioEngine::finished,
+                                                  &loop, &QEventLoop::quit);
+                      connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+                      connect(&statePoll, &QTimer::timeout, &loop, [this, &loop]() {
+                          if (!m_scenarioRunning) loop.quit();
+                      });
+
+                      timeout.start();
+                      statePoll.start();
+                      loop.exec();
+                      statePoll.stop();
+                      QObject::disconnect(finishedConn);
+                  }
+
+                  // QObject must be destroyed in the thread that owns it. The Lua
+                  // instruction hook plus wrapper stop polling make the normal path
+                  // bounded. If a third-party hardware call is still blocking, wait
+                  // rather than deleting a live QThread/QObject from the wrong thread.
+                  if (m_scenarioRunning && m_scenarioThread && m_scenarioThread->isRunning()) {
+                      LOG_UI_ALERT("Scenario is still stopping during controller shutdown; waiting for safe teardown");
+                      while (m_scenarioRunning) {
+                          QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+                          QThread::msleep(20);
+                      }
+                  }
+
+                  ScenarioEngine* engine = m_scenarioEngine.release();
+                  if (m_scenarioThread && m_scenarioThread->isRunning() &&
+                      QThread::currentThread() != m_scenarioThread) {
+                      const bool deleted = QMetaObject::invokeMethod(
+                          engine, [engine]() { delete engine; }, Qt::BlockingQueuedConnection);
+                      if (!deleted) {
+                          LOG_UI_ALERT("Failed to delete ScenarioEngine in its owning thread");
+                          delete engine;
+                      }
+                  } else {
+                      delete engine;
+                  }
+              }
+
+              if (m_scenarioThread) {
+                  m_scenarioThread->quit();
+                  m_scenarioThread->wait();
+                  delete m_scenarioThread;
+                  m_scenarioThread = nullptr;
+              }
+          }'''
+          text = replace_once(text, old_dtor, new_dtor, "safe scenario destructor")
+
+          helper_anchor = '''// ==================== Управление подключением ====================
+
+          void PPBController::connectToPPB'''
+          helper_new = r'''// ==================== Управление подключением ====================
+
+          bool PPBController::commandBlockedByFirmwareUpdate(const char* operation) const
+          {
+              if (!m_firmwareUpdateRunning) return false;
+              LOG_UI_ALERT(QString("%1 отклонено: выполняется обновление прошивки")
+                               .arg(QString::fromLatin1(operation)));
+              return true;
+          }
+
+          void PPBController::connectToPPB'''
+          text = replace_once(text, helper_anchor, helper_new, "firmware guard helper")
+
+          def inject_guard(signature, operation):
+              nonlocal_text = None
+              return
+
+          guards = [
+              ('void PPBController::connectToPPB(uint16_t address, const QString& ip, quint16 port)\n{', 'connectToPPB'),
+              ('void PPBController::setBridgeAddress(const QString &ip, quint16 port)\n{', 'setBridgeAddress'),
+              ('void PPBController::requestStatus(uint16_t address)\n{', 'requestStatus'),
+              ('void PPBController::sendTC(uint16_t address)\n{', 'sendTC'),
+              ('void PPBController::resetPPB(uint16_t address, const TCDataPayload& payload)\n{', 'resetPPB'),
+              ('void PPBController::setFUReceive(uint16_t address, uint16_t duration, uint8_t dutyCycle[3])\n{', 'setFUReceive'),
+              ('void PPBController::setFUTransmit(uint16_t address, uint16_t duration, uint8_t dutyCycle[3])\n{', 'setFUTransmit'),
+              ('void PPBController::startPRBS_M2S(uint16_t address)\n{', 'startPRBS_M2S'),
+              ('void PPBController::startPRBS_S2M(uint16_t address)\n{', 'startPRBS_S2M'),
+              ('void PPBController::requestVersion(uint16_t address)\n{', 'requestVersion'),
+              ('void PPBController::requestChecksum(uint16_t address)\n{', 'requestChecksum'),
+              ('void PPBController::sendProgram(uint16_t address)\n{', 'sendProgram'),
+              ('void PPBController::sendClean(uint16_t address)\n{', 'sendClean'),
+              ('void PPBController::requestDroppedPackets(uint16_t address)\n{', 'requestDroppedPackets'),
+              ('void PPBController::requestBER_T(uint16_t address)\n{', 'requestBER_T'),
+              ('void PPBController::requestBER_F(uint16_t address)\n{', 'requestBER_F'),
+              ('void PPBController::requestFabricNumber(uint16_t address)\n{', 'requestFabricNumber'),
+              ('void PPBController::setCommunication(ICommunication* communication)\n{', 'setCommunication'),
+              ('void PPBController::exucuteCommand(TechCommand tech, uint16_t address)\n{', 'exucuteCommand'),
+          ]
+          for sig, op in guards:
+              new = sig + f'\n    if (commandBlockedByFirmwareUpdate("{op}")) return;'
+              text = replace_once(text, sig, new, f"guard {op}")
+
+          text = replace_once(text,
+          '''void PPBController::loadScenario(const QString &fileName)
+          {''',
+          '''void PPBController::loadScenario(const QString &fileName)
+          {
+              if (m_firmwareUpdateRunning) {
+                  emit scenarioError("Cannot load a scenario during firmware update");
+                  return;
+              }''',
+          "loadScenario firmware guard")
+
+          text = replace_once(text,
+          '''void PPBController::runScenario()
+          {''',
+          '''void PPBController::runScenario()
+          {
+              if (m_firmwareUpdateRunning) {
+                  emit scenarioError("Cannot run a scenario during firmware update");
+                  return;
+              }''',
+          "runScenario firmware guard")
+
+          text = replace_once(text,
+          '''bool PPBController::isBusy() const
+          {
+              return m_communication ? m_communication->isBusy() : false;
+          }''',
+          '''bool PPBController::isBusy() const
+          {
+              return m_firmwareUpdateRunning || (m_communication ? m_communication->isBusy() : false);
+          }''',
+          "isBusy firmware session")
+
+          old_update_start = '''void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFilePath, float newVersion)
+          {
+              // 1. Подготовка данных (без изменений)
+              auto dataBlocks = FirmwareUpdater::parseHexToDataBlocks(hexFilePath);'''
+          new_update_start = r'''void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFilePath, float newVersion)
+          {
+              if (m_firmwareUpdateRunning) {
+                  emit errorOccurred("Firmware update is already running");
+                  return;
+              }
+              if (m_scenarioRunning) {
+                  emit errorOccurred("Stop the active Lua scenario before firmware update");
+                  return;
+              }
+              if (!m_communication) {
+                  emit errorOccurred("Communication is not initialized");
+                  return;
+              }
+              if (m_communication->isBusy()) {
+                  emit errorOccurred("Communication is busy; firmware update was not started");
+                  return;
+              }
+              if (!std::isfinite(static_cast<double>(newVersion)) || newVersion < 0.0f) {
+                  emit errorOccurred("Invalid firmware version");
+                  return;
+              }
+
+              const qint64 roundedVersion = qRound64(static_cast<double>(newVersion) * 100.0);
+              if (roundedVersion < 0 ||
+                  static_cast<quint64>(roundedVersion) > std::numeric_limits<quint32>::max()) {
+                  emit errorOccurred("Firmware version is out of range");
+                  return;
+              }
+              const quint32 versionCode = static_cast<quint32>(roundedVersion);
+
+              // 1. Validate and linearize Intel HEX. The parser rejects gaps,
+              // overlaps and out-of-order records because VOLUME carries no address.
+              auto dataBlocks = FirmwareUpdater::parseHexToDataBlocks(hexFilePath);'''
+          text = replace_once(text, old_update_start, new_update_start, "firmware preflight")
+
+          old_blocks = '''    int totalBlocks = payloads.size();
+              if (totalBlocks == 0) {
+                  emit errorOccurred("No VOLUME blocks to send");
+                  return;
+              }
+
+              // Вычисляем CRC24 для всего файла'''
+          new_blocks = '''    int totalBlocks = payloads.size();
+              if (totalBlocks == 0) {
+                  emit errorOccurred("No VOLUME blocks to send");
+                  return;
+              }
+              if (totalBlocks > std::numeric_limits<quint16>::max()) {
+                  emit errorOccurred("Firmware image requires too many VOLUME blocks for the 16-bit protocol field");
+                  return;
+              }
+
+              const bool restartAutoPoll = m_autoPollTimer && m_autoPollTimer->isActive();
+              if (restartAutoPoll) m_autoPollTimer->stop();
+
+              m_firmwareUpdateRunning = true;
+              struct FirmwareSessionGuard {
+                  bool& running;
+                  QTimer* autoPollTimer;
+                  bool restartAutoPoll;
+                  ~FirmwareSessionGuard() {
+                      running = false;
+                      if (restartAutoPoll && autoPollTimer) autoPollTimer->start();
+                  }
+              } firmwareSessionGuard{m_firmwareUpdateRunning, m_autoPollTimer, restartAutoPoll};
+
+              // Discard commands queued before the exclusive firmware transaction.
+              // An already active operation was rejected above via isBusy().
+              m_communication->clearCommandQueue(0);
+              for (int i = 0; i < 16; ++i) {
+                  m_communication->clearCommandQueue(static_cast<uint16_t>(1u << i));
+              }
+
+              // Вычисляем CRC24 для всего файла'''
+          text = replace_once(text, old_blocks, new_blocks, "firmware exclusive session")
+
+          text = replace_once(text,
+          '''    uint32_t versionCode = static_cast<uint32_t>(newVersion * 100);
+              QByteArray versionBytes;''',
+          '''    QByteArray versionBytes;''',
+          "rounded version encoding")
+
+          p.write_text(text, encoding="utf-8")
+
+      - name: Validate source diff
+        run: |
+          git diff --check
+          git diff -- PPBCommunicationLib/src/communicationengine.cpp ScenarioModule/scenarioengine.cpp PPBControllerLib/src/ppbcontrollerlib.cpp
+
+      - name: Commit patch
+        run: |
+          if git diff --quiet; then
+            echo "Patch already applied"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PPBCommunicationLib/src/communicationengine.cpp ScenarioModule/scenarioengine.cpp PPBControllerLib/src/ppbcontrollerlib.cpp
+          git commit -m "fix: enforce firmware exclusivity and safe Lua teardown"
+          git push origin HEAD:fix/firmware-lua-safety-current

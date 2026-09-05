@@ -100,4 +100,26 @@ if(BUILD_TESTS)
     )
 
     add_test(NAME ControllerTest COMMAND test_ppbcontroller)
+
+    # Firmware HEX parsing is safety-critical for the update path. Keep these
+    # tests isolated from the full controller so malformed-address cases can be
+    # exercised without hardware or communication stubs.
+    add_executable(test_firmwareupdater
+        tests/firmwareupdater_test.cpp
+        include/firmwareupdater.cpp
+        include/firmwareupdater.h
+    )
+
+    target_include_directories(test_firmwareupdater
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(test_firmwareupdater
+        PRIVATE
+            Qt${QT_VERSION_MAJOR}::Core
+            Qt${QT_VERSION_MAJOR}::Test
+    )
+
+    add_test(NAME FirmwareUpdaterTest COMMAND test_firmwareupdater)
 endif()

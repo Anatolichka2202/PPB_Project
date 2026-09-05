@@ -23,6 +23,7 @@ set(SOURCES
     logwidget.cpp
     loguimanager.cpp
     grattencontrolwidget.cpp
+    updatemanager.cpp
 )
 
 set(HEADERS
@@ -40,6 +41,7 @@ set(HEADERS
     dependencies.h
     loguimanager.h
     grattencontrolwidget.h
+    updatemanager.h
 )
 
 set(UIS
@@ -57,13 +59,18 @@ set(UIS
     grattencontrolwidget.ui
 )
 
-set(RESOURCES themes.qrc)
+set(RESOURCES themes.qrc app_resources.qrc)
+set(PLATFORM_SOURCES)
+if(WIN32)
+    list(APPEND PLATFORM_SOURCES windows_app.rc)
+endif()
 
 add_executable(PPB_GUI_Sandbox
     ${SOURCES}
     ${HEADERS}
     ${UIS}
     ${RESOURCES}
+    ${PLATFORM_SOURCES}
     applicationmanager.h applicationmanager.cpp
     performancewindow.h performancewindow.cpp performancewindow.ui
     moc_objects/mockgeneratorcontroller.h moc_objects/mockgeneratorcontroller.cpp
@@ -73,6 +80,8 @@ add_executable(PPB_GUI_Sandbox
 set_target_properties(PPB_GUI_Sandbox PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
+
+target_compile_definitions(PPB_GUI_Sandbox PRIVATE PPB_VERSION="${PPB_VERSION}")
 
 target_include_directories(PPB_GUI_Sandbox PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -100,14 +109,11 @@ if(WIN32)
     set_target_properties(PPB_GUI_Sandbox PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 
-# Install tree used by CPack.
 install(TARGETS PPB_GUI_Sandbox
     RUNTIME DESTINATION .
     BUNDLE DESTINATION .
 )
 
-# Qt 6 provides a supported deployment script which invokes windeployqt on
-# Windows and copies the required Qt DLLs/plugins into the install tree.
 if(WIN32 AND QT_VERSION_MAJOR EQUAL 6)
     qt_generate_deploy_app_script(
         TARGET PPB_GUI_Sandbox

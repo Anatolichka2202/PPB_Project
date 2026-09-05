@@ -10,6 +10,8 @@
 #include "firmwareupdater.h"
 #include "../PPBCommunicationLib/src/commandandoperation.h"
 #include <QDebug>
+#include <cmath>
+#include <limits>
 
 static struct MetaTypeRegistrar {
     MetaTypeRegistrar() {
@@ -135,12 +137,66 @@ PPBController::~PPBController()
     if (m_autoPollTimer) {
         m_autoPollTimer->stop();
         delete m_autoPollTimer;
+        m_autoPollTimer = nullptr;
     }
+
+    if (m_scenarioEngine) {
+        m_scenarioEngine->stop();
+
+        if (m_scenarioRunning && m_scenarioThread && m_scenarioThread->isRunning()) {
+            QEventLoop loop;
+            QTimer timeout;
+            QTimer statePoll;
+            timeout.setSingleShot(true);
+            timeout.setInterval(5000);
+            statePoll.setInterval(20);
+
+            auto finishedConn = connect(m_scenarioEngine.get(), &ScenarioEngine::finished,
+                                        &loop, &QEventLoop::quit);
+            connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+            connect(&statePoll, &QTimer::timeout, &loop, [this, &loop]() {
+                if (!m_scenarioRunning) loop.quit();
+            });
+
+            timeout.start();
+            statePoll.start();
+            loop.exec();
+            statePoll.stop();
+            QObject::disconnect(finishedConn);
+        }
+
+        // QObject must be destroyed in the thread that owns it. The Lua
+        // instruction hook plus wrapper stop polling make the normal path
+        // bounded. If a third-party hardware call is still blocking, wait
+        // rather than deleting a live QThread/QObject from the wrong thread.
+        if (m_scenarioRunning && m_scenarioThread && m_scenarioThread->isRunning()) {
+            LOG_UI_ALERT("Scenario is still stopping during controller shutdown; waiting for safe teardown");
+            while (m_scenarioRunning) {
+                QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+                QThread::msleep(20);
+            }
+        }
+
+        ScenarioEngine* engine = m_scenarioEngine.release();
+        if (m_scenarioThread && m_scenarioThread->isRunning() &&
+            QThread::currentThread() != m_scenarioThread) {
+            const bool deleted = QMetaObject::invokeMethod(
+                engine, [engine]() { delete engine; }, Qt::BlockingQueuedConnection);
+            if (!deleted) {
+                LOG_UI_ALERT("Failed to delete ScenarioEngine in its owning thread");
+                delete engine;
+            }
+        } else {
+            delete engine;
+        }
+    }
+
     if (m_scenarioThread) {
         m_scenarioThread->quit();
-        m_scenarioThread->wait(3000); // ждём завершения
+        m_scenarioThread->wait();
         delete m_scenarioThread;
-    };
+        m_scenarioThread = nullptr;
+    }
 }
 
 void PPBController::onBusyChanged(bool busy)
@@ -151,8 +207,17 @@ void PPBController::onBusyChanged(bool busy)
 
 // ==================== Управление подключением ====================
 
+bool PPBController::commandBlockedByFirmwareUpdate(const char* operation) const
+{
+    if (!m_firmwareUpdateRunning) return false;
+    LOG_UI_ALERT(QString("%1 отклонено: выполняется обновление прошивки")
+                     .arg(QString::fromLatin1(operation)));
+    return true;
+}
+
 void PPBController::connectToPPB(uint16_t address, const QString& ip, quint16 port)
 {
+    if (commandBlockedByFirmwareUpdate("connectToPPB")) return;
     LOG_UI_OPERATION(QString("PPBController::connectToPPB: address=0x%1, ip=%2, port=%3")
                          .arg(address, 4, 16, QChar('0')).arg(ip).arg(port));
 
@@ -173,6 +238,7 @@ void PPBController::disconnect()
 
 void PPBController::setBridgeAddress(const QString &ip, quint16 port)
 {
+    if (commandBlockedByFirmwareUpdate("setBridgeAddress")) return;
     if (m_communication)
         m_communication->setBridgeAddress(ip, port);
 }
@@ -181,6 +247,7 @@ void PPBController::setBridgeAddress(const QString &ip, quint16 port)
 
 void PPBController::requestStatus(uint16_t address)
 {
+    if (commandBlockedByFirmwareUpdate("requestStatus")) return;
     if (isBusy()) {
         LOG_TECH_STATE("requestStatus: контроллер занят, запрос отклонён");
         return;
@@ -202,6 +269,7 @@ void PPBController::requestStatus(uint16_t address)
 
 void PPBController::sendTC(uint16_t address)
 {
+    if (commandBlockedByFirmwareUpdate("sendTC")) return;
     int index = addressToIndex(address);
     if (index < 0) return;
 
@@ -235,6 +303,7 @@ void PPBController::sendTC(uint16_t address)
 
 void PPBController::resetPPB(uint16_t address, const TCDataPayload& payload)
 {
+    if (commandBlockedByFirmwareUpdate("resetPPB")) return;
     // Устаревший метод, оставлен для совместимости
     QByteArray data(reinterpret_cast<const char*>(&payload), sizeof(payload));
     if (data.size() < 12) data.resize(12, 0);
@@ -245,6 +314,7 @@ void PPBController::resetPPB(uint16_t address, const TCDataPayload& payload)
 
 void PPBController::setFUReceive(uint16_t address, uint16_t duration, uint8_t dutyCycle[3])
 {
+    if (commandBlockedByFirmwareUpdate("setFUReceive")) return;
     if (m_communication && !m_communication->isBusy()) {
         uint8_t period = (duration >> 8) & 0xFF;
         uint8_t fuData[3] = {
@@ -260,6 +330,7 @@ void PPBController::setFUReceive(uint16_t address, uint16_t duration, uint8_t du
 }
 void PPBController::setFUTransmit(uint16_t address, uint16_t duration, uint8_t dutyCycle[3])
 {
+    if (commandBlockedByFirmwareUpdate("setFUTransmit")) return;
     if (m_communication && !m_communication->isBusy()) {
 
         uint8_t period = (duration >> 8) & 0xFF;
@@ -278,6 +349,7 @@ void PPBController::setFUTransmit(uint16_t address, uint16_t duration, uint8_t d
 
 void PPBController::startPRBS_M2S(uint16_t address)
 {
+    if (commandBlockedByFirmwareUpdate("startPRBS_M2S")) return;
     if (m_communication) {
         m_communication->executeCommand(TechCommand::PRBS_M2S, address);
         LOG_UI_RESULT(QString("Запуск PRBS_M2S для ППБ %1").arg(address));
@@ -286,6 +358,7 @@ void PPBController::startPRBS_M2S(uint16_t address)
 
 void PPBController::startPRBS_S2M(uint16_t address)
 {
+    if (commandBlockedByFirmwareUpdate("startPRBS_S2M")) return;
     if (m_communication) {
         m_communication->executeCommand(TechCommand::PRBS_S2M, address);
         LOG_UI_RESULT(QString("Запуск PRBS_S2M для ППБ %1").arg(address));
@@ -296,6 +369,7 @@ void PPBController::startPRBS_S2M(uint16_t address)
 
 void PPBController::requestVersion(uint16_t address)
 {
+    if (commandBlockedByFirmwareUpdate("requestVersion")) return;
     if (m_communication) {
         m_communication->executeCommand(TechCommand::VERS, address);
         LOG_UI_OPERATION(QString("Запрос версии ППБ %1").arg(address));
@@ -314,6 +388,7 @@ void PPBController::requestVolume(uint16_t address, const QString& hexFilePath, 
 
 void PPBController::requestChecksum(uint16_t address)
 {
+    if (commandBlockedByFirmwareUpdate("requestChecksum")) return;
     if (m_communication) {
         m_communication->executeCommand(TechCommand::CHECKSUM, address);
         LOG_UI_OPERATION(QString("Запрос контрольной суммы ППБ %1").arg(address));
@@ -322,6 +397,7 @@ void PPBController::requestChecksum(uint16_t address)
 
 void PPBController::sendProgram(uint16_t address)
 {
+    if (commandBlockedByFirmwareUpdate("sendProgram")) return;
     if (m_communication) {
         m_communication->executeCommand(TechCommand::PROGRAMM, address);
         LOG_UI_OPERATION(QString("Обновление ПО ППБ %1").arg(address));
@@ -330,6 +406,7 @@ void PPBController::sendProgram(uint16_t address)
 
 void PPBController::sendClean(uint16_t address)
 {
+    if (commandBlockedByFirmwareUpdate("sendClean")) return;
     if (m_communication) {
         m_communication->executeCommand(TechCommand::CLEAN, address);
         LOG_UI_OPERATION(QString("Очистка временного файла ПО ППБ %1").arg(address));
@@ -338,6 +415,7 @@ void PPBController::sendClean(uint16_t address)
 
 void PPBController::requestDroppedPackets(uint16_t address)
 {
+    if (commandBlockedByFirmwareUpdate("requestDroppedPackets")) return;
     if (m_communication) {
         m_communication->executeCommand(TechCommand::DROP, address);
         LOG_UI_OPERATION(QString("Запрос отброшенных пакетов ППБ %1").arg(address));
@@ -346,6 +424,7 @@ void PPBController::requestDroppedPackets(uint16_t address)
 
 void PPBController::requestBER_T(uint16_t address)
 {
+    if (commandBlockedByFirmwareUpdate("requestBER_T")) return;
     if (m_communication) {
         m_communication->executeCommand(TechCommand::BER_T, address);
         LOG_UI_OPERATION(QString("Запрос BER ТУ ППБ %1").arg(address));
@@ -354,6 +433,7 @@ void PPBController::requestBER_T(uint16_t address)
 
 void PPBController::requestBER_F(uint16_t address)
 {
+    if (commandBlockedByFirmwareUpdate("requestBER_F")) return;
     if (m_communication) {
         m_communication->executeCommand(TechCommand::BER_F, address);
         LOG_UI_OPERATION(QString("Запрос BER ФУ ППБ %1").arg(address));
@@ -362,6 +442,7 @@ void PPBController::requestBER_F(uint16_t address)
 
 void PPBController::requestFabricNumber(uint16_t address)
 {
+    if (commandBlockedByFirmwareUpdate("requestFabricNumber")) return;
     if (m_communication) {
         m_communication->executeCommand(TechCommand::Factory_Number, address);
         LOG_UI_OPERATION(QString("Запрос заводского номера ППБ %1").arg(address));
@@ -476,7 +557,7 @@ PPBState PPBController::connectionState() const
 
 bool PPBController::isBusy() const
 {
-    return m_communication ? m_communication->isBusy() : false;
+    return m_firmwareUpdateRunning || (m_communication ? m_communication->isBusy() : false);
 }
 
 void PPBController::setCurrentAddress(uint16_t address)
@@ -564,6 +645,7 @@ void PPBController::resetSettingsToReal(uint8_t ppbIndex)
 
 void PPBController::setCommunication(ICommunication* communication)
 {
+    if (commandBlockedByFirmwareUpdate("setCommunication")) return;
     LOG_TECH_DEBUG("PPBController::setCommunication");
 
     if (m_communication == communication) {
@@ -615,6 +697,7 @@ void PPBController::setCommunication(ICommunication* communication)
 
 void PPBController::exucuteCommand(TechCommand tech, uint16_t address)
 {
+    if (commandBlockedByFirmwareUpdate("exucuteCommand")) return;
     if (m_communication) {
         m_communication->executeCommand(tech, address);
     }
@@ -1142,6 +1225,10 @@ void PPBController::runFullTest(uint16_t address)
 
 void PPBController::loadScenario(const QString &fileName)
 {
+    if (m_firmwareUpdateRunning) {
+        emit scenarioError("Cannot load a scenario during firmware update");
+        return;
+    }
     if (!m_scenarioThread->isRunning()) {
         m_scenarioThread->start();
     }
@@ -1221,6 +1308,10 @@ void PPBController::loadScenario(const QString &fileName)
 
 void PPBController::runScenario()
 {
+    if (m_firmwareUpdateRunning) {
+        emit scenarioError("Cannot run a scenario during firmware update");
+        return;
+    }
     if (m_scenarioFileName.isEmpty()) {
         emit scenarioError("No scenario loaded");
         return;
@@ -1317,7 +1408,37 @@ bool PPBController::waitForGroupCommand(quint64 groupId, int timeoutMs)
 
 void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFilePath, float newVersion)
 {
-    // 1. Подготовка данных (без изменений)
+    if (m_firmwareUpdateRunning) {
+        emit errorOccurred("Firmware update is already running");
+        return;
+    }
+    if (m_scenarioRunning) {
+        emit errorOccurred("Stop the active Lua scenario before firmware update");
+        return;
+    }
+    if (!m_communication) {
+        emit errorOccurred("Communication is not initialized");
+        return;
+    }
+    if (m_communication->isBusy()) {
+        emit errorOccurred("Communication is busy; firmware update was not started");
+        return;
+    }
+    if (!std::isfinite(static_cast<double>(newVersion)) || newVersion < 0.0f) {
+        emit errorOccurred("Invalid firmware version");
+        return;
+    }
+
+    const qint64 roundedVersion = qRound64(static_cast<double>(newVersion) * 100.0);
+    if (roundedVersion < 0 ||
+        static_cast<quint64>(roundedVersion) > std::numeric_limits<quint32>::max()) {
+        emit errorOccurred("Firmware version is out of range");
+        return;
+    }
+    const quint32 versionCode = static_cast<quint32>(roundedVersion);
+
+    // 1. Validate and linearize Intel HEX. The parser rejects gaps,
+    // overlaps and out-of-order records because VOLUME carries no address.
     auto dataBlocks = FirmwareUpdater::parseHexToDataBlocks(hexFilePath);
     if (dataBlocks.isEmpty()) {
         emit errorOccurred("No data blocks extracted from HEX file");
@@ -1328,6 +1449,31 @@ void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFile
     if (totalBlocks == 0) {
         emit errorOccurred("No VOLUME blocks to send");
         return;
+    }
+    if (totalBlocks > std::numeric_limits<quint16>::max()) {
+        emit errorOccurred("Firmware image requires too many VOLUME blocks for the 16-bit protocol field");
+        return;
+    }
+
+    const bool restartAutoPoll = m_autoPollTimer && m_autoPollTimer->isActive();
+    if (restartAutoPoll) m_autoPollTimer->stop();
+
+    m_firmwareUpdateRunning = true;
+    struct FirmwareSessionGuard {
+        bool& running;
+        QTimer* autoPollTimer;
+        bool restartAutoPoll;
+        ~FirmwareSessionGuard() {
+            running = false;
+            if (restartAutoPoll && autoPollTimer) autoPollTimer->start();
+        }
+    } firmwareSessionGuard{m_firmwareUpdateRunning, m_autoPollTimer, restartAutoPoll};
+
+    // Discard commands queued before the exclusive firmware transaction.
+    // An already active operation was rejected above via isBusy().
+    m_communication->clearCommandQueue(0);
+    for (int i = 0; i < 16; ++i) {
+        m_communication->clearCommandQueue(static_cast<uint16_t>(1u << i));
     }
 
     // Вычисляем CRC24 для всего файла
@@ -1444,7 +1590,6 @@ void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFile
     }
 
     //5 end
-    uint32_t versionCode = static_cast<uint32_t>(newVersion * 100);
     QByteArray versionBytes;
     versionBytes.append(static_cast<char>((versionCode >> 24) & 0xFF));
     versionBytes.append(static_cast<char>((versionCode >> 16) & 0xFF));

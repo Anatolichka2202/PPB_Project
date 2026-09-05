@@ -171,9 +171,9 @@ communicationengine::communicationengine(UDPClient* udpClient, std::unique_ptr<I
 
     if (m_udpClient) {
         connect(m_udpClient, &UDPClient::dataReceived,
-                this, &communicationengine::onDataReceived, Qt::DirectConnection);
+                this, &communicationengine::onDataReceived, Qt::AutoConnection);
         connect(m_udpClient, &UDPClient::errorOccurred,
-                this, &communicationengine::onNetworkError, Qt::DirectConnection);
+                this, &communicationengine::onNetworkError, Qt::AutoConnection);
     }
 
     m_queueTimer = new QTimer(this);
@@ -294,6 +294,15 @@ void communicationengine::executeCommand(TechCommand cmd, uint16_t address) {
 }
 
 void communicationengine::executeCommand(TechCommand cmd, uint16_t address, const QByteArray& data) {
+    if (QThread::currentThread() != this->thread()) {
+        QMetaObject::invokeMethod(this,
+                                  [this, cmd, address, data]() {
+                                      executeCommand(cmd, address, data);
+                                  },
+                                  Qt::QueuedConnection);
+        return;
+    }
+
     auto command = std::make_unique<DataCommand>(cmd, data);
 
     if (address == 0 && (!m_groupOperations.empty() || !m_pendingGroupCommands.empty())) {
@@ -597,7 +606,8 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
         return;
     }
 
-    uint16_t addressFromPacket = qFromBigEndian(*reinterpret_cast<const uint16_t*>(data.constData()));
+    const uint16_t addressFromPacket = qFromBigEndian<quint16>(
+        reinterpret_cast<const uchar*>(data.constData()));
     PPBContext* context = findContext(addressFromPacket);
 
     ProtocolEvent event;
@@ -633,6 +643,18 @@ void communicationengine::onDataReceived(const QByteArray& data, const QHostAddr
         }
 
         if (m_protocolAdapter->parseTUResponse(data, event)) {
+            // Current 4-byte TU ACK format echoes the command in byte 3.
+            // A delayed UDP ACK from a previous operation must not complete
+            // the command that happens to be active now on the same address.
+            if (data.size() == 4 && event.type == ProtocolEvent::Ok &&
+                event.command != static_cast<quint8>(cmd)) {
+                LOG_TECH_DEBUG(QString("Stale/mismatched TU ACK ignored: addr=0x%1 expected=0x%2 got=0x%3")
+                                   .arg(addressFromPacket, 4, 16, QChar('0'))
+                                   .arg(static_cast<quint8>(cmd), 2, 16, QChar('0'))
+                                   .arg(event.command, 2, 16, QChar('0')));
+                return;
+            }
+
             switch (event.type) {
             case ProtocolEvent::Error:
                 completeOperation(addressFromPacket, false,

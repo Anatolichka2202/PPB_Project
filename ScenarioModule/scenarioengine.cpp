@@ -15,6 +15,20 @@ ScenarioEngine::ScenarioEngine(PPBController* controller, QObject *parent)
 {
     lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table);
 
+    // Make stop() effective even for a Lua script that never calls one of
+    // our C++ wrappers (for example: while true do end). The hook only
+    // inspects the atomic flag and raises a protected Lua error.
+    *static_cast<ScenarioEngine**>(lua_getextraspace(lua.lua_state())) = this;
+    lua_sethook(lua.lua_state(),
+                [](lua_State* state, lua_Debug*) {
+                    auto* engine = *static_cast<ScenarioEngine**>(lua_getextraspace(state));
+                    if (engine && engine->m_stopRequested.load(std::memory_order_acquire)) {
+                        luaL_error(state, "Scenario execution stopped");
+                    }
+                },
+                LUA_MASKCOUNT,
+                10000);
+
     lua.set_function("log", [this](const std::string &msg) {
         emit logMessage(QString::fromStdString(msg));
     });
@@ -36,7 +50,10 @@ ScenarioEngine::ScenarioEngine(PPBController* controller, QObject *parent)
     lua.set_function("sleep",          [this](int ms) { luaSleep(ms); });
 
     lua.set_function("analyzePackets", [this]() -> sol::table {
-        auto res = m_controller->analyzeLastPackets();
+        QVariantMap res;
+        QMetaObject::invokeMethod(m_controller,
+                                  [this, &res]() { res = m_controller->analyzeLastPackets(); },
+                                  Qt::BlockingQueuedConnection);
         sol::table t = lua.create_table();
         t["ber"] = res["ber"].toDouble();
         t["lost"] = res["lostPackets"].toInt();
@@ -150,6 +167,11 @@ bool ScenarioEngine::execute()
         LOG_OP_OPERATION(QString("========== Скрипт %1 завершён успешно ==========").arg(m_scriptName));
         emit finished(true);
     } catch (const sol::error &e) {
+        if (m_stopRequested.load(std::memory_order_acquire)) {
+            LOG_OP_OPERATION(QString("========== Скрипт %1 остановлен ==========").arg(m_scriptName));
+            emit finished(false);
+            return false;
+        }
         LOG_OP_OPERATION(QString("========== Скрипт %1 завершён с ошибкой: %2 ==========").arg(m_scriptName, e.what()));
         emit errorOccurred(QString("Execution error: %1").arg(e.what()));
         emit finished(false);
@@ -368,44 +390,94 @@ void ScenarioEngine::luaSleep(int ms)
     }
 }
 
-bool ScenarioEngine::luaGeneratorAvailable() {
-    return m_controller->isGeneratorAvailable();
+bool ScenarioEngine::luaGeneratorAvailable()
+{
+    bool available = false;
+    QMetaObject::invokeMethod(m_controller,
+                              [this, &available]() {
+                                  available = m_controller->isGeneratorAvailable();
+                              },
+                              Qt::BlockingQueuedConnection);
+    return available;
 }
 
-bool ScenarioEngine::luaSetGeneratorFrequency(int channel, double freqHz) {
-    if (!m_controller->isGeneratorAvailable()) {
-        emit logMessage("Generator not available");
-        return false;
-    }
-    m_controller->setGeneratorFrequency(channel, freqHz);
-    return true;
+bool ScenarioEngine::luaSetGeneratorFrequency(int channel, double freqHz)
+{
+    bool success = false;
+    QMetaObject::invokeMethod(m_controller,
+                              [this, channel, freqHz, &success]() {
+                                  if (!m_controller->isGeneratorAvailable()) return;
+                                  m_controller->setGeneratorFrequency(channel, freqHz);
+                                  success = true;
+                              },
+                              Qt::BlockingQueuedConnection);
+    if (!success) emit logMessage("Generator not available");
+    return success;
 }
 
-bool ScenarioEngine::luaSetGeneratorAmplitude(int channel, double value, const std::string& unit) {
-    if (!m_controller->isGeneratorAvailable()) return false;
-    m_controller->setGeneratorAmplitude(channel, value, QString::fromStdString(unit));
-    return true;
+bool ScenarioEngine::luaSetGeneratorAmplitude(int channel, double value, const std::string& unit)
+{
+    const QString qUnit = QString::fromStdString(unit);
+    bool success = false;
+    QMetaObject::invokeMethod(m_controller,
+                              [this, channel, value, qUnit, &success]() {
+                                  if (!m_controller->isGeneratorAvailable()) return;
+                                  m_controller->setGeneratorAmplitude(channel, value, qUnit);
+                                  success = true;
+                              },
+                              Qt::BlockingQueuedConnection);
+    return success;
 }
 
-bool ScenarioEngine::luaSetGeneratorOutput(int channel, bool enable) {
-    if (!m_controller->isGeneratorAvailable()) return false;
-    m_controller->setGeneratorOutput(channel, enable);
-    return true;
+bool ScenarioEngine::luaSetGeneratorOutput(int channel, bool enable)
+{
+    bool success = false;
+    QMetaObject::invokeMethod(m_controller,
+                              [this, channel, enable, &success]() {
+                                  if (!m_controller->isGeneratorAvailable()) return;
+                                  m_controller->setGeneratorOutput(channel, enable);
+                                  success = true;
+                              },
+                              Qt::BlockingQueuedConnection);
+    return success;
 }
 
-bool ScenarioEngine::luaSetGeneratorWaveform(int channel, const std::string& wave) {
-    if (!m_controller->isGeneratorAvailable()) return false;
-    m_controller->setGeneratorWaveform(channel, QString::fromStdString(wave));
-    return true;
+bool ScenarioEngine::luaSetGeneratorWaveform(int channel, const std::string& wave)
+{
+    const QString qWave = QString::fromStdString(wave);
+    bool success = false;
+    QMetaObject::invokeMethod(m_controller,
+                              [this, channel, qWave, &success]() {
+                                  if (!m_controller->isGeneratorAvailable()) return;
+                                  m_controller->setGeneratorWaveform(channel, qWave);
+                                  success = true;
+                              },
+                              Qt::BlockingQueuedConnection);
+    return success;
 }
 
-bool ScenarioEngine::luaSetGeneratorDutyCycle(int channel, double percent) {
-    if (!m_controller->isGeneratorAvailable()) return false;
-    m_controller->setGeneratorDutyCycle(channel, percent);
-    return true;
+bool ScenarioEngine::luaSetGeneratorDutyCycle(int channel, double percent)
+{
+    bool success = false;
+    QMetaObject::invokeMethod(m_controller,
+                              [this, channel, percent, &success]() {
+                                  if (!m_controller->isGeneratorAvailable()) return;
+                                  m_controller->setGeneratorDutyCycle(channel, percent);
+                                  success = true;
+                              },
+                              Qt::BlockingQueuedConnection);
+    return success;
 }
 
-std::string ScenarioEngine::luaGetGeneratorIdentity() {
-    if (!m_controller->isGeneratorAvailable()) return "";
-    return m_controller->getGeneratorIdentity().toStdString();
+std::string ScenarioEngine::luaGetGeneratorIdentity()
+{
+    QString identity;
+    QMetaObject::invokeMethod(m_controller,
+                              [this, &identity]() {
+                                  if (m_controller->isGeneratorAvailable()) {
+                                      identity = m_controller->getGeneratorIdentity();
+                                  }
+                              },
+                              Qt::BlockingQueuedConnection);
+    return identity.toStdString();
 }

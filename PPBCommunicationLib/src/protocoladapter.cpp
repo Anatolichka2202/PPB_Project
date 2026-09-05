@@ -2,6 +2,7 @@
 #include "../comm_dependencies.h"  // для логирования (если нужно)
 #include <cstring>
 #include <QtEndian>
+
 bool ProtocolAdapter::parseIncomingPacket(const QByteArray& data, ProtocolEvent& event) {
     event = ProtocolEvent();
     event.type = ProtocolEvent::Unknown;
@@ -10,8 +11,10 @@ bool ProtocolAdapter::parseIncomingPacket(const QByteArray& data, ProtocolEvent&
     if (data.size() == sizeof(BridgeResponse)) {
         BridgeResponse response;
         std::memcpy(&response, data.constData(), sizeof(response));
+        response.address = qFromBigEndian(response.address);
 
         event.address = response.address;
+        event.command = response.command;
         event.status = response.status; // 1 - OK, 0 - ошибка
         event.type = ProtocolEvent::BridgeResponse;
         return true;
@@ -21,7 +24,7 @@ bool ProtocolAdapter::parseIncomingPacket(const QByteArray& data, ProtocolEvent&
     if (data.size() >= static_cast<int>(sizeof(TUResponseHeader))) {
         TUResponseHeader header;
         std::memcpy(&header, data.constData(), sizeof(header));
-         header.address = qFromBigEndian(header.address);
+        header.address = qFromBigEndian(header.address);
         if (header.address != 0) {
             event.address = header.address;
             event.status = header.status;
@@ -68,11 +71,19 @@ bool ProtocolAdapter::parseTUResponse(const QByteArray& data, ProtocolEvent& eve
     event = ProtocolEvent();
     if (data.size() < 3) return false;
 
-    uint16_t address = qFromBigEndian(*reinterpret_cast<const uint16_t*>(data.constData()));
-    uint8_t status = static_cast<uint8_t>(data[2]);
+    const uint16_t address = qFromBigEndian<quint16>(
+        reinterpret_cast<const uchar*>(data.constData()));
+    const uint8_t status = static_cast<uint8_t>(data[2]);
 
     event.address = address;
     event.status = status;
+
+    // The current 4-byte TU ACK format is [address:2][status:1][command:1].
+    // Keep the echoed command so communicationengine can reject a delayed ACK
+    // belonging to the previous operation on the same PPB address.
+    if (data.size() == 4) {
+        event.command = static_cast<uint8_t>(data[3]);
+    }
 
     if (status != 0) {
         event.type = ProtocolEvent::Error;
@@ -81,9 +92,9 @@ bool ProtocolAdapter::parseTUResponse(const QByteArray& data, ProtocolEvent& eve
 
     // Статус 0 – OK
     if (data.size() == 3) {
-        event.type = ProtocolEvent::Ok;                // старый 3-байтовый OK
+        event.type = ProtocolEvent::Ok;                // legacy 3-byte OK, no command echo
     } else if (data.size() == 4) {
-        event.type = ProtocolEvent::Ok;                // новый 4-байтовый OK (команда игнорируется)
+        event.type = ProtocolEvent::Ok;                // 4-byte OK with echoed command
     } else {
         event.type = ProtocolEvent::Data;              // есть данные
         event.payload = data.mid(3);                   // данные после 3-байтового заголовка
@@ -106,7 +117,6 @@ bool ProtocolAdapter::parseBridgeResponse(const QByteArray& data, ProtocolEvent&
 
     // Проверка на 2-байтовый ответ (например, 0xFFFF)
     if (data.size() == 2) {
-
         event.address = 0;
         event.status = 0; // ошибка
         event.command = 0;

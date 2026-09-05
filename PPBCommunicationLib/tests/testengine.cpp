@@ -140,11 +140,15 @@ void TestEngine::testTuCommandVers() {
     QCOMPARE(cmdSpy[0][0].toBool(), true);
     QCOMPARE(cmdSpy[0][2].value<TechCommand>(), TechCommand::VERS);
 
+    // Проверяем, что commandDataParsed содержит ожидаемые данные
+    // В зависимости от реализации VersCommand, данные могут быть QVariantMap или QByteArray
+    // В текущей реализации VersCommand парсит и возвращает QVariantMap с полем "crc32"
+    // Но по протоколу это просто данные, поэтому возможно стоит изменить команду
     QVERIFY(dataSpy.count() >= 1);
     QVariant parsed = dataSpy[0][1];
     if (parsed.type() == QVariant::Map) {
         QVariantMap map = parsed.toMap();
-        QVERIFY(map.contains("crc32"));
+        QVERIFY(map.contains("crc32")); // legacy, но пока оставим
         QCOMPARE(map["crc32"].toUInt(), 0x1234u);
     } else if (parsed.type() == QVariant::ByteArray) {
         QByteArray ba = parsed.toByteArray();
@@ -154,6 +158,7 @@ void TestEngine::testTuCommandVers() {
 }
 
 void TestEngine::testTuCommandError() {
+    // Подключаемся
     const uint16_t address = 0x0001;
     m_engine->connectToPPB(address, "127.0.0.1", 12345);
     QByteArray statusPayload(8, 0xAA);
@@ -165,6 +170,7 @@ void TestEngine::testTuCommandError() {
     QSignalSpy cmdSpy(m_engine, &communicationengine::commandCompleted);
     m_engine->executeCommand(TechCommand::VERS, address);
 
+    // Ответ с ошибкой (status = 1)
     QByteArray errorResp = makeTUResponse(address, 0x01);
     m_mockUdp->simulateReceive(errorResp);
 
@@ -177,6 +183,7 @@ void TestEngine::testTuCommandError() {
 
 void TestEngine::testFuCommandTransmit() {
     const uint16_t address = 0x0001;
+    // Подключаемся
     m_engine->connectToPPB(address, "127.0.0.1", 12345);
     QByteArray statusPayload(8, 0xAA);
     QByteArray statusResp = makeTUResponse(address, 0x00, statusPayload);
@@ -187,7 +194,7 @@ void TestEngine::testFuCommandTransmit() {
     QSignalSpy cmdSpy(m_engine, &communicationengine::commandCompleted);
     m_engine->sendFUTransmit(address);
 
-    QByteArray bridgeResp = makeBridgeResponse(address, 0, 1);
+    QByteArray bridgeResp = makeBridgeResponse(address, 0, 1); // команда 0, статус OK
     m_mockUdp->simulateReceive(bridgeResp);
 
     QVERIFY(cmdSpy.wait(1000));
@@ -197,6 +204,7 @@ void TestEngine::testFuCommandTransmit() {
 
 void TestEngine::testFuCommandReceive() {
     const uint16_t address = 0x0001;
+    // Подключаемся
     m_engine->connectToPPB(address, "127.0.0.1", 12345);
     QByteArray statusPayload(8, 0xAA);
     QByteArray statusResp = makeTUResponse(address, 0x00, statusPayload);
@@ -208,7 +216,7 @@ void TestEngine::testFuCommandReceive() {
     uint8_t fuData[3] = {0x01, 0x02, 0x03};
     m_engine->sendFUReceive(address, 10, fuData);
 
-    QByteArray bridgeResp = makeBridgeResponse(address, 1, 1);
+    QByteArray bridgeResp = makeBridgeResponse(address, 1, 1); // команда 1, статус OK
     m_mockUdp->simulateReceive(bridgeResp);
 
     QVERIFY(cmdSpy.wait(1000));
@@ -218,6 +226,7 @@ void TestEngine::testFuCommandReceive() {
 
 void TestEngine::testCommandQueue() {
     const uint16_t address = 0x0001;
+    // Подключаемся
     m_engine->connectToPPB(address, "127.0.0.1", 12345);
     QByteArray statusPayload(8, 0xAA);
     QByteArray statusResp = makeTUResponse(address, 0x00, statusPayload);
@@ -227,18 +236,22 @@ void TestEngine::testCommandQueue() {
 
     QSignalSpy cmdSpy(m_engine, &communicationengine::commandCompleted);
 
+    // Отправляем две команды подряд
     m_engine->executeCommand(TechCommand::VERS, address);
     m_engine->executeCommand(TechCommand::DROP, address);
 
+    // Эмулируем ответ на VERS
     uint16_t versData = 0x1234;
     QByteArray versPayload(reinterpret_cast<const char*>(&versData), sizeof(versData));
     QByteArray versResp = makeTUResponse(address, 0x00, versPayload);
     m_mockUdp->simulateReceive(versResp);
 
+    // Ждём завершения VERS
     QVERIFY(cmdSpy.wait(1000));
     QCOMPARE(cmdSpy.count(), 1);
     QCOMPARE(cmdSpy[0][2].value<TechCommand>(), TechCommand::VERS);
 
+    // Эмулируем ответ на DROP
     uint16_t dropData = 0x5678;
     QByteArray dropPayload(reinterpret_cast<const char*>(&dropData), sizeof(dropData));
     QByteArray dropResp = makeTUResponse(address, 0x00, dropPayload);
@@ -251,6 +264,7 @@ void TestEngine::testCommandQueue() {
 
 void TestEngine::testTimeout() {
     const uint16_t address = 0x0001;
+    // Подключаемся
     m_engine->connectToPPB(address, "127.0.0.1", 12345);
     QByteArray statusPayload(8, 0xAA);
     QByteArray statusResp = makeTUResponse(address, 0x00, statusPayload);
@@ -259,9 +273,12 @@ void TestEngine::testTimeout() {
     QVERIFY(statusSpy.wait(1000));
 
     QSignalSpy cmdSpy(m_engine, &communicationengine::commandCompleted);
+
+    // Для VERS таймаут 3000 мс
     m_engine->executeCommand(TechCommand::VERS, address);
 
-    QVERIFY(cmdSpy.wait(4000));
+    // Не отправляем ответ
+    QVERIFY(cmdSpy.wait(4000)); // ждём больше таймаута
     QCOMPARE(cmdSpy.count(), 1);
     QCOMPARE(cmdSpy[0][0].toBool(), false);
     QCOMPARE(cmdSpy[0][2].value<TechCommand>(), TechCommand::VERS);
@@ -273,6 +290,7 @@ void TestEngine::testMultiAddress() {
     const QString ip = "127.0.0.1";
     const quint16 port = 12345;
 
+    // Подключаем первый
     m_engine->connectToPPB(addr1, ip, port);
     QByteArray statusPayload(8, 0xAA);
     QByteArray statusResp1 = makeTUResponse(addr1, 0x00, statusPayload);
@@ -280,12 +298,14 @@ void TestEngine::testMultiAddress() {
     QSignalSpy statusSpy1(m_engine, &communicationengine::statusReceived);
     QVERIFY(statusSpy1.wait(1000));
 
+    // Подключаем второй
     m_engine->connectToPPB(addr2, ip, port);
     QByteArray statusResp2 = makeTUResponse(addr2, 0x00, statusPayload);
     m_mockUdp->simulateReceive(statusResp2);
     QSignalSpy statusSpy2(m_engine, &communicationengine::statusReceived);
     QVERIFY(statusSpy2.wait(1000));
 
+    // Команда для addr1
     QSignalSpy cmdSpy1(m_engine, &communicationengine::commandCompleted);
     m_engine->executeCommand(TechCommand::VERS, addr1);
     uint16_t versData = 0x1234;
@@ -295,6 +315,7 @@ void TestEngine::testMultiAddress() {
     QVERIFY(cmdSpy1.wait(1000));
     QCOMPARE(cmdSpy1[0][2].value<TechCommand>(), TechCommand::VERS);
 
+    // Команда для addr2
     QSignalSpy cmdSpy2(m_engine, &communicationengine::commandCompleted);
     m_engine->executeCommand(TechCommand::DROP, addr2);
     uint16_t dropData = 0x5678;
@@ -306,8 +327,9 @@ void TestEngine::testMultiAddress() {
 }
 
 void TestEngine::testThreadSafety() {
+    // Этот тест не выполняет активных действий, так как все предыдущие тесты уже запускались в потоке.
     QSKIP("Thread safety implicitly verified by other tests");
 }
 
+// Запуск тестов
 QTEST_MAIN(TestEngine)
-#include "testengine.moc"

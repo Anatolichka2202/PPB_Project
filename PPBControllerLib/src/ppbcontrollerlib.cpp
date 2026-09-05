@@ -230,6 +230,7 @@ void PPBController::connectToPPB(uint16_t address, const QString& ip, quint16 po
 
 void PPBController::disconnect()
 {
+    if (commandBlockedByFirmwareUpdate("disconnect")) return;
     if (m_communication) {
         m_communication->disconnect();
         LOG_UI_OPERATION("Отключение от ППБ...");
@@ -378,11 +379,10 @@ void PPBController::requestVersion(uint16_t address)
 
 void PPBController::requestVolume(uint16_t address, const QString& hexFilePath, float newVersion)
 {
-
     if (m_communication) {
+        // updateFirmware() owns validation, exclusivity and all progress/error
+        // reporting. Do not log a successful send here if preflight rejects it.
         updateFirmware(address, hexFilePath, newVersion);
-        //m_communication->executeCommand(TechCommand::VOLUME, address);
-        LOG_UI_OPERATION(QString("Отправка тома ПО ППБ %1").arg(address));
     }
 }
 
@@ -529,6 +529,7 @@ QVariantMap PPBController::analyzeLastPackets() const {
 
 void PPBController::startAutoPoll(int intervalMs)
 {
+    if (commandBlockedByFirmwareUpdate("startAutoPoll")) return;
     m_autoPollEnabled = true;
     m_autoPollTimer->start(intervalMs);
     emit autoPollToggled(true);

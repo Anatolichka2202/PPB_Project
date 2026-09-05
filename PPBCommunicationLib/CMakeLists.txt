@@ -15,8 +15,8 @@ endif()
 set(COMMON_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/../common)
 set(COMMON_INCLUDE_DIR ${COMMON_DIR}/include)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Network)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Network)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Network Gui)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Network Gui)
 
 
 # Исходные файлы библиотеки
@@ -67,7 +67,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 # ===== Тесты =====
 if(BUILD_TESTS)
     enable_testing()
-    find_package(Qt6 REQUIRED COMPONENTS Test )
+    find_package(Qt6 REQUIRED COMPONENTS Test Gui)
 
     add_executable(test_communication
         tests/testengine.cpp
@@ -88,10 +88,9 @@ if(BUILD_TESTS)
             ${PROJECT_NAME}
             Qt6::Core
             Qt6::Network
+            Qt6::Gui
             Qt6::Test
     )
-
-
 
     add_test(NAME CommunicationTest COMMAND test_communication)
 endif()

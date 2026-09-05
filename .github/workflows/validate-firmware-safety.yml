@@ -1,0 +1,88 @@
+name: Validate firmware safety fixes
+
+on:
+  push:
+    branches:
+      - fix/firmware-lua-safety-current
+
+jobs:
+  linux-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake \
+            ninja-build \
+            g++ \
+            qt6-base-dev \
+            qt6-charts-dev \
+            liblua5.4-dev
+
+      - name: Configure with tests
+        run: cmake -S . -B build -G Ninja -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build --parallel 2
+
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure
+
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt 6.8.0 + MinGW 13.1
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.0'
+          host: windows
+          target: desktop
+          arch: win64_mingw
+          modules: 'qtcharts'
+          tools: 'tools_mingw1310'
+          cache: true
+
+      - name: Install Ninja and NSIS
+        shell: powershell
+        run: choco install ninja nsis -y --no-progress
+
+      - name: Configure release build
+        shell: powershell
+        run: >-
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_TESTS=OFF
+          -DPPB_FETCH_LUA_IF_MISSING=ON
+
+      - name: Build
+        shell: powershell
+        run: cmake --build build --parallel 2
+
+      - name: Build NSIS installer
+        shell: powershell
+        run: cmake --build build --target package
+
+      - name: Smoke-test silent install
+        shell: powershell
+        run: |
+          $installer = Get-ChildItem -Path build -Recurse -Filter 'PPB-*-Windows-x86_64.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'Installer not found.' }
+          $installDir = Join-Path $env:RUNNER_TEMP 'PPB-Smoke'
+          if (Test-Path $installDir) { Remove-Item -Recurse -Force $installDir }
+          $p = Start-Process -FilePath $installer.FullName -ArgumentList "/S", "/D=$installDir" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Install failed: $($p.ExitCode)" }
+          $app = Join-Path $installDir 'PPB_GUI_Sandbox.exe'
+          if (-not (Test-Path $app)) { throw 'Installed application missing.' }
+          $run = Start-Process -FilePath $app -ArgumentList '--test' -WorkingDirectory $installDir -PassThru
+          Start-Sleep -Seconds 5
+          $run.Refresh()
+          if ($run.HasExited) { throw "Application exited: $($run.ExitCode)" }
+          Stop-Process -Id $run.Id -Force

@@ -139,6 +139,7 @@ private:
     void showPacketsTable(const QString& title, const QVector<DataPacket>& packets);
     int addressToIndex(uint16_t address) const;
     bool waitForGroupCommand(quint64 groupId, int timeoutMs);
+    bool commandBlockedByFirmwareUpdate(const char* operation) const;
 
     ICommunication* m_communication;
     PacketAnalyzerInterface* m_packetAnalyzer;
@@ -165,6 +166,7 @@ private:
 
     QThread* m_scenarioThread = nullptr;
     bool m_scenarioRunning = false;
+    bool m_firmwareUpdateRunning = false;
 
     QVector<QByteArray> m_firmwarePayloads; // подготовленные VOLUME блоки
     int m_firmwareTotalSize;                // общий размер в байтах

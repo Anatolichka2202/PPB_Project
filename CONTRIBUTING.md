@@ -14,7 +14,7 @@ Before changing the project, read [`docs/PROJECT_RULES.md`](docs/PROJECT_RULES.m
 ## Release checklist
 
 - `VERSION` contains a valid Semantic Version;
-- tag is exactly `v<VERSION` (for example `v1.1.0-beta.2`);
+- tag is exactly `v<VERSION>` (for example `v1.1.0-beta.2`);
 - Windows installer CI passes from a clean checkout;
 - installer smoke-install passes;
 - installed application starts in `--test` mode;

@@ -1,0 +1,316 @@
+name: Apply final firmware contract patch
+
+on:
+  push:
+    branches:
+      - fix/firmware-lua-safety-current
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply final source changes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              if old not in text:
+                  raise SystemExit(f"Expected block not found in {path}: {old[:120]!r}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          fw = "PPBControllerLib/include/firmwareupdater.cpp"
+          replace_once(fw, "\n#include <limits>\n", "\n")
+          replace_once(
+              fw,
+              "    quint32 addressBase = 0;\n    quint64 expectedNextAddress = 0;\n",
+              ""
+          )
+          replace_once(
+              fw,
+              '''        case 0x00: { // Data
+            const quint64 absoluteAddress =
+                static_cast<quint64>(addressBase) + static_cast<quint64>(recordAddress);
+            const quint64 endAddress = absoluteAddress + static_cast<quint64>(recordData.size());
+
+            // The current PPB VOLUME protocol carries only a linear byte stream;
+            // no absolute flash address is transmitted. Therefore a HEX image is
+            // representable only when all data records form one contiguous range.
+            if (dataSeen && absoluteAddress != expectedNextAddress) {
+                const char* kind = absoluteAddress > expectedNextAddress
+                    ? "gap"
+                    : "overlap/out-of-order";
+                qWarning() << "Intel HEX" << kind << "at line" << lineNumber
+                           << "expected address:"
+                           << QStringLiteral("0x%1").arg(expectedNextAddress, 0, 16)
+                           << "record address:"
+                           << QStringLiteral("0x%1").arg(absoluteAddress, 0, 16);
+                dataBlocks.clear();
+                return dataBlocks;
+            }
+
+            if (endAddress > static_cast<quint64>(std::numeric_limits<quint32>::max()) + 1ULL) {
+                qWarning() << "Intel HEX data address exceeds 32-bit address space at line"
+                           << lineNumber;
+                dataBlocks.clear();
+                return dataBlocks;
+            }
+
+            if (!recordData.isEmpty()) {
+                int offset = 0;
+                while (offset < recordData.size()) {
+                    const int chunkSize = qMin(16, recordData.size() - offset);
+                    dataBlocks.append(recordData.mid(offset, chunkSize));
+                    offset += chunkSize;
+                }
+                dataSeen = true;
+                expectedNextAddress = endAddress;
+            }
+            break;
+        }
+''',
+              '''        case 0x00: { // Data
+            // PPB firmware transport intentionally ignores Intel HEX addresses.
+            // The host validates record structure/checksums and forwards DATA
+            // bytes in file order; the MCU reconstructs/programs the image.
+            if (!recordData.isEmpty()) {
+                int offset = 0;
+                while (offset < recordData.size()) {
+                    const int chunkSize = qMin(16, recordData.size() - offset);
+                    dataBlocks.append(recordData.mid(offset, chunkSize));
+                    offset += chunkSize;
+                }
+                dataSeen = true;
+            }
+            break;
+        }
+'''
+          )
+          replace_once(
+              fw,
+              '''        case 0x02: { // Extended Segment Address
+            if (!requireControlRecord(recordData, 2, recordAddress, lineNumber,
+                                      "Extended Segment Address")) {
+                dataBlocks.clear();
+                return dataBlocks;
+            }
+            const quint16 segment =
+                (static_cast<quint16>(static_cast<quint8>(recordData.at(0))) << 8) |
+                static_cast<quint16>(static_cast<quint8>(recordData.at(1)));
+            addressBase = static_cast<quint32>(segment) << 4;
+            break;
+        }
+''',
+              '''        case 0x02: // Extended Segment Address
+            if (!requireControlRecord(recordData, 2, recordAddress, lineNumber,
+                                      "Extended Segment Address")) {
+                dataBlocks.clear();
+                return dataBlocks;
+            }
+            // Address metadata is intentionally not interpreted by the host.
+            break;
+'''
+          )
+          replace_once(
+              fw,
+              '''        case 0x04: { // Extended Linear Address
+            if (!requireControlRecord(recordData, 2, recordAddress, lineNumber,
+                                      "Extended Linear Address")) {
+                dataBlocks.clear();
+                return dataBlocks;
+            }
+            const quint16 upper =
+                (static_cast<quint16>(static_cast<quint8>(recordData.at(0))) << 8) |
+                static_cast<quint16>(static_cast<quint8>(recordData.at(1)));
+            addressBase = static_cast<quint32>(upper) << 16;
+            break;
+        }
+''',
+              '''        case 0x04: // Extended Linear Address
+            if (!requireControlRecord(recordData, 2, recordAddress, lineNumber,
+                                      "Extended Linear Address")) {
+                dataBlocks.clear();
+                return dataBlocks;
+            }
+            // Address metadata is intentionally not interpreted by the host.
+            break;
+'''
+          )
+
+          test = "PPBControllerLib/tests/firmwareupdater_test.cpp"
+          replace_once(
+              test,
+              '''    void rejectsGap();
+    void rejectsOverlapOrOutOfOrder();
+''',
+              '''    void acceptsGapAsLinearStream();
+    void acceptsOutOfOrderAsLinearStream();
+'''
+          )
+          replace_once(
+              test,
+              '''void FirmwareUpdaterTest::rejectsGap()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString path = writeHex({
+        makeRecord(0x1000, 0x00, QByteArray::fromHex("01020304")),
+        makeRecord(0x1008, 0x00, QByteArray::fromHex("05060708")),
+        makeRecord(0x0000, 0x01, {})
+    }, dir);
+
+    QVERIFY(FirmwareUpdater::parseHexToDataBlocks(path).isEmpty());
+}
+
+void FirmwareUpdaterTest::rejectsOverlapOrOutOfOrder()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString path = writeHex({
+        makeRecord(0x1000, 0x00, QByteArray::fromHex("01020304")),
+        makeRecord(0x1002, 0x00, QByteArray::fromHex("05060708")),
+        makeRecord(0x0000, 0x01, {})
+    }, dir);
+
+    QVERIFY(FirmwareUpdater::parseHexToDataBlocks(path).isEmpty());
+}
+''',
+              '''void FirmwareUpdaterTest::acceptsGapAsLinearStream()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QByteArray first = QByteArray::fromHex("01020304");
+    const QByteArray second = QByteArray::fromHex("05060708");
+    const QString path = writeHex({
+        makeRecord(0x1000, 0x00, first),
+        makeRecord(0x1008, 0x00, second),
+        makeRecord(0x0000, 0x01, {})
+    }, dir);
+
+    const auto blocks = FirmwareUpdater::parseHexToDataBlocks(path);
+    QVERIFY(!blocks.isEmpty());
+    QCOMPARE(flatten(blocks), first + second);
+}
+
+void FirmwareUpdaterTest::acceptsOutOfOrderAsLinearStream()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QByteArray firstInFile = QByteArray::fromHex("01020304");
+    const QByteArray secondInFile = QByteArray::fromHex("05060708");
+    const QString path = writeHex({
+        makeRecord(0x2000, 0x00, firstInFile),
+        makeRecord(0x1000, 0x00, secondInFile),
+        makeRecord(0x0000, 0x01, {})
+    }, dir);
+
+    const auto blocks = FirmwareUpdater::parseHexToDataBlocks(path);
+    QVERIFY(!blocks.isEmpty());
+    QCOMPARE(flatten(blocks), firstInFile + secondInFile);
+}
+'''
+          )
+
+          ctl = "PPBControllerLib/src/ppbcontrollerlib.cpp"
+          replace_once(
+              ctl,
+              '''    // 1. Validate and linearize Intel HEX. The parser rejects gaps,
+    // overlaps and out-of-order records because VOLUME carries no address.
+''',
+              '''    // 1. Validate Intel HEX records and linearize DATA bytes in file order.
+    // Flash-address interpretation belongs to the MCU, not to the host VOLUME transport.
+'''
+          )
+          replace_once(
+              ctl,
+              '''        auto conn = connect(m_communication, &ICommunication::commandDataParsed,
+                            [&](uint16_t addr, const QVariant& data, TechCommand cmd) {
+                                if (cmd == TechCommand::IS_YOU && addr == 0) {
+                                    activeMask = data.toMap()["mask"].toUInt();
+                                    loop.quit();
+                                }
+                            });
+''',
+              '''        auto conn = connect(m_communication, &ICommunication::commandDataParsed,
+                            this,
+                            [&](uint16_t addr, const QVariant& data, TechCommand cmd) {
+                                if (cmd == TechCommand::IS_YOU && addr == 0) {
+                                    activeMask = data.toMap()["mask"].toUInt();
+                                    loop.quit();
+                                }
+                            },
+                            Qt::QueuedConnection);
+'''
+          )
+          volume_old = '''        auto conn = connect(m_communication, &ICommunication::commandCompleted,
+                            [&](bool ok, const QString& msg, TechCommand cmd) {
+                                if (cmd == TechCommand::VOLUME) {
+                                    success = ok;
+                                    errorMsg = msg;
+                                    loop.quit();
+                                }
+                            });
+'''
+          volume_new = '''        auto conn = connect(m_communication, &ICommunication::commandCompleted,
+                            this,
+                            [&](bool ok, const QString& msg, TechCommand cmd) {
+                                if (cmd == TechCommand::VOLUME) {
+                                    success = ok;
+                                    errorMsg = msg;
+                                    loop.quit();
+                                }
+                            },
+                            Qt::QueuedConnection);
+'''
+          replace_once(ctl, volume_old, volume_new)
+          replace_once(ctl, volume_old, volume_new)
+          replace_once(
+              ctl,
+              '''    auto conn = connect(m_communication, &ICommunication::groupCommandCompleted,
+                        [&](quint64 id, bool success, const QString& msg) {
+                            if (id == groupId) {
+                                allSuccess = success;
+                                summary = msg;
+                                loop.quit();
+                            }
+                        });
+''',
+              '''    auto conn = connect(m_communication, &ICommunication::groupCommandCompleted,
+                        this,
+                        [&](quint64 id, bool success, const QString& msg) {
+                            if (id == groupId) {
+                                allSuccess = success;
+                                summary = msg;
+                                loop.quit();
+                            }
+                        },
+                        Qt::QueuedConnection);
+'''
+          )
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PPBControllerLib/include/firmwareupdater.cpp \
+                  PPBControllerLib/src/ppbcontrollerlib.cpp \
+                  PPBControllerLib/tests/firmwareupdater_test.cpp
+          git diff --cached --check
+          git commit -m 'fix: align firmware host with MCU-owned addressing'
+          git push origin HEAD:fix/firmware-lua-safety-current

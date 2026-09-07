@@ -59,8 +59,8 @@ class FirmwareUpdaterTest : public QObject
 private slots:
     void acceptsContiguousImage();
     void acceptsContiguousImageAcrossExtendedLinearBoundary();
-    void rejectsGap();
-    void rejectsOverlapOrOutOfOrder();
+    void acceptsGapAsLinearStream();
+    void acceptsOutOfOrderAsLinearStream();
     void rejectsBadChecksum();
     void rejectsMissingEof();
 };
@@ -105,32 +105,40 @@ void FirmwareUpdaterTest::acceptsContiguousImageAcrossExtendedLinearBoundary()
     QCOMPARE(flatten(blocks), tailOfBank + nextBank);
 }
 
-void FirmwareUpdaterTest::rejectsGap()
+void FirmwareUpdaterTest::acceptsGapAsLinearStream()
 {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
 
+    const QByteArray first = QByteArray::fromHex("01020304");
+    const QByteArray second = QByteArray::fromHex("05060708");
     const QString path = writeHex({
-        makeRecord(0x1000, 0x00, QByteArray::fromHex("01020304")),
-        makeRecord(0x1008, 0x00, QByteArray::fromHex("05060708")),
+        makeRecord(0x1000, 0x00, first),
+        makeRecord(0x1008, 0x00, second),
         makeRecord(0x0000, 0x01, {})
     }, dir);
 
-    QVERIFY(FirmwareUpdater::parseHexToDataBlocks(path).isEmpty());
+    const auto blocks = FirmwareUpdater::parseHexToDataBlocks(path);
+    QVERIFY(!blocks.isEmpty());
+    QCOMPARE(flatten(blocks), first + second);
 }
 
-void FirmwareUpdaterTest::rejectsOverlapOrOutOfOrder()
+void FirmwareUpdaterTest::acceptsOutOfOrderAsLinearStream()
 {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
 
+    const QByteArray firstInFile = QByteArray::fromHex("01020304");
+    const QByteArray secondInFile = QByteArray::fromHex("05060708");
     const QString path = writeHex({
-        makeRecord(0x1000, 0x00, QByteArray::fromHex("01020304")),
-        makeRecord(0x1002, 0x00, QByteArray::fromHex("05060708")),
+        makeRecord(0x2000, 0x00, firstInFile),
+        makeRecord(0x1000, 0x00, secondInFile),
         makeRecord(0x0000, 0x01, {})
     }, dir);
 
-    QVERIFY(FirmwareUpdater::parseHexToDataBlocks(path).isEmpty());
+    const auto blocks = FirmwareUpdater::parseHexToDataBlocks(path);
+    QVERIFY(!blocks.isEmpty());
+    QCOMPARE(flatten(blocks), firstInFile + secondInFile);
 }
 
 void FirmwareUpdaterTest::rejectsBadChecksum()

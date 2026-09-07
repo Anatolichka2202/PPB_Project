@@ -1377,13 +1377,15 @@ bool PPBController::waitForGroupCommand(quint64 groupId, int timeoutMs)
     QString summary;
 
     auto conn = connect(m_communication, &ICommunication::groupCommandCompleted,
+                        this,
                         [&](quint64 id, bool success, const QString& msg) {
                             if (id == groupId) {
                                 allSuccess = success;
                                 summary = msg;
                                 loop.quit();
                             }
-                        });
+                        },
+                        Qt::QueuedConnection);
 
     connect(&timer, &QTimer::timeout, &loop, [&]() {
         allSuccess = false;
@@ -1438,8 +1440,8 @@ void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFile
     }
     const quint32 versionCode = static_cast<quint32>(roundedVersion);
 
-    // 1. Validate and linearize Intel HEX. The parser rejects gaps,
-    // overlaps and out-of-order records because VOLUME carries no address.
+    // 1. Validate Intel HEX records and linearize DATA bytes in file order.
+    // Flash-address interpretation belongs to the MCU, not to the host VOLUME transport.
     auto dataBlocks = FirmwareUpdater::parseHexToDataBlocks(hexFilePath);
     if (dataBlocks.isEmpty()) {
         emit errorOccurred("No data blocks extracted from HEX file");
@@ -1490,12 +1492,14 @@ void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFile
         timeout.setSingleShot(true);
         timeout.start(PPBConstants::DATA_TIMEOUT_MS);
         auto conn = connect(m_communication, &ICommunication::commandDataParsed,
+                            this,
                             [&](uint16_t addr, const QVariant& data, TechCommand cmd) {
                                 if (cmd == TechCommand::IS_YOU && addr == 0) {
                                     activeMask = data.toMap()["mask"].toUInt();
                                     loop.quit();
                                 }
-                            });
+                            },
+                            Qt::QueuedConnection);
         connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
         m_communication->executeCommand(TechCommand::IS_YOU, 0);
         loop.exec();
@@ -1607,13 +1611,15 @@ void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFile
         QString errorMsg;
 
         auto conn = connect(m_communication, &ICommunication::commandCompleted,
+                            this,
                             [&](bool ok, const QString& msg, TechCommand cmd) {
                                 if (cmd == TechCommand::VOLUME) {
                                     success = ok;
                                     errorMsg = msg;
                                     loop.quit();
                                 }
-                            });
+                            },
+                            Qt::QueuedConnection);
         connect(&timeout, &QTimer::timeout, &loop, [&]() {
             success = false;
             errorMsg = "VOLUME timeout";
@@ -1655,13 +1661,15 @@ void PPBController::updateFirmware(uint16_t selectedMask, const QString &hexFile
         QString errorMsg;
 
         auto conn = connect(m_communication, &ICommunication::commandCompleted,
+                            this,
                             [&](bool ok, const QString& msg, TechCommand cmd) {
                                 if (cmd == TechCommand::VOLUME) {
                                     success = ok;
                                     errorMsg = msg;
                                     loop.quit();
                                 }
-                            });
+                            },
+                            Qt::QueuedConnection);
         connect(&timeout, &QTimer::timeout, &loop, [&]() {
             success = false;
             errorMsg = "Final VOLUME timeout";

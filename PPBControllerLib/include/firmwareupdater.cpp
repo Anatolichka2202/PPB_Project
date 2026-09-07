@@ -5,7 +5,6 @@
 #include <QRegularExpression>
 #include <QTextStream>
 
-#include <limits>
 
 namespace {
 
@@ -95,8 +94,6 @@ QVector<QByteArray> FirmwareUpdater::parseHexToDataBlocks(const QString &hexFile
     QTextStream in(&file);
     bool eofSeen = false;
     bool dataSeen = false;
-    quint32 addressBase = 0;
-    quint64 expectedNextAddress = 0;
     int lineNumber = 0;
 
     while (!in.atEnd()) {
@@ -124,33 +121,9 @@ QVector<QByteArray> FirmwareUpdater::parseHexToDataBlocks(const QString &hexFile
 
         switch (recordType) {
         case 0x00: { // Data
-            const quint64 absoluteAddress =
-                static_cast<quint64>(addressBase) + static_cast<quint64>(recordAddress);
-            const quint64 endAddress = absoluteAddress + static_cast<quint64>(recordData.size());
-
-            // The current PPB VOLUME protocol carries only a linear byte stream;
-            // no absolute flash address is transmitted. Therefore a HEX image is
-            // representable only when all data records form one contiguous range.
-            if (dataSeen && absoluteAddress != expectedNextAddress) {
-                const char* kind = absoluteAddress > expectedNextAddress
-                    ? "gap"
-                    : "overlap/out-of-order";
-                qWarning() << "Intel HEX" << kind << "at line" << lineNumber
-                           << "expected address:"
-                           << QStringLiteral("0x%1").arg(expectedNextAddress, 0, 16)
-                           << "record address:"
-                           << QStringLiteral("0x%1").arg(absoluteAddress, 0, 16);
-                dataBlocks.clear();
-                return dataBlocks;
-            }
-
-            if (endAddress > static_cast<quint64>(std::numeric_limits<quint32>::max()) + 1ULL) {
-                qWarning() << "Intel HEX data address exceeds 32-bit address space at line"
-                           << lineNumber;
-                dataBlocks.clear();
-                return dataBlocks;
-            }
-
+            // PPB firmware transport intentionally ignores Intel HEX addresses.
+            // The host validates record structure/checksums and forwards DATA
+            // bytes in file order; the MCU reconstructs/programs the image.
             if (!recordData.isEmpty()) {
                 int offset = 0;
                 while (offset < recordData.size()) {
@@ -159,7 +132,6 @@ QVector<QByteArray> FirmwareUpdater::parseHexToDataBlocks(const QString &hexFile
                     offset += chunkSize;
                 }
                 dataSeen = true;
-                expectedNextAddress = endAddress;
             }
             break;
         }
@@ -172,18 +144,14 @@ QVector<QByteArray> FirmwareUpdater::parseHexToDataBlocks(const QString &hexFile
             eofSeen = true;
             break;
 
-        case 0x02: { // Extended Segment Address
+        case 0x02: // Extended Segment Address
             if (!requireControlRecord(recordData, 2, recordAddress, lineNumber,
                                       "Extended Segment Address")) {
                 dataBlocks.clear();
                 return dataBlocks;
             }
-            const quint16 segment =
-                (static_cast<quint16>(static_cast<quint8>(recordData.at(0))) << 8) |
-                static_cast<quint16>(static_cast<quint8>(recordData.at(1)));
-            addressBase = static_cast<quint32>(segment) << 4;
+            // Address metadata is intentionally not interpreted by the host.
             break;
-        }
 
         case 0x03: // Start Segment Address
             if (!requireControlRecord(recordData, 4, recordAddress, lineNumber,
@@ -193,18 +161,14 @@ QVector<QByteArray> FirmwareUpdater::parseHexToDataBlocks(const QString &hexFile
             }
             break;
 
-        case 0x04: { // Extended Linear Address
+        case 0x04: // Extended Linear Address
             if (!requireControlRecord(recordData, 2, recordAddress, lineNumber,
                                       "Extended Linear Address")) {
                 dataBlocks.clear();
                 return dataBlocks;
             }
-            const quint16 upper =
-                (static_cast<quint16>(static_cast<quint8>(recordData.at(0))) << 8) |
-                static_cast<quint16>(static_cast<quint8>(recordData.at(1)));
-            addressBase = static_cast<quint32>(upper) << 16;
+            // Address metadata is intentionally not interpreted by the host.
             break;
-        }
 
         case 0x05: // Start Linear Address
             if (!requireControlRecord(recordData, 4, recordAddress, lineNumber,

@@ -1,0 +1,41 @@
+name: Create release tag v1.1.0-beta.2
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/release-tag-v1.1.0-beta.2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate VERSION and create tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '\r\n' < VERSION)"
+          if [[ "$version" != "1.1.0-beta.2" ]]; then
+            echo "Expected VERSION=1.1.0-beta.2, got $version" >&2
+            exit 1
+          fi
+
+          tag="v${version}"
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "Tag ${tag} already exists; nothing to do."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" "$GITHUB_SHA" -m "PPB ${version}"
+          git push origin "refs/tags/${tag}"

@@ -82,9 +82,12 @@ void FuWidget::on_fuBtnSent_clicked()
     float fraction = (zeroDuration - zeroDurationInt) * 100.0f;
 
     uint8_t arr[3]; // [целая часть hi][целая часть lo][сотые доли]
-    arr[0] = static_cast<uint8_t>((static_cast<uint16_t>(zeroDurationInt) >> 8) & 0xFF);
-    arr[1] = static_cast<uint8_t>(zeroDurationInt & 0xFF);
-    arr[2] = static_cast<uint8_t>(fraction);
+    arr[0] = static_cast<uint8_t>((static_cast<uint16_t>(dur) >> 8) & 0xFF);
+    arr[1] = static_cast<uint8_t>(dur & 0xFF);
+    arr[2] = static_cast<uint8_t>(duty);
+//    arr[0] = static_cast<uint8_t>((static_cast<uint16_t>(zeroDurationInt) >> 8) & 0xFF);
+//    arr[1] = static_cast<uint8_t>(zeroDurationInt & 0xFF);
+//    arr[2] = static_cast<uint8_t>(fraction);
 
     emit sendFuCommand(transmit, static_cast<uint16_t>(dur), arr);
 }

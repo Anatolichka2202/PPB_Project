@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   create-tag:
@@ -19,7 +20,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate VERSION and create tag
+      - name: Validate VERSION and ensure tag exists
         shell: bash
         run: |
           set -euo pipefail
@@ -31,11 +32,21 @@ jobs:
 
           tag="v${version}"
           if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
-            echo "Tag ${tag} already exists; nothing to do."
-            exit 0
+            echo "Tag ${tag} already exists."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$tag" "$GITHUB_SHA" -m "PPB ${version}"
+            git push origin "refs/tags/${tag}"
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$tag" "$GITHUB_SHA" -m "PPB ${version}"
-          git push origin "refs/tags/${tag}"
+      - name: Dispatch tagged Windows release build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(tr -d '\r\n' < VERSION)"
+          tag="v${version}"
+          gh workflow run windows-installer.yml --ref "$tag"
+          echo "Dispatched windows-installer.yml for ${tag}"

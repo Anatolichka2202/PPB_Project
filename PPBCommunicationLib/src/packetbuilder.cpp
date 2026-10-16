@@ -53,13 +53,13 @@ QByteArray PacketBuilder::createDroppedPacketsRequest(uint16_t address)
 
 QByteArray PacketBuilder::createFUTransmitRequest(uint16_t address)
 {
-    return createFURequest(address, 1, 0, nullptr);
+    return createFURequest(address, static_cast<uint8_t>(FuCommand::TRANSMIT), 0, nullptr);
 }
 
 QByteArray PacketBuilder::createFUReceiveRequest(uint16_t address, uint8_t period,
                                                  const uint8_t fuData[3])
 {
-    return createFURequest(address, 0, period, fuData);
+    return createFURequest(address, static_cast<uint8_t>(FuCommand::RECEIVE), period, fuData);
 }
 
 bool PacketBuilder::parseTUResponse(const QByteArray& data,

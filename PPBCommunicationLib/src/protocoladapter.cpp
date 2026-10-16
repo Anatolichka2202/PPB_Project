@@ -132,7 +132,9 @@ bool ProtocolAdapter::parseBridgeResponse(const QByteArray& data, ProtocolEvent&
     memcpy(&resp, data.constData(), 4);
     resp.address = qFromBigEndian(resp.address);
 
-    if (resp.command != 0 && resp.command != 1) return false;
+    if (resp.command != static_cast<uint8_t>(FuCommand::RECEIVE) &&
+        resp.command != static_cast<uint8_t>(FuCommand::TRANSMIT) &&
+        resp.command != static_cast<uint8_t>(FuCommand::RECEIVE_TRANSMIT)) return false;
 
     event.address = resp.address;
     event.status = resp.status;

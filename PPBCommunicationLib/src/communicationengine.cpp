@@ -319,7 +319,7 @@ void communicationengine::executeCommand(TechCommand cmd, uint16_t address, cons
 }
 
 void communicationengine::sendFUTransmit(uint16_t address, uint8_t period, const uint8_t fuData[3]) {
-    QByteArray packet = m_protocolAdapter->buildFURequest(address,1, period, fuData);
+    QByteArray packet = m_protocolAdapter->buildFURequest(address, static_cast<uint8_t>(FuCommand::TRANSMIT), period, fuData);
     sendPacketInternal(packet, "ФУ передача");
 }
 
@@ -335,8 +335,14 @@ void communicationengine::sendFUReceiveImpl(uint16_t address, uint8_t period, co
 }
 
 void communicationengine::sendFUReceive(uint16_t address, uint8_t period, const uint8_t fuData[3]) {
-    QByteArray packet = m_protocolAdapter->buildFURequest(address,0, period, fuData);
+    QByteArray packet = m_protocolAdapter->buildFURequest(address, static_cast<uint8_t>(FuCommand::RECEIVE), period, fuData);
     sendPacketInternal(packet, "ФУ прием");
+}
+
+void communicationengine::sendFUReceiveTransmit(uint16_t address, uint8_t period, const uint8_t fuData[3]) {
+    QByteArray packet = m_protocolAdapter->buildFURequest(
+        address, static_cast<uint8_t>(FuCommand::RECEIVE_TRANSMIT), period, fuData);
+    sendPacketInternal(packet, "ФУ прием+передача");
 }
 
 void communicationengine::setCommandParseResult(uint16_t address, bool success, const QString& message) {

@@ -95,3 +95,21 @@ if(BUILD_TESTS)
 
     add_test(NAME CommunicationTest COMMAND test_communication)
 endif()
+
+# Run focused FU wire-format tests in Windows CI without enabling the legacy
+# unrelated communication integration suite.
+option(PPB_FU_PROTOCOL_TESTS "Build focused FU wire protocol tests" OFF)
+if(PPB_FU_PROTOCOL_TESTS)
+    find_package(Qt6 REQUIRED COMPONENTS Test)
+    add_executable(test_fu_protocol tests/fu_protocol_test.cpp)
+    target_include_directories(test_fu_protocol PRIVATE
+        ${COMMON_INCLUDE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    target_link_libraries(test_fu_protocol PRIVATE
+        ${PROJECT_NAME}
+        Qt6::Core
+        Qt6::Network
+        Qt6::Test
+    )
+endif()

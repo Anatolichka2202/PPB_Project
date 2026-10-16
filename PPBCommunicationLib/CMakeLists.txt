@@ -109,6 +109,7 @@ if(PPB_FU_PROTOCOL_TESTS)
     target_link_libraries(test_fu_protocol PRIVATE
         ${PROJECT_NAME}
         Qt6::Core
+        Qt6::Gui
         Qt6::Network
         Qt6::Test
     )

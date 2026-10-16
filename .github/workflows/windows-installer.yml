@@ -64,11 +64,20 @@ jobs:
           cmake -S . -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
           -DBUILD_TESTS=OFF
+          -DPPB_FU_PROTOCOL_TESTS=ON
           -DPPB_FETCH_LUA_IF_MISSING=ON
 
       - name: Build
         shell: powershell
         run: cmake --build build --parallel 2
+
+      - name: Test FU protocol contract
+        shell: powershell
+        run: |
+          & .\\build\\PPBCommunicationLib\\test_fu_protocol.exe
+          if ($LASTEXITCODE -ne 0) {
+            throw "FU protocol tests failed with exit code $LASTEXITCODE"
+          }
 
       - name: Build NSIS installer
         shell: powershell

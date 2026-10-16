@@ -346,6 +346,19 @@ void PPBController::setFUTransmit(uint16_t address, uint16_t duration, uint8_t d
     }
 }
 
+void PPBController::setFUReceiveTransmit(uint16_t address, uint16_t duration, uint8_t dutyCycle[3])
+{
+    if (commandBlockedByFirmwareUpdate("setFUReceiveTransmit")) return;
+    if (m_communication && !m_communication->isBusy()) {
+        // Existing FU encoding: period = duration high byte,
+        // fu_data = [duration high, duration low, duty percentage].
+        const uint8_t period = static_cast<uint8_t>((duration >> 8) & 0xFF);
+        m_communication->sendFUReceiveTransmit(address, period, dutyCycle);
+        LOG_UI_RESULT(QString("Режим ФУ прием+передача для ППБ %1: длительность=%2, скважность=%3%%")
+                          .arg(address).arg(duration).arg(dutyCycle[2]));
+    }
+}
+
 // ==================== Тестовые последовательности ====================
 
 void PPBController::startPRBS_M2S(uint16_t address)

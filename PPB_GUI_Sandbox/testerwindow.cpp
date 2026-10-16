@@ -194,13 +194,20 @@ TesterWindow::TesterWindow(PPBController* controller, QWidget *parent)
 
     // FuWidget
     connect(ui->fuWidget, &FuWidget::sendFuCommand,
-            this, [this](bool transmit, uint16_t duration, uint8_t dutyCycle[3]) {
-                auto addrs = getSelectedAddresses();
+            this, [this](FuCommand mode, uint16_t duration, uint8_t dutyCycle[3]) {
+                const auto addrs = getSelectedAddresses();
                 for (uint16_t addr : addrs) {
-                    if (transmit)
-                        m_controller->setFUTransmit(addr, duration, dutyCycle);
-                    else
+                    switch (mode) {
+                    case FuCommand::RECEIVE:
                         m_controller->setFUReceive(addr, duration, dutyCycle);
+                        break;
+                    case FuCommand::TRANSMIT:
+                        m_controller->setFUTransmit(addr, duration, dutyCycle);
+                        break;
+                    case FuCommand::RECEIVE_TRANSMIT:
+                        m_controller->setFUReceiveTransmit(addr, duration, dutyCycle);
+                        break;
+                    }
                 }
             });
 

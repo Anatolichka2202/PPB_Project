@@ -16,6 +16,8 @@ FuWidget::FuWidget(QWidget *parent) :
             this, &FuWidget::onTransmitToggled);
     connect(ui->radioButtonFUReceive, &QRadioButton::toggled,
             this, &FuWidget::onReceiveToggled);
+    connect(ui->radioButtonFUReceiveTransmit, &QRadioButton::toggled,
+            this, &FuWidget::onReceiveTransmitToggled);
     qDebug() << "Constructor of FUWidget";
 }
 
@@ -27,6 +29,15 @@ FuWidget::~FuWidget()
 bool FuWidget::isTransmitMode() const
 {
     return ui->radioButtonFUTransmit->isChecked();
+}
+
+FuCommand FuWidget::selectedMode() const
+{
+    if (ui->radioButtonFUReceiveTransmit->isChecked())
+        return FuCommand::RECEIVE_TRANSMIT;
+    if (ui->radioButtonFUTransmit->isChecked())
+        return FuCommand::TRANSMIT;
+    return FuCommand::RECEIVE;
 }
 
 uint32_t FuWidget::pulseDuration() const
@@ -41,12 +52,17 @@ uint32_t FuWidget::pulseDelay() const
 
 void FuWidget::onTransmitToggled(bool checked)
 {
-    if (checked) emit modeChanged(true);
+    if (checked) emit modeChanged(FuCommand::TRANSMIT);
 }
 
 void FuWidget::onReceiveToggled(bool checked)
 {
-    if (checked) emit modeChanged(false);
+    if (checked) emit modeChanged(FuCommand::RECEIVE);
+}
+
+void FuWidget::onReceiveTransmitToggled(bool checked)
+{
+    if (checked) emit modeChanged(FuCommand::RECEIVE_TRANSMIT);
 }
 
 void FuWidget::on_fuBtnSent_clicked()
@@ -66,7 +82,7 @@ void FuWidget::on_fuBtnSent_clicked()
         return;
     }
 
-    bool transmit = ui->radioButtonFUTransmit->isChecked();
+    const FuCommand mode = selectedMode();
     // dur - длительность единицы, duty - скважность в процентах.
     // Полный период = dur / duty * 100, длительность нуля = полный период - dur.
     float zeroDuration = (dur / static_cast<float>(duty)) * 100.0f - dur;
@@ -89,5 +105,5 @@ void FuWidget::on_fuBtnSent_clicked()
 //    arr[1] = static_cast<uint8_t>(zeroDurationInt & 0xFF);
 //    arr[2] = static_cast<uint8_t>(fraction);
 
-    emit sendFuCommand(transmit, static_cast<uint16_t>(dur), arr);
+    emit sendFuCommand(mode, static_cast<uint16_t>(dur), arr);
 }

@@ -59,7 +59,7 @@ public:
                                               const uint8_t fuData[3]);
     // === ФУ КОМАНДЫ ===
 
-    // ФУ передача (команда 0, период 0)
+    // ФУ передача (команда 1; этот legacy helper отправляет нулевые параметры)
     static QByteArray createFUTransmitRequest(uint16_t address);
 
     // ФУ прием с периодом и опциональными данными

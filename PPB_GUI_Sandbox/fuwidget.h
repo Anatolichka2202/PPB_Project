@@ -9,6 +9,7 @@
 #define FUWIDGET_H
 
 #include <QWidget>
+#include "ppbprotocol.h"
 
 namespace Ui {
 class FuWidget;
@@ -32,6 +33,7 @@ public:
  * @return true – режим передачи, false – приёма.
  */
     bool isTransmitMode() const;
+    FuCommand selectedMode() const;
 
     /**
  * @brief Возвращает длительность импульса (в мкс?).
@@ -47,17 +49,18 @@ public:
 
 signals:
     /**
- * @fn void modeChanged(bool transmit)
+ * @fn void modeChanged(FuCommand mode)
  * @brief Сигнал изменения режима ФУ.
- * @param transmit true – передача, false – приём.
+ * @param mode Приём, передача или одновременный приём/передача.
  *
  * Испускается при переключении радиокнопок.
  */
-    void modeChanged(bool transmit);
-    void sendFuCommand(bool transmit, uint16_t pulseDuration, uint8_t dutyCycle[3]);
+    void modeChanged(FuCommand mode);
+    void sendFuCommand(FuCommand mode, uint16_t pulseDuration, uint8_t dutyCycle[3]);
 private slots:
     void onTransmitToggled(bool checked);
     void onReceiveToggled(bool checked);
+    void onReceiveTransmitToggled(bool checked);
 
     void on_fuBtnSent_clicked();
 

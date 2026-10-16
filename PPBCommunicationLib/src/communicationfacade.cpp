@@ -171,6 +171,20 @@ void CommunicationFacade::sendFUReceive(uint16_t address, uint8_t period, const 
     });
 }
 
+void CommunicationFacade::sendFUReceiveTransmit(uint16_t address, uint8_t period, const uint8_t fuData[3])
+{
+    // Copy stack-backed FU bytes before crossing the communication thread boundary.
+    const QByteArray dataCopy = fuData
+        ? QByteArray(reinterpret_cast<const char*>(fuData), 3)
+        : QByteArray();
+    invokeInThread([this, address, period, dataCopy]() {
+        const uint8_t* data = dataCopy.size() == 3
+            ? reinterpret_cast<const uint8_t*>(dataCopy.constData())
+            : nullptr;
+        m_engine->sendFUReceiveTransmit(address, period, data);
+    });
+}
+
 void CommunicationFacade::sendDataPackets(const QVector<DataPacket>& packets)
 {
     invokeInThread([this, packets]() { m_engine->sendDataPackets(packets); });

@@ -29,6 +29,7 @@ public:
     void executeCommand(TechCommand cmd, uint16_t address, const QByteArray& data) override;
     void sendFUTransmit(uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr) override;
     void sendFUReceive (uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr) override;
+    void sendFUReceiveTransmit(uint16_t address, uint8_t period, const uint8_t fuData[3] = nullptr) override;
     void sendDataPackets(const QVector<DataPacket>& packets) override;
     void clearCommandQueue(uint16_t address) override;
     PPBState state() const override;

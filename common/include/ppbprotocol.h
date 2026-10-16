@@ -37,8 +37,9 @@ enum class TechCommand : uint8_t {
 
 // ===== ФУ КОМАНДЫ =====
 enum class FuCommand : uint8_t {
-    TRANSMIT  = 1,
-    RECEIVE   = 2
+    RECEIVE          = 0x00,
+    TRANSMIT         = 0x01,
+    RECEIVE_TRANSMIT = 0x02
 };
 
 // ===== ПРИЗНАК ПАКЕТА =====
@@ -122,6 +123,7 @@ struct TCDataPayload {
 
 Q_DECLARE_METATYPE(PPBState)
 Q_DECLARE_METATYPE(TechCommand)
+Q_DECLARE_METATYPE(FuCommand)
 Q_DECLARE_METATYPE(DataPacket)
 Q_DECLARE_METATYPE(QVector<DataPacket>)
 
